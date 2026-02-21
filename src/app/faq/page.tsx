@@ -1,0 +1,52 @@
+"use client";
+
+import { useState } from "react";
+import { ChevronDown } from "lucide-react";
+import { Navbar } from "@/components/navbar";
+import { Footer } from "@/components/footer";
+import { cn } from "@/lib/utils";
+
+const faqs = [
+  { q: "What is AasPass?", a: "AasPass is India&apos;s leading platform for students to discover, compare, and book hostels, PGs, coaching centers, mess services, tiffin services, and laundry services — all in one place." },
+  { q: "How do I book a property?", a: "Browse services, select a property, choose your dates, and click 'Book Now'. You&apos;ll be guided through a secure payment process. Once confirmed, you&apos;ll receive a booking confirmation via email." },
+  { q: "Is my payment secure?", a: "Yes. All payments are processed through secure, PCI-compliant payment gateways. Your card details are never stored on our servers." },
+  { q: "What is AasPass Premium?", a: "Premium is our subscription plan that offers AI chatbot access, pre-booking priority, 13-day late fee waiver, exclusive coupons, and 2x-4x SuperCoins on bookings." },
+  { q: "What are SuperCoins?", a: "SuperCoins are loyalty rewards earned on every booking. You can redeem them for discounts on future bookings. Premium members earn 2x-4x more coins." },
+  { q: "How do I cancel a booking?", a: "Go to your Dashboard, find the booking, and click 'Cancel'. Refund amount depends on the property&apos;s cancellation policy and how far in advance you cancel." },
+  { q: "Can I list my property on AasPass?", a: "Yes! Register as a Service Provider, fill in your property details, upload at least 6 images, and submit for review. Our team will verify and list your property." },
+  { q: "How do I contact support?", a: "Email us at support@aaspass.com, call our toll-free number 1800-XXX-XXXX, or use the chat feature in your dashboard." },
+  { q: "Are all properties verified?", a: "Yes. Our team verifies every property before listing. We check photos, amenities, and conduct physical inspections for quality assurance." },
+  { q: "What if I have a complaint about a property?", a: "You can file a complaint from your booking details page. The property owner will be notified and our support team will mediate if needed." },
+];
+
+export default function FAQPage() {
+  const [open, setOpen] = useState<number | null>(0);
+
+  return (
+    <div className="min-h-screen bg-white">
+      <Navbar variant="public" />
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <h1 className="text-4xl font-bold text-gray-900 mb-4 text-center">Frequently Asked Questions</h1>
+        <p className="text-gray-500 text-center mb-12">Everything you need to know about AasPass</p>
+
+        <div className="space-y-3">
+          {faqs.map((faq, i) => (
+            <div key={i} className="border rounded-lg overflow-hidden">
+              <button
+                onClick={() => setOpen(open === i ? null : i)}
+                className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50"
+              >
+                <span className="font-medium text-gray-900">{faq.q}</span>
+                <ChevronDown className={cn("h-5 w-5 text-gray-400 transition-transform", open === i && "rotate-180")} />
+              </button>
+              {open === i && (
+                <div className="px-4 pb-4 text-sm text-gray-600">{faq.a}</div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+      <Footer />
+    </div>
+  );
+}

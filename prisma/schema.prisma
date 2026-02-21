@@ -1,0 +1,399 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ==================== AUTH & USERS ====================
+
+enum Role {
+  STUDENT
+  OWNER
+  ADMIN
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+model User {
+  id              String    @id @default(cuid())
+  name            String
+  email           String    @unique
+  emailVerified   DateTime?
+  phone           String?   @unique
+  password        String
+  image           String?
+  role            Role      @default(STUDENT)
+  gender          Gender?
+  aadharNo        String?
+  isPremium       Boolean   @default(false)
+  premiumExpiry   DateTime?
+  superCoins      Int       @default(0)
+  isBlocked       Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  accounts        Account[]
+  sessions        Session[]
+  properties      Property[]       @relation("OwnerProperties")
+  bookings        Booking[]        @relation("StudentBookings")
+  reviews         Review[]
+  complaints      Complaint[]      @relation("StudentComplaints")
+  complaintsOwner Complaint[]      @relation("OwnerComplaints")
+  notifications   Notification[]
+  chatMessages    ChatMessage[]
+  coupons         UserCoupon[]
+  cart            CartItem[]
+  announcements   Announcement[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ==================== PROPERTIES & SERVICES ====================
+
+enum ServiceType {
+  HOSTEL
+  PG
+  LIBRARY
+  COACHING
+  MESS
+  LAUNDRY
+  GYM
+  COWORKING
+}
+
+enum PropertyStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  SUSPENDED
+}
+
+model Property {
+  id                String         @id @default(cuid())
+  name              String
+  slug              String         @unique
+  description       String         @db.Text
+  serviceType       ServiceType
+  status            PropertyStatus @default(PENDING)
+
+  // Location
+  address           String
+  city              String
+  state             String
+  pincode           String
+  latitude          Float?
+  longitude         Float?
+  nearbyLandmark    String?
+  distanceMarket    String?
+  distanceInstitute String?
+
+  // Pricing
+  price             Float
+  gstRate           Float          @default(18)
+
+  // Features
+  isAC              Boolean        @default(false)
+  hasWifi           Boolean        @default(false)
+  forGender         Gender?
+  occupancy         Int?
+  foodIncluded      Boolean        @default(false)
+  laundryIncluded   Boolean        @default(false)
+  foodRating        Float?
+  hasMedical        Boolean        @default(false)
+  nearbyMess        String?
+  nearbyLaundry     String?
+
+  // Cancellation
+  cancellationPolicy String?      @db.Text
+
+  // Images
+  images            PropertyImage[]
+
+  // Bank Details
+  bankName          String?
+  accountNo         String?
+  ifscCode          String?
+  upiId             String?
+
+  // Rules
+  rules             String?        @db.Text
+
+  // Owner
+  ownerId           String
+  owner             User           @relation("OwnerProperties", fields: [ownerId], references: [id])
+
+  // Relations
+  bookings          Booking[]
+  reviews           Review[]
+  complaints        Complaint[]
+  announcements     Announcement[]
+  cartItems         CartItem[]
+
+  // Ratings (cached)
+  avgRating         Float          @default(0)
+  totalReviews      Int            @default(0)
+
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@index([serviceType])
+  @@index([city])
+  @@index([status])
+  @@map("properties")
+}
+
+model PropertyImage {
+  id         String   @id @default(cuid())
+  url        String
+  publicId   String?
+  isWideShot Boolean  @default(false)
+  order      Int      @default(0)
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@map("property_images")
+}
+
+// ==================== BOOKINGS ====================
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  EXPIRED
+}
+
+model Booking {
+  id            String        @id @default(cuid())
+  bookingNo     String        @unique @default(cuid())
+  studentId     String
+  propertyId    String
+  status        BookingStatus @default(PENDING)
+  checkIn       DateTime
+  checkOut      DateTime
+  totalPrice    Float
+  gstAmount     Float
+  grandTotal    Float
+  isPrebooking  Boolean       @default(false)
+  lateFeeWaiver Int           @default(0)
+  notes         String?       @db.Text
+
+  student       User          @relation("StudentBookings", fields: [studentId], references: [id])
+  property      Property      @relation(fields: [propertyId], references: [id])
+  complaints    Complaint[]
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([studentId])
+  @@index([propertyId])
+  @@index([status])
+  @@map("bookings")
+}
+
+// ==================== REVIEWS ====================
+
+model Review {
+  id         String   @id @default(cuid())
+  rating     Int
+  comment    String?  @db.Text
+  userId     String
+  propertyId String
+
+  user       User     @relation(fields: [userId], references: [id])
+  property   Property @relation(fields: [propertyId], references: [id])
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, propertyId])
+  @@map("reviews")
+}
+
+// ==================== COMPLAINTS ====================
+
+enum ComplaintStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+model Complaint {
+  id          String          @id @default(cuid())
+  subject     String
+  description String          @db.Text
+  status      ComplaintStatus @default(OPEN)
+  studentId   String
+  ownerId     String?
+  propertyId  String?
+  bookingId   String?
+
+  student     User            @relation("StudentComplaints", fields: [studentId], references: [id])
+  owner       User?           @relation("OwnerComplaints", fields: [ownerId], references: [id])
+  property    Property?       @relation(fields: [propertyId], references: [id])
+  booking     Booking?        @relation(fields: [bookingId], references: [id])
+
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@map("complaints")
+}
+
+// ==================== NOTIFICATIONS ====================
+
+model Notification {
+  id        String   @id @default(cuid())
+  title     String
+  message   String   @db.Text
+  isRead    Boolean  @default(false)
+  userId    String
+  link      String?
+
+  user      User     @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("notifications")
+}
+
+// ==================== ANNOUNCEMENTS ====================
+
+model Announcement {
+  id         String   @id @default(cuid())
+  title      String
+  content    String   @db.Text
+  ownerId    String
+  propertyId String?
+
+  owner      User     @relation(fields: [ownerId], references: [id])
+  property   Property? @relation(fields: [propertyId], references: [id])
+
+  createdAt  DateTime @default(now())
+
+  @@map("announcements")
+}
+
+// ==================== CHAT / AI ====================
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  content   String   @db.Text
+  isAI      Boolean  @default(false)
+  userId    String
+
+  user      User     @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("chat_messages")
+}
+
+// ==================== COUPONS & REWARDS ====================
+
+model Coupon {
+  id          String       @id @default(cuid())
+  code        String       @unique
+  title       String
+  description String?
+  discount    Float
+  isPercent   Boolean      @default(true)
+  maxUses     Int          @default(100)
+  usedCount   Int          @default(0)
+  expiresAt   DateTime
+  isActive    Boolean      @default(true)
+
+  users       UserCoupon[]
+
+  createdAt   DateTime     @default(now())
+
+  @@map("coupons")
+}
+
+model UserCoupon {
+  id       String  @id @default(cuid())
+  userId   String
+  couponId String
+  isUsed   Boolean @default(false)
+
+  user     User    @relation(fields: [userId], references: [id])
+  coupon   Coupon  @relation(fields: [couponId], references: [id])
+
+  @@unique([userId, couponId])
+  @@map("user_coupons")
+}
+
+// ==================== CART ====================
+
+model CartItem {
+  id         String   @id @default(cuid())
+  userId     String
+  propertyId String
+  checkIn    DateTime
+  checkOut   DateTime
+
+  user       User     @relation(fields: [userId], references: [id])
+  property   Property @relation(fields: [propertyId], references: [id])
+
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, propertyId])
+  @@map("cart_items")
+}
