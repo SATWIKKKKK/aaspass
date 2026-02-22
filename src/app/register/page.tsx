@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import toast from "react-hot-toast";
-import { Eye, EyeOff, Loader2, ArrowRight, Building2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, ArrowRight, Building2, GraduationCap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,10 +23,16 @@ interface RegisterFormData {
   role: string;
 }
 
+// Router — reads ?role param, shows chooser or form (no hooks after conditional)
 function RegisterForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const role = searchParams.get("role") || "STUDENT";
+  const role = searchParams.get("role");
+  if (!role) return <RoleChooser />;
+  return <RegisterFormInner role={role} />;
+}
+
+function RegisterFormInner({ role }: { role: string }) {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -60,7 +66,7 @@ function RegisterForm() {
           toast.error("Account created but login failed. Please sign in manually.");
           router.push("/login");
         } else {
-          router.push("/");
+          router.push(form.role === "OWNER" ? "/admin/dashboard" : "/dashboard");
           router.refresh();
         }
       }
@@ -74,7 +80,7 @@ function RegisterForm() {
   const handleGoogleSignUp = async () => {
     setGoogleLoading(true);
     try {
-      await signIn("google", { callbackUrl: "/" });
+      await signIn("google", { callbackUrl: "/auth/redirect" });
     } catch {
       toast.error("Google sign-up failed");
       setGoogleLoading(false);
@@ -191,6 +197,81 @@ function RegisterForm() {
               </p>
             </CardContent>
           </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RoleChooser() {
+  const router = useRouter();
+  return (
+    <div className="min-h-screen bg-white flex">
+      {/* Left branding */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary/5 to-primary/10 items-center justify-center p-12">
+        <div className="text-center">
+          <h1 className="text-7xl font-black tracking-tight text-primary mb-4">
+            Aas<span className="text-premium">Pass</span>
+          </h1>
+          <p className="text-xl text-gray-600 max-w-md">
+            Get all the services to make it feel like your home
+          </p>
+          <div className="mt-12 grid grid-cols-2 gap-4 max-w-sm mx-auto">
+            {["Hostels", "PG", "Libraries", "Coaching", "Mess", "Laundry"].map((s) => (
+              <div key={s} className="bg-white/80 rounded-lg p-3 text-sm font-medium text-gray-700 shadow-sm">{s}</div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Right — role chooser */}
+      <div className="flex-1 flex items-center justify-center p-8">
+        <div className="w-full max-w-md">
+          <div className="lg:hidden text-center mb-8">
+            <h1 className="text-4xl font-black tracking-tight text-primary">Aas<span className="text-premium">Pass</span></h1>
+          </div>
+
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold text-gray-900">Join AasPass</h2>
+            <p className="text-gray-500 mt-2">How would you like to use AasPass?</p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4">
+            {/* Student card */}
+            <button
+              onClick={() => router.push("/register?role=STUDENT")}
+              className="group relative flex items-center gap-5 rounded-2xl border-2 border-gray-100 bg-white p-6 text-left shadow-sm transition-all hover:border-primary hover:shadow-md"
+            >
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-blue-50 group-hover:bg-primary/10 transition-colors">
+                <GraduationCap className="h-8 w-8 text-blue-600 group-hover:text-primary transition-colors" />
+              </div>
+              <div className="flex-1">
+                <p className="text-lg font-semibold text-gray-900">I&apos;m a Student</p>
+                <p className="text-sm text-gray-500 mt-0.5">Find hostels, PGs, mess, library &amp; more near your college</p>
+              </div>
+              <ArrowRight className="h-5 w-5 text-gray-300 group-hover:text-primary transition-colors" />
+            </button>
+
+            {/* Owner card */}
+            <button
+              onClick={() => router.push("/register?role=OWNER")}
+              className="group relative flex items-center gap-5 rounded-2xl border-2 border-gray-100 bg-white p-6 text-left shadow-sm transition-all hover:border-primary hover:shadow-md"
+            >
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-amber-50 group-hover:bg-primary/10 transition-colors">
+                <Building2 className="h-8 w-8 text-amber-600 group-hover:text-primary transition-colors" />
+              </div>
+              <div className="flex-1">
+                <p className="text-lg font-semibold text-gray-900">I&apos;m a Property Owner</p>
+                <p className="text-sm text-gray-500 mt-0.5">List and manage your properties, track bookings &amp; earnings</p>
+              </div>
+              <ArrowRight className="h-5 w-5 text-gray-300 group-hover:text-primary transition-colors" />
+            </button>
+          </div>
+
+          <p className="text-center text-sm text-gray-500 mt-6">
+            Already have an account?{" "}
+            <Link href="/login" className="text-primary font-medium hover:underline">Sign In</Link>
+          </p>
         </div>
       </div>
     </div>
