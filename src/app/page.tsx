@@ -28,6 +28,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Navbar } from "@/components/navbar";
+import { PremiumModal } from "@/components/premium-modal";
 import { Footer } from "@/components/footer";
 import { cn } from "@/lib/utils";
 
@@ -56,6 +57,7 @@ export default function HomePage() {
   const heroRef = useRef<HTMLDivElement>(null);
   const [selectedService, setSelectedService] = useState("");
   const [location, setLocation] = useState("");
+  const [premiumOpen, setPremiumOpen] = useState(false);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -69,13 +71,14 @@ export default function HomePage() {
   const handleSearch = () => {
     const params = new URLSearchParams();
     if (selectedService) params.set("type", selectedService);
-    if (location) params.set("city", location);
+    if (location) params.set("q", location);
     router.push(`/services?${params.toString()}`);
   };
 
   return (
     <div className="min-h-screen bg-white">
-      <Navbar showSearch={!heroVisible} variant={session ? "student" : "public"} />
+      <Navbar showSearch={!heroVisible} autoHide={true} variant={session ? "student" : "public"} onPremiumClick={() => setPremiumOpen(true)} />
+      <PremiumModal open={premiumOpen} onClose={() => setPremiumOpen(false)} />
 
       {/* Hero Section */}
       <section ref={heroRef} className="relative overflow-hidden">
@@ -160,25 +163,29 @@ export default function HomePage() {
       {/* AI Chatbox CTA */}
       {session && (
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
-          <Link href={(session.user as any)?.isPremium ? "/chat" : "/premium"}>
-            <div className="bg-gradient-to-r from-primary/5 via-premium/5 to-primary/5 border border-primary/20 rounded-xl p-4 flex items-center justify-between hover:shadow-md transition-all cursor-pointer">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary to-premium flex items-center justify-center">
-                  <MessageCircle className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-gray-900">AI Assistant</p>
-                  <p className="text-xs text-gray-500">
-                    {(session.user as any)?.isPremium ? "Chat with AI to find your perfect stay" : "Upgrade to Premium for AI-powered recommendations"}
-                  </p>
-                </div>
+          <div
+            onClick={() => {
+              if ((session.user as any)?.isPremium) router.push("/chat");
+              else setPremiumOpen(true);
+            }}
+            className="bg-gradient-to-r from-primary/5 via-premium/5 to-primary/5 border border-primary/20 rounded-xl p-4 flex items-center justify-between hover:shadow-md transition-all cursor-pointer"
+          >
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary to-premium flex items-center justify-center">
+                <MessageCircle className="h-5 w-5 text-white" />
               </div>
-              <div className="flex items-center gap-2">
-                {!(session.user as any)?.isPremium && <Badge variant="premium"><Crown className="h-3 w-3 mr-1" /> Premium</Badge>}
-                <ChevronRight className="h-4 w-4 text-gray-400" />
+              <div>
+                <p className="text-sm font-semibold text-gray-900">AI Assistant</p>
+                <p className="text-xs text-gray-500">
+                  {(session.user as any)?.isPremium ? "Chat with AI to find your perfect stay" : "Upgrade to Premium for AI-powered recommendations"}
+                </p>
               </div>
             </div>
-          </Link>
+            <div className="flex items-center gap-2">
+              {!(session.user as any)?.isPremium && <Badge variant="premium"><Crown className="h-3 w-3 mr-1" /> Premium</Badge>}
+              <ChevronRight className="h-4 w-4 text-gray-400" />
+            </div>
+          </div>
         </section>
       )}
 

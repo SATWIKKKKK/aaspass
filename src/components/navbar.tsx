@@ -15,9 +15,11 @@ import { cn } from "@/lib/utils";
 interface NavbarProps {
   variant?: "public" | "student" | "admin";
   showSearch?: boolean;
+  autoHide?: boolean; // Hide when hero is visible (homepage behavior)
+  onPremiumClick?: () => void; // Open premium popup instead of navigating
 }
 
-export function Navbar({ variant = "public", showSearch = true }: NavbarProps) {
+export function Navbar({ variant = "public", showSearch = true, autoHide = false, onPremiumClick }: NavbarProps) {
   const { data: session } = useSession();
   const pathname = usePathname();
   const router = useRouter();
@@ -53,21 +55,32 @@ export function Navbar({ variant = "public", showSearch = true }: NavbarProps) {
     { href: "/chat", label: "AI Chat", icon: MessageSquare },
   ] : [
     { href: "/services", label: "Services", icon: BookOpen },
-    { href: "/premium", label: "Premium", icon: Crown },
+    { href: "#", label: "Premium", icon: Crown, isPremium: true },
     { href: "/contact", label: "Contact", icon: MessageSquare },
   ];
 
+  const isHidden = autoHide && !showSearch; // hide when hero is visible
+
   return (
-    <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
+    <header className={cn(
+      "bg-white/95 backdrop-blur-md border-b border-gray-100 sticky top-0 z-50 transition-all duration-500",
+      isHidden ? "-translate-y-full opacity-0" : "translate-y-0 opacity-100"
+    )}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-6">
             <Link href="/" className="flex items-center gap-2"><div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center"><span className="text-white font-bold text-sm">A</span></div><span className="text-xl font-bold text-gray-900">AasPass</span></Link>
             <nav className="hidden md:flex items-center gap-1">
               {navLinks.map((link) => (
-                <Link key={link.href} href={link.href} className={cn("flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors", pathname === link.href ? "bg-primary/10 text-primary" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900")}>
-                  <link.icon className="h-4 w-4" />{link.label}
-                </Link>
+                (link as any).isPremium && onPremiumClick ? (
+                  <button key={link.label} onClick={onPremiumClick} className={cn("flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors text-amber-600 hover:bg-amber-50")}>
+                    <link.icon className="h-4 w-4" />{link.label}
+                  </button>
+                ) : (
+                  <Link key={link.href} href={link.href} className={cn("flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors", pathname === link.href ? "bg-primary/10 text-primary" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900")}>
+                    <link.icon className="h-4 w-4" />{link.label}
+                  </Link>
+                )
               ))}
             </nav>
           </div>
@@ -104,7 +117,7 @@ export function Navbar({ variant = "public", showSearch = true }: NavbarProps) {
                       </div>
                       <Link href={variant === "admin" ? "/admin/dashboard" : "/dashboard"} className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"><LayoutDashboard className="h-4 w-4" />Dashboard</Link>
                       <Link href="/settings/edit" className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"><Settings className="h-4 w-4" />Settings</Link>
-                      {!(session.user as any)?.isPremium && <Link href="/premium" className="flex items-center gap-2 px-4 py-2 text-sm text-amber-600 hover:bg-amber-50"><Crown className="h-4 w-4" />Get Premium</Link>}
+                      {!(session.user as any)?.isPremium && (onPremiumClick ? <button onClick={onPremiumClick} className="flex items-center gap-2 px-4 py-2 text-sm text-amber-600 hover:bg-amber-50 w-full text-left"><Crown className="h-4 w-4" />Get Premium</button> : <Link href="/premium" className="flex items-center gap-2 px-4 py-2 text-sm text-amber-600 hover:bg-amber-50"><Crown className="h-4 w-4" />Get Premium</Link>)}
                       <div className="border-t border-gray-100 mt-1 pt-1">
                         <button onClick={() => signOut({ callbackUrl: "/" })} className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full"><LogOut className="h-4 w-4" />Sign Out</button>
                       </div>

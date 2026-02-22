@@ -61,10 +61,10 @@ function ServicesContent() {
       if (selectedType) params.set("serviceType", selectedType);
       if (searchCity) params.set("city", searchCity);
       if (searchQuery) params.set("q", searchQuery);
-      if (sortBy === "price-low") { params.set("sortBy", "price"); params.set("sortOrder", "asc"); }
-      else if (sortBy === "price-high") { params.set("sortBy", "price"); params.set("sortOrder", "desc"); }
-      else if (sortBy === "reviews") params.set("sortBy", "reviews");
-      else params.set("sortBy", "rating");
+      if (sortBy === "price-low") params.set("sort", "price_asc");
+      else if (sortBy === "price-high") params.set("sort", "price_desc");
+      else if (sortBy === "reviews") params.set("sort", "reviews");
+      else params.set("sort", "avgRating");
       const res = await fetch(`/api/properties?${params.toString()}`);
       const data = await res.json();
       if (res.ok) setProperties(data.properties || []);

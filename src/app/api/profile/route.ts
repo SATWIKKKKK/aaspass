@@ -31,7 +31,7 @@ export async function PATCH(req: NextRequest) {
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { name, phone, gender, aadharNo, image, currentPassword, newPassword } = await req.json();
+    const { name, phone, gender, aadharNo, image, currentPassword, newPassword, isPremium } = await req.json();
 
     const updateData: any = {};
     if (name) updateData.name = name;
@@ -39,6 +39,13 @@ export async function PATCH(req: NextRequest) {
     if (gender) updateData.gender = gender;
     if (aadharNo) updateData.aadharNo = aadharNo;
     if (image) updateData.image = image;
+
+    // Premium upgrade
+    if (isPremium === true) {
+      updateData.isPremium = true;
+      updateData.premiumExpiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+      updateData.superCoins = { increment: 100 }; // Bonus coins on upgrade
+    }
 
     // Password change
     if (currentPassword && newPassword) {
@@ -52,7 +59,7 @@ export async function PATCH(req: NextRequest) {
     const updatedUser = await prisma.user.update({
       where: { id: session.user.id! },
       data: updateData,
-      select: { id: true, name: true, email: true, phone: true, image: true, role: true, gender: true },
+      select: { id: true, name: true, email: true, phone: true, image: true, role: true, gender: true, isPremium: true, superCoins: true, premiumExpiry: true },
     });
 
     return NextResponse.json({ user: updatedUser });

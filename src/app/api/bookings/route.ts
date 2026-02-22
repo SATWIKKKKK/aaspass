@@ -9,9 +9,10 @@ export async function GET(req: NextRequest) {
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const where: any = {};
-    if (session.user?.role === "STUDENT") {
+    const role = (session.user as any)?.role;
+    if (role === "STUDENT") {
       where.studentId = session.user.id!;
-    } else if (session.user?.role === "OWNER") {
+    } else if (role === "OWNER") {
       where.property = { ownerId: session.user.id! };
     }
 
@@ -35,7 +36,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await auth();
-    if (!session || session.user?.role !== "STUDENT") {
+    if (!session || (session.user as any)?.role !== "STUDENT") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -60,7 +61,8 @@ export async function POST(req: NextRequest) {
     });
 
     // Award SuperCoins (10 coins per ₹1000 spent, double for premium)
-    const coinsEarned = Math.floor(grandTotal / 1000) * 10 * (session.user?.isPremium ? 2 : 1);
+    const user = await prisma.user.findUnique({ where: { id: session.user.id! }, select: { isPremium: true } });
+    const coinsEarned = Math.floor(grandTotal / 1000) * 10 * (user?.isPremium ? 2 : 1);
     await prisma.user.update({
       where: { id: session.user.id! },
       data: { superCoins: { increment: coinsEarned } },
