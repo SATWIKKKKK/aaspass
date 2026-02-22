@@ -53,6 +53,10 @@ const offers = [
 export default function HomePage() {
   const { data: session } = useSession();
   const router = useRouter();
+  // Immediately redirect root visits to /register
+  useEffect(() => {
+    router.replace('/register');
+  }, [router]);
   const [heroVisible, setHeroVisible] = useState(true);
   const heroRef = useRef<HTMLDivElement>(null);
   const [selectedService, setSelectedService] = useState("");
