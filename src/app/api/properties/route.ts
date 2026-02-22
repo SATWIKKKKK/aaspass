@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
+    const owner = searchParams.get("owner");
     const serviceType = searchParams.get("serviceType");
     const city = searchParams.get("city");
     const q = searchParams.get("q"); // full-text search
@@ -21,6 +22,13 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "12");
 
     const where: any = { status: "VERIFIED" };
+    if (owner === "me") {
+      const session = await auth();
+      if (!session || (session.user as any)?.role !== "OWNER") {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+      where.ownerId = session.user.id!;
+    }
     if (serviceType) where.serviceType = serviceType;
     if (city) where.city = { contains: city, mode: "insensitive" };
     if (q) {

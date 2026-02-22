@@ -5,7 +5,7 @@ const protectedStudentRoutes = ["/dashboard", "/cart", "/notifications", "/setti
 const protectedOwnerRoutes = ["/admin"];
 const authRoutes = ["/login", "/register"];
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Check for session token cookie (next-auth v5 sets this)
