@@ -178,7 +178,7 @@ export async function POST(req: NextRequest) {
     // Get relevant properties from DB
     const properties = await getRelevantProperties(message);
     const propertyContext = properties.length > 0
-      ? `\nAvailable properties from our database:\n${properties.map((p) =>
+      ? `\nAvailable properties from our database:\n${properties.map((p: any) =>
           `- ${p.name} (${p.serviceType}) in ${p.city}: ₹${p.price}/month, Rating: ${p.avgRating}/5, ${p.totalReviews} reviews. ${p.isAC ? "AC," : ""} ${p.hasWifi ? "WiFi," : ""} ${p.foodIncluded ? "Food," : ""} ${p.forGender ? `${p.forGender} only` : "Co-ed"}. ${p.nearbyLandmark ? `Near ${p.nearbyLandmark}` : ""}`
         ).join("\n")}`
       : "\nNo matching properties found in our database for this query.";
