@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { Pool } from "pg";
 
 // Temporary debug endpoint to check DB connectivity on Vercel
 export async function GET() {
@@ -10,24 +10,35 @@ export async function GET() {
     timestamp: new Date().toISOString(),
   };
 
-  try {
-    // Test 1: simple count
-    const userCount = await prisma.user.count();
-    info.userCount = userCount;
-    info.dbConnected = true;
-  } catch (e: any) {
-    info.dbConnected = false;
-    info.dbError = e.message;
-    info.dbErrorCode = e.code;
-    info.dbErrorName = e.name;
-  }
+  // Test 1: raw pg pool connection (bypass Prisma entirely)
+  const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false },
+    max: 1,
+    connectionTimeoutMillis: 10_000,
+  });
 
   try {
-    // Test 2: property count
-    const propCount = await prisma.property.count();
-    info.propCount = propCount;
+    const res = await pool.query("SELECT count(*) as cnt FROM users");
+    info.pgPoolOk = true;
+    info.pgPoolResult = res.rows;
   } catch (e: any) {
-    info.propError = e.message;
+    info.pgPoolOk = false;
+    info.pgPoolError = e.message;
+  } finally {
+    await pool.end();
+  }
+
+  // Test 2: Prisma via adapter
+  try {
+    const { prisma } = await import("@/lib/prisma");
+    const userCount = await prisma.user.count();
+    info.prismaOk = true;
+    info.userCount = userCount;
+  } catch (e: any) {
+    info.prismaOk = false;
+    info.prismaError = e.message;
+    info.prismaCode = e.code;
   }
 
   return NextResponse.json(info);
