@@ -2,106 +2,112 @@ import { NextResponse } from "next/server";
 import { Pool } from "pg";
 import dns from "dns";
 import { Resolver } from "dns";
+import net from "net";
 
 // Temporary debug endpoint to check DB connectivity on Vercel
 export async function GET() {
   const info: Record<string, unknown> = {
-    nodeEnv: process.env.NODE_ENV,
-    hasDbUrl: !!process.env.DATABASE_URL,
-    dbUrlPrefix: process.env.DATABASE_URL?.substring(0, 30) + "...",
     timestamp: new Date().toISOString(),
   };
 
-  // Test 0: DNS resolution
-  const host = "db.ofcwfevliwkevpjaavun.supabase.co";
-  try {
-    const addr = await new Promise<string>((resolve, reject) => {
-      dns.lookup(host, (err, address) => {
-        if (err) reject(err);
-        else resolve(address);
-      });
-    });
-    info.dnsDefault = addr;
-  } catch (e: any) {
-    info.dnsDefaultError = e.message;
-  }
+  const dbUrl = new URL(process.env.DATABASE_URL!);
+  const dbUser = decodeURIComponent(dbUrl.username);
+  const dbPass = decodeURIComponent(dbUrl.password);
+  const dbName = dbUrl.pathname.replace("/", "");
 
-  // Test: public DNS AAAA
+  // Resolve hostname to IPv6 via DNS
+  const host = dbUrl.hostname;
   const pub = new Resolver();
   pub.setServers(["1.1.1.1", "8.8.8.8"]);
+
+  let ipv6Addr = "";
   try {
     const addrs = await new Promise<string[]>((resolve, reject) => {
-      pub.resolve6(host, (err, addresses) => {
-        if (err) reject(err);
-        else resolve(addresses);
-      });
+      pub.resolve6(host, (err, a) => (err ? reject(err) : resolve(a)));
     });
-    info.dnsPublicAAAA = addrs;
+    ipv6Addr = addrs[0];
+    info.resolvedIPv6 = ipv6Addr;
   } catch (e: any) {
-    info.dnsPublicAAAAError = e.message;
+    info.resolveError = e.message;
   }
 
-  // Test: public DNS A
-  try {
-    const addrs = await new Promise<string[]>((resolve, reject) => {
-      pub.resolve4(host, (err, addresses) => {
-        if (err) reject(err);
-        else resolve(addresses);
-      });
-    });
-    info.dnsPublicA = addrs;
-  } catch (e: any) {
-    info.dnsPublicAError = e.message;
-  }
-
-  // Test 1: raw pg with custom lookup (same as prisma.ts)
-  function robustLookup(
-    hostname: string,
-    _options: dns.LookupOptions,
-    cb: (err: NodeJS.ErrnoException | null, address: string, family: number) => void,
-  ) {
-    dns.lookup(hostname, { all: false }, (sysErr, sysAddr, sysFam) => {
-      if (!sysErr && sysAddr) return cb(null, sysAddr, sysFam);
-      pub.resolve6(hostname, (err6, addrs6) => {
-        if (!err6 && addrs6?.length) return cb(null, addrs6[0], 6);
-        pub.resolve4(hostname, (err4, addrs4) => {
-          if (!err4 && addrs4?.length) return cb(null, addrs4[0], 4);
-          cb(sysErr ?? err4 ?? new Error(`DNS: cannot resolve ${hostname}`), "", 0);
+  // Test 1: Raw TCP to IPv6 address on port 5432
+  if (ipv6Addr) {
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const sock = net.connect({ host: ipv6Addr, port: 5432 });
+        const timer = setTimeout(() => {
+          sock.destroy();
+          reject(new Error("tcp timeout 8s"));
+        }, 8000);
+        sock.on("connect", () => {
+          clearTimeout(timer);
+          sock.destroy();
+          resolve();
+        });
+        sock.on("error", (e) => {
+          clearTimeout(timer);
+          sock.destroy();
+          reject(e);
         });
       });
+      info.ipv6TcpOk = true;
+    } catch (e: any) {
+      info.ipv6TcpOk = false;
+      info.ipv6TcpError = e.message;
+    }
+  }
+
+  // Test 2: pg Pool with resolved IPv6 address (bypass DNS)
+  if (ipv6Addr && info.ipv6TcpOk) {
+    const pool = new Pool({
+      host: ipv6Addr,
+      port: 5432,
+      user: dbUser,
+      password: dbPass,
+      database: dbName,
+      ssl: { rejectUnauthorized: false },
+      max: 1,
+      connectionTimeoutMillis: 10_000,
     });
+    try {
+      const res = await pool.query("SELECT count(*)::int as cnt FROM users");
+      info.pgIpv6Ok = true;
+      info.pgIpv6Result = res.rows;
+    } catch (e: any) {
+      info.pgIpv6Ok = false;
+      info.pgIpv6Error = e.message;
+    }
+    await pool.end().catch(() => {});
   }
 
-  const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false },
-    max: 1,
-    connectionTimeoutMillis: 10_000,
-    lookup: robustLookup,
-  } as any);
-
-  try {
-    const res = await pool.query("SELECT count(*) as cnt FROM users");
-    info.pgPoolWithLookupOk = true;
-    info.pgPoolResult = res.rows;
-  } catch (e: any) {
-    info.pgPoolWithLookupOk = false;
-    info.pgPoolWithLookupError = e.message;
-  } finally {
-    await pool.end();
+  // Test 3: Pooler (untested regions)
+  const regions = [
+    "ap-northeast-1",
+    "ap-southeast-2",
+    "us-west-2",
+    "ap-northeast-2",
+    "ca-central-1",
+    "sa-east-1",
+  ];
+  const poolerResults: Record<string, string> = {};
+  for (const r of regions) {
+    const url = `postgresql://postgres.ofcwfevliwkevpjaavun:${dbPass}@aws-0-${r}.pooler.supabase.com:6543/postgres`;
+    const p = new Pool({
+      connectionString: url,
+      ssl: { rejectUnauthorized: false },
+      max: 1,
+      connectionTimeoutMillis: 5000,
+    });
+    try {
+      await p.query("SELECT 1");
+      poolerResults[r] = "OK";
+    } catch (e: any) {
+      poolerResults[r] = e.message.substring(0, 100);
+    }
+    await p.end().catch(() => {});
   }
-
-  // Test 2: Prisma singleton
-  try {
-    const { prisma } = await import("@/lib/prisma");
-    const userCount = await prisma.user.count();
-    info.prismaOk = true;
-    info.userCount = userCount;
-  } catch (e: any) {
-    info.prismaOk = false;
-    info.prismaError = e.message;
-    info.prismaCode = e.code;
-  }
+  info.poolerResults = poolerResults;
 
   return NextResponse.json(info);
 }
