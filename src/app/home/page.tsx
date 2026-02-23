@@ -32,7 +32,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Navbar } from "@/components/navbar";
@@ -88,6 +88,64 @@ function Counter({ label, value, onChange }: { label: string; value: number; onC
   );
 }
 
+// Profile dropdown - must be outside main component
+type ProfileDropdownProps = {
+  session: { user?: { name?: string | null; email?: string | null } | null } | null;
+  isPremium?: boolean;
+  profileOpen: boolean;
+  setProfileOpen: (open: boolean) => void;
+  setPremiumOpen: (open: boolean) => void;
+};
+
+function ProfileDropdown({ session, isPremium, profileOpen, setProfileOpen, setPremiumOpen }: ProfileDropdownProps) {
+  return (
+    <div className="relative" onClick={(e) => e.stopPropagation()}>
+      <button
+        onClick={() => setProfileOpen(!profileOpen)}
+        className="flex items-center gap-1.5 h-10 px-3 rounded-full border border-gray-200 bg-white hover:bg-gray-50 transition-colors shadow-sm"
+      >
+        <div className="h-7 w-7 bg-primary/10 rounded-full flex items-center justify-center">
+          <span className="text-sm font-bold text-primary">{session?.user?.name?.[0]?.toUpperCase() || "U"}</span>
+        </div>
+        {isPremium && <Crown className="h-3.5 w-3.5 text-amber-500" />}
+        <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
+      </button>
+      {profileOpen && (
+        <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-xl shadow-xl py-2 z-60">
+          <div className="px-4 py-3 border-b border-gray-100">
+            <p className="text-sm font-semibold text-gray-900">{session?.user?.name}</p>
+            <p className="text-xs text-gray-500">{session?.user?.email}</p>
+            {isPremium && (
+              <Badge className="mt-1.5 bg-amber-100 text-amber-700 text-[10px]"><Crown className="h-2.5 w-2.5 mr-0.5" />Premium Member</Badge>
+            )}
+          </div>
+          {[
+            { icon: User, label: "Personal Details", href: "/profile" },
+            { icon: LayoutDashboard, label: "My Bookings", href: "/dashboard" },
+            { icon: Crown, label: "Upgrade to Premium", action: () => { setPremiumOpen(true); setProfileOpen(false); } },
+            { icon: Settings, label: "Settings", href: "/settings" },
+          ].map((item) => (
+            item.href ? (
+              <Link key={item.label} href={item.href} className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setProfileOpen(false)}>
+                <item.icon className="h-4 w-4 text-gray-400" />{item.label}
+              </Link>
+            ) : (
+              <button key={item.label} onClick={item.action} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-amber-600 hover:bg-amber-50 transition-colors">
+                <item.icon className="h-4 w-4" />{item.label}
+              </button>
+            )
+          ))}
+          <div className="border-t border-gray-100 mt-1 pt-1">
+            <button onClick={() => signOut({ callbackUrl: "/home" })} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors">
+              <LogOut className="h-4 w-4" />Log out
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function HomePage() {
   const { data: session } = useSession();
   const router = useRouter();
@@ -106,7 +164,7 @@ export default function HomePage() {
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => setHeroVisible(entry.isIntersecting),
-      { threshold: 0.05 }
+      { threshold: 0.1 }
     );
     if (heroRef.current) observer.observe(heroRef.current);
     return () => observer.disconnect();
@@ -132,147 +190,110 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Regular Navbar — always hidden on homepage; we use the sticky combo bar instead */}
-      <Navbar showSearch={false} autoHide={true} variant={session ? "student" : "public"} onPremiumClick={() => setPremiumOpen(true)} />
+      {/* Navbar (hidden on homepage - using custom sticky bar) */}
+      <div className="hidden">
+        <Navbar showSearch={false} autoHide={true} variant={session ? "student" : "public"} onPremiumClick={() => setPremiumOpen(true)} />
+      </div>
       <PremiumModal open={premiumOpen} onClose={() => setPremiumOpen(false)} />
 
-      {/* ─── STICKY COMBO BAR (logo + filters + auth) ─────────────────────────── */}
-      {/* Slides in from top when hero scrolls out of view */}
+      {/* ─── FLOATING PROFILE ICON (top-right, visible BEFORE scroll) ─────────── */}
+      {heroVisible && (
+        <div className="fixed top-4 right-4 z-50 transition-all duration-300">
+          {session ? (
+            <ProfileDropdown session={session} isPremium={u(session)?.isPremium} profileOpen={profileOpen} setProfileOpen={setProfileOpen} setPremiumOpen={setPremiumOpen} />
+          ) : (
+            <div className="flex items-center gap-2">
+              <Link href="/login"><Button variant="outline" size="sm" className="h-9 text-xs bg-white shadow-sm">Sign in</Button></Link>
+              <Link href="/register"><Button size="sm" className="h-9 text-xs shadow-sm">Join Free</Button></Link>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ─── STICKY COMBO BAR (slides in when hero scrolls out) ─────────────── */}
       <div className={cn(
-        "fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100 shadow-sm transition-all duration-500",
+        "fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-md transition-all duration-500",
         heroVisible ? "-translate-y-full opacity-0 pointer-events-none" : "translate-y-0 opacity-100"
       )}>
-        {/* ── Desktop: single row ── */}
-        <div className="hidden lg:flex items-center gap-2 px-4 py-2 w-full" style={{maxWidth:'1400px',marginLeft:'auto',marginRight:'auto'}}>
-          {/* Logo */}
-          <Link href="/home" className="flex items-center gap-1.5 mr-2 shrink-0">
-            <div className="h-7 w-7 bg-primary rounded-md flex items-center justify-center">
-              <span className="text-white font-bold text-xs">A</span>
+        {/* ── Desktop: single row with logo ── */}
+        <div className="hidden lg:flex items-center gap-3 px-6 py-2.5 max-w-7xl mx-auto">
+          {/* Logo (appears when sticky) */}
+          <Link href="/home" className="flex items-center gap-2 shrink-0 group">
+            <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform">
+              <span className="text-white font-bold text-sm">A</span>
             </div>
-            <span className="text-base font-bold text-gray-900">AasPass</span>
+            <span className="text-lg font-bold text-gray-900">Aas<span className="text-premium">Pass</span></span>
           </Link>
 
-          {/* Divider */}
-          <div className="h-8 w-px bg-gray-200 shrink-0" />
+          {/* Combo filter bar with border */}
+          <div className="flex-1 flex items-center gap-2 bg-white border-2 border-gray-200 rounded-full px-3 py-1.5 shadow-sm">
+            {/* Service selector */}
+            <div className="shrink-0 w-32">
+              <Select value={selectedService} onValueChange={setSelectedService}>
+                <SelectTrigger className="h-8 text-xs border-0 bg-transparent focus:ring-0">
+                  <SelectValue placeholder="Service" />
+                </SelectTrigger>
+                <SelectContent>
+                  {services.map((s) => (
+                    <SelectItem key={s.value} value={s.value} className="text-xs">
+                      <span className="flex items-center gap-2"><s.icon className="h-3.5 w-3.5" />{s.label}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-          {/* Service selector */}
-          <div className="shrink-0 w-36">
-            <Select value={selectedService} onValueChange={setSelectedService}>
-              <SelectTrigger className="h-9 text-xs border-0 bg-gray-50 focus:bg-white focus:ring-1">
-                <SelectValue placeholder="Select service" />
-              </SelectTrigger>
-              <SelectContent>
-                {services.map((s) => (
-                  <SelectItem key={s.value} value={s.value} className="text-xs">
-                    <span className="flex items-center gap-2"><s.icon className="h-3.5 w-3.5" />{s.label}</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+            <div className="h-6 w-px bg-gray-200 shrink-0" />
 
-          <div className="h-8 w-px bg-gray-200 shrink-0" />
+            {/* Rooms */}
+            <Counter label="Rooms" value={rooms} onChange={setRooms} />
 
-          {/* Rooms */}
-          <Counter label="Rooms" value={rooms} onChange={setRooms} />
+            <div className="h-6 w-px bg-gray-200 shrink-0" />
 
-          <div className="h-8 w-px bg-gray-200 shrink-0" />
+            {/* Guests */}
+            <Counter label="Guests" value={guests} onChange={setGuests} />
 
-          {/* Guests */}
-          <Counter label="Guests" value={guests} onChange={setGuests} />
+            <div className="h-6 w-px bg-gray-200 shrink-0" />
 
-          <div className="h-8 w-px bg-gray-200 shrink-0" />
+            {/* Location */}
+            <div className="relative flex-1 min-w-0">
+              <MapPin className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+              <Input
+                placeholder="City or area"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                className="pl-7 h-8 text-xs border-0 bg-transparent focus:ring-0 w-full"
+              />
+            </div>
 
-          {/* Location */}
-          <div className="relative flex-1 min-w-0">
-            <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
-            <Input
-              placeholder="City or area"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              className="pl-8 h-9 text-xs border-0 bg-gray-50 focus:bg-white focus:ring-1 w-full"
-            />
-          </div>
+            <div className="h-6 w-px bg-gray-200 shrink-0" />
 
-          <div className="h-8 w-px bg-gray-200 shrink-0" />
-
-          {/* Dates */}
-          <div className="flex items-center gap-1 shrink-0">
-            <div className="relative">
-              <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+            {/* Dates */}
+            <div className="flex items-center gap-1 shrink-0">
               <Input
                 type="date"
                 value={checkIn}
                 onChange={(e) => setCheckIn(e.target.value)}
-                className="pl-7 h-9 text-xs border-0 bg-gray-50 focus:bg-white focus:ring-1 w-32"
+                className="h-8 text-xs border-0 bg-transparent focus:ring-0 w-28"
               />
-            </div>
-            <span className="text-gray-400 text-xs">→</span>
-            <div className="relative">
-              <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+              <span className="text-gray-400 text-xs">→</span>
               <Input
                 type="date"
                 value={checkOut}
                 onChange={(e) => setCheckOut(e.target.value)}
-                className="pl-7 h-9 text-xs border-0 bg-gray-50 focus:bg-white focus:ring-1 w-32"
+                className="h-8 text-xs border-0 bg-transparent focus:ring-0 w-28"
               />
             </div>
+
+            {/* Search button */}
+            <Button onClick={handleSearch} size="sm" className="h-8 px-4 rounded-full shrink-0">
+              <Search className="h-3.5 w-3.5" />
+            </Button>
           </div>
 
-          {/* Search button */}
-          <Button onClick={handleSearch} size="sm" className="h-9 px-4 shrink-0">
-            <Search className="h-3.5 w-3.5 mr-1.5" /> Search
-          </Button>
-
-          <div className="h-8 w-px bg-gray-200 shrink-0" />
-
-          {/* Auth */}
+          {/* Auth (desktop) */}
           {session ? (
-            <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
-              <button
-                onClick={() => setProfileOpen(!profileOpen)}
-                className="flex items-center gap-1.5 h-9 px-2.5 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
-              >
-                <div className="h-6 w-6 bg-primary/10 rounded-full flex items-center justify-center">
-                  <span className="text-xs font-bold text-primary">{session.user?.name?.[0]?.toUpperCase() || "U"}</span>
-                </div>
-                <span className="text-xs font-medium text-gray-700">{session.user?.name?.split(" ")[0]}</span>
-                {u(session)?.isPremium && <Crown className="h-3 w-3 text-amber-500" />}
-                <ChevronDown className="h-3 w-3 text-gray-400" />
-              </button>
-              {profileOpen && (
-                <div className="absolute right-0 mt-2 w-52 bg-white border border-gray-200 rounded-xl shadow-lg py-2 z-50">
-                  <div className="px-3 py-2 border-b border-gray-100">
-                    <p className="text-xs font-semibold text-gray-900">{session.user?.name}</p>
-                    <p className="text-[10px] text-gray-500">{session.user?.email}</p>
-                    {u(session)?.isPremium && (
-                      <Badge className="mt-1 bg-amber-100 text-amber-700 text-[10px]"><Crown className="h-2.5 w-2.5 mr-0.5" />Premium</Badge>
-                    )}
-                  </div>
-                  {[
-                    { icon: User, label: "Personal Details", href: "/profile" },
-                    { icon: LayoutDashboard, label: "My Bookings", href: "/dashboard" },
-                    { icon: Crown, label: "Upgrade to Premium", action: () => { setPremiumOpen(true); setProfileOpen(false); } },
-                    { icon: Settings, label: "Settings", href: "/settings" },
-                  ].map((item) => (
-                    item.href ? (
-                      <Link key={item.label} href={item.href} className="flex items-center gap-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setProfileOpen(false)}>
-                        <item.icon className="h-3.5 w-3.5 text-gray-400" />{item.label}
-                      </Link>
-                    ) : (
-                      <button key={item.label} onClick={item.action} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-amber-600 hover:bg-amber-50 transition-colors">
-                        <item.icon className="h-3.5 w-3.5" />{item.label}
-                      </button>
-                    )
-                  ))}
-                  <div className="border-t border-gray-100 mt-1 pt-1">
-                    <button onClick={() => signOut({ callbackUrl: "/home" })} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-500 hover:bg-red-50 transition-colors">
-                      <LogOut className="h-3.5 w-3.5" />Log out
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+            <ProfileDropdown session={session} isPremium={u(session)?.isPremium} profileOpen={profileOpen} setProfileOpen={setProfileOpen} setPremiumOpen={setPremiumOpen} />
           ) : (
             <div className="flex items-center gap-2 shrink-0">
               <Link href="/login"><Button variant="outline" size="sm" className="h-9 text-xs">Sign in</Button></Link>
@@ -281,128 +302,261 @@ export default function HomePage() {
           )}
         </div>
 
-        {/* ── Tablet: 2-row layout ── */}
-        <div className="hidden sm:flex lg:hidden flex-col px-4 py-2 gap-2">
-          <div className="flex items-center justify-between">
-            <Link href="/home" className="flex items-center gap-1.5">
-              <div className="h-7 w-7 bg-primary rounded-md flex items-center justify-center">
-                <span className="text-white font-bold text-xs">A</span>
-              </div>
-              <span className="text-base font-bold text-gray-900">AasPass</span>
-            </Link>
-            <div className="flex items-center gap-2">
-              <button onClick={() => setMobileFilterOpen(!mobileFilterOpen)} className="flex items-center gap-1.5 text-xs text-gray-600 border rounded-lg px-3 py-1.5 hover:bg-gray-50">
-                <Search className="h-3.5 w-3.5" />
-                {selectedService || location ? `${services.find(s => s.value === selectedService)?.label || ""}${location ? ` · ${location}` : ""}` : "Search..."}
-                {mobileFilterOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-              </button>
-              {session ? (
-                <button onClick={(e) => { e.stopPropagation(); setProfileOpen(!profileOpen); }} className="h-8 w-8 bg-primary/10 rounded-full flex items-center justify-center relative">
-                  <span className="text-xs font-bold text-primary">{session.user?.name?.[0]?.toUpperCase() || "U"}</span>
-                </button>
-              ) : (
-                <Link href="/login"><Button size="sm" className="h-8 text-xs">Sign in</Button></Link>
-              )}
+        {/* ── Tablet: logo + compact search + auth ── */}
+        <div className="hidden sm:flex lg:hidden items-center justify-between px-4 py-2">
+          <Link href="/home" className="flex items-center gap-2">
+            <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold text-sm">A</span>
             </div>
+            <span className="text-lg font-bold text-gray-900">Aas<span className="text-premium">Pass</span></span>
+          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setMobileFilterOpen(!mobileFilterOpen)}
+              className="flex items-center gap-2 border-2 border-gray-200 rounded-full px-4 py-2 hover:bg-gray-50 transition-colors"
+            >
+              <Search className="h-4 w-4 text-gray-400" />
+              <span className="text-sm text-gray-600 max-w-32 truncate">
+                {selectedService || location ? `${services.find(s => s.value === selectedService)?.label || "Any"} · ${location || "Anywhere"}` : "Search..."}
+              </span>
+              {mobileFilterOpen ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
+            </button>
+            {session ? (
+              <ProfileDropdown session={session} isPremium={u(session)?.isPremium} profileOpen={profileOpen} setProfileOpen={setProfileOpen} setPremiumOpen={setPremiumOpen} />
+            ) : (
+              <Link href="/login"><Button size="sm" className="h-9 text-xs">Sign in</Button></Link>
+            )}
           </div>
-          {mobileFilterOpen && (
-            <div className="grid grid-cols-2 gap-2 pb-2">
-              <Select value={selectedService} onValueChange={setSelectedService}>
-                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Service" /></SelectTrigger>
-                <SelectContent>{services.map(s => <SelectItem key={s.value} value={s.value} className="text-xs">{s.label}</SelectItem>)}</SelectContent>
-              </Select>
-              <div className="relative">
-                <MapPin className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
-                <Input placeholder="Location" value={location} onChange={(e) => setLocation(e.target.value)} className="pl-7 h-8 text-xs" />
-              </div>
-              <Input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} className="h-8 text-xs" />
-              <Input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} className="h-8 text-xs" />
-              <Button onClick={handleSearch} size="sm" className="col-span-2 h-8 text-xs">
-                <Search className="h-3.5 w-3.5 mr-1.5" />Search
-              </Button>
-            </div>
-          )}
         </div>
 
-        {/* ── Mobile: compact row ── */}
+        {/* ── Mobile: logo + pill search + avatar ── */}
         <div className="flex sm:hidden items-center gap-2 px-3 py-2">
           <Link href="/home" className="shrink-0">
-            <div className="h-7 w-7 bg-primary rounded-md flex items-center justify-center">
-              <span className="text-white font-bold text-xs">A</span>
+            <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold text-sm">A</span>
             </div>
           </Link>
           <button
             onClick={() => setMobileFilterOpen(!mobileFilterOpen)}
-            className="flex-1 flex items-center gap-2 bg-gray-50 rounded-full px-3 py-1.5 text-xs text-gray-500 border text-left"
+            className="flex-1 flex items-center gap-2 border-2 border-gray-200 rounded-full px-3 py-2 text-left"
           >
-            <Search className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-            <span className="truncate">{selectedService || location ? `${services.find(s => s.value === selectedService)?.label || "Any"} · ${location || "Anywhere"}` : "Search services, locations..."}</span>
+            <Search className="h-4 w-4 text-gray-400 shrink-0" />
+            <span className="text-sm text-gray-500 truncate">
+              {selectedService || location ? `${services.find(s => s.value === selectedService)?.label || "Any"} · ${location || "Anywhere"}` : "Search..."}
+            </span>
           </button>
           {session ? (
-            <button
-              className="h-8 w-8 bg-primary/10 rounded-full flex items-center justify-center shrink-0"
-              onClick={(e) => { e.stopPropagation(); setProfileOpen(!profileOpen); }}
-            >
-              <span className="text-xs font-bold text-primary">{session.user?.name?.[0]?.toUpperCase() || "U"}</span>
-            </button>
+            <div onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={() => setProfileOpen(!profileOpen)}
+                className="h-9 w-9 bg-primary/10 rounded-full flex items-center justify-center"
+              >
+                <span className="text-sm font-bold text-primary">{session.user?.name?.[0]?.toUpperCase() || "U"}</span>
+              </button>
+            </div>
           ) : (
-            <Link href="/login" className="shrink-0"><Button size="sm" className="h-8 text-xs px-2.5">Sign in</Button></Link>
+            <Link href="/login" className="shrink-0"><Button size="sm" className="h-9 text-xs px-3">Sign in</Button></Link>
           )}
         </div>
 
-        {/* Mobile expanded filter */}
-        {mobileFilterOpen && (
-          <div className="sm:hidden px-3 pb-3 grid grid-cols-2 gap-2 border-t border-gray-100 pt-2">
-            <Select value={selectedService} onValueChange={setSelectedService}>
-              <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Service" /></SelectTrigger>
-              <SelectContent>{services.map(s => <SelectItem key={s.value} value={s.value} className="text-xs">{s.label}</SelectItem>)}</SelectContent>
-            </Select>
-            <div className="relative">
-              <MapPin className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
-              <Input placeholder="Location" value={location} onChange={(e) => setLocation(e.target.value)} className="pl-7 h-9 text-xs" />
-            </div>
-            <Input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} className="h-9 text-xs" />
-            <Input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} className="h-9 text-xs" />
-            <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-1.5 border">
-              <span className="text-xs text-gray-500">Rooms</span>
-              <div className="flex items-center gap-2">
-                <button onClick={() => setRooms(Math.max(1, rooms - 1))} className="h-5 w-5 rounded-full border flex items-center justify-center"><Minus className="h-2.5 w-2.5" /></button>
-                <span className="text-xs font-semibold w-4 text-center">{rooms}</span>
-                <button onClick={() => setRooms(rooms + 1)} className="h-5 w-5 rounded-full border flex items-center justify-center"><Plus className="h-2.5 w-2.5" /></button>
+        {/* ── Expanded filters (tablet & mobile) ── */}
+        {mobileFilterOpen && !heroVisible && (
+          <div className="lg:hidden px-4 pb-3 border-t border-gray-100 pt-3">
+            <div className="grid grid-cols-2 gap-3">
+              <Select value={selectedService} onValueChange={setSelectedService}>
+                <SelectTrigger className="h-10 text-sm border-2 border-gray-200"><SelectValue placeholder="Service" /></SelectTrigger>
+                <SelectContent>{services.map(s => <SelectItem key={s.value} value={s.value} className="text-sm">{s.label}</SelectItem>)}</SelectContent>
+              </Select>
+              <div className="relative">
+                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input placeholder="Location" value={location} onChange={(e) => setLocation(e.target.value)} className="pl-9 h-10 text-sm border-2 border-gray-200" />
+              </div>
+              <Input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} className="h-10 text-sm border-2 border-gray-200" />
+              <Input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} className="h-10 text-sm border-2 border-gray-200" />
+              <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 border-2 border-gray-200">
+                <span className="text-sm text-gray-500">Rooms</span>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setRooms(Math.max(1, rooms - 1))} className="h-6 w-6 rounded-full border-2 border-gray-300 flex items-center justify-center hover:bg-gray-100"><Minus className="h-3 w-3" /></button>
+                  <span className="text-sm font-semibold w-5 text-center">{rooms}</span>
+                  <button onClick={() => setRooms(rooms + 1)} className="h-6 w-6 rounded-full border-2 border-gray-300 flex items-center justify-center hover:bg-gray-100"><Plus className="h-3 w-3" /></button>
+                </div>
+              </div>
+              <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 border-2 border-gray-200">
+                <span className="text-sm text-gray-500">Guests</span>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setGuests(Math.max(1, guests - 1))} className="h-6 w-6 rounded-full border-2 border-gray-300 flex items-center justify-center hover:bg-gray-100"><Minus className="h-3 w-3" /></button>
+                  <span className="text-sm font-semibold w-5 text-center">{guests}</span>
+                  <button onClick={() => setGuests(guests + 1)} className="h-6 w-6 rounded-full border-2 border-gray-300 flex items-center justify-center hover:bg-gray-100"><Plus className="h-3 w-3" /></button>
+                </div>
               </div>
             </div>
-            <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-1.5 border">
-              <span className="text-xs text-gray-500">Guests</span>
-              <div className="flex items-center gap-2">
-                <button onClick={() => setGuests(Math.max(1, guests - 1))} className="h-5 w-5 rounded-full border flex items-center justify-center"><Minus className="h-2.5 w-2.5" /></button>
-                <span className="text-xs font-semibold w-4 text-center">{guests}</span>
-                <button onClick={() => setGuests(guests + 1)} className="h-5 w-5 rounded-full border flex items-center justify-center"><Plus className="h-2.5 w-2.5" /></button>
-              </div>
-            </div>
-            <Button onClick={handleSearch} size="sm" className="col-span-2 h-9 text-xs">
-              <Search className="h-3.5 w-3.5 mr-1.5" />Search
+            <Button onClick={() => { handleSearch(); setMobileFilterOpen(false); }} className="w-full mt-3 h-11 rounded-xl">
+              <Search className="h-4 w-4 mr-2" />Search
             </Button>
           </div>
         )}
       </div>
       {/* ─────────────────────────────────────────────────────────────────────── */}
 
-      {/* ─── HERO: Full-viewport, only AasPass text ─────────────────────────── */}
+      {/* ─── HERO: AasPass text + Combo search bar below ─────────────────────── */}
       <section
         ref={heroRef}
-        className="relative flex flex-col items-center justify-center min-h-screen bg-white overflow-hidden"
+        className="relative pt-8 pb-4 bg-white"
       >
         {/* Subtle radial glow behind the text */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_50%,rgba(var(--primary-rgb,59,130,246),0.06),transparent)] pointer-events-none" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_30%,rgba(var(--primary-rgb,59,130,246),0.05),transparent)] pointer-events-none" />
 
-        <h1 className="font-black tracking-tight text-primary text-[min(22vw,180px)] leading-none select-none">
-          Aas<span className="text-premium">Pass</span>
-        </h1>
+        {/* AasPass Logo Text (medium-big, not full viewport) */}
+        <div className="text-center pt-6 pb-8">
+          <h1 className="font-black tracking-tight text-primary text-6xl sm:text-7xl md:text-8xl lg:text-9xl leading-none select-none">
+            Aas<span className="text-premium">Pass</span>
+          </h1>
+          <p className="mt-3 text-gray-500 text-sm sm:text-base">Find hostels, PGs, coaching, mess & more</p>
+        </div>
 
-        {/* Scroll indicator */}
-        <div className="absolute bottom-10 flex flex-col items-center gap-2 animate-bounce opacity-40">
-          <span className="text-xs text-gray-400 font-medium tracking-widest uppercase">Scroll</span>
-          <ChevronDown className="h-5 w-5 text-gray-400" />
+        {/* ── COMBO SEARCH BAR (in hero, visible on initial load) ── */}
+        <div className="max-w-5xl mx-auto px-4">
+          {/* Desktop: single row with border */}
+          <div className="hidden lg:flex items-center gap-2 bg-white border-2 border-gray-200 rounded-full px-4 py-2.5 shadow-lg hover:shadow-xl transition-shadow">
+            {/* Service selector */}
+            <div className="shrink-0 w-36">
+              <Select value={selectedService} onValueChange={setSelectedService}>
+                <SelectTrigger className="h-9 text-xs border-0 bg-transparent focus:ring-0">
+                  <SelectValue placeholder="Select service" />
+                </SelectTrigger>
+                <SelectContent>
+                  {services.map((s) => (
+                    <SelectItem key={s.value} value={s.value} className="text-xs">
+                      <span className="flex items-center gap-2"><s.icon className="h-3.5 w-3.5" />{s.label}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="h-8 w-px bg-gray-200 shrink-0" />
+
+            {/* Rooms */}
+            <Counter label="Rooms" value={rooms} onChange={setRooms} />
+
+            <div className="h-8 w-px bg-gray-200 shrink-0" />
+
+            {/* Guests */}
+            <Counter label="Guests" value={guests} onChange={setGuests} />
+
+            <div className="h-8 w-px bg-gray-200 shrink-0" />
+
+            {/* Location */}
+            <div className="relative flex-1 min-w-0">
+              <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="City or area"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                className="pl-9 h-9 text-sm border-0 bg-transparent focus:ring-0 w-full"
+              />
+            </div>
+
+            <div className="h-8 w-px bg-gray-200 shrink-0" />
+
+            {/* Dates */}
+            <div className="flex items-center gap-1 shrink-0">
+              <div className="relative">
+                <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  type="date"
+                  value={checkIn}
+                  onChange={(e) => setCheckIn(e.target.value)}
+                  className="pl-8 h-9 text-xs border-0 bg-transparent focus:ring-0 w-32"
+                />
+              </div>
+              <span className="text-gray-400 text-xs">→</span>
+              <div className="relative">
+                <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  type="date"
+                  value={checkOut}
+                  onChange={(e) => setCheckOut(e.target.value)}
+                  className="pl-8 h-9 text-xs border-0 bg-transparent focus:ring-0 w-32"
+                />
+              </div>
+            </div>
+
+            {/* Search button */}
+            <Button onClick={handleSearch} size="sm" className="h-10 px-5 rounded-full shrink-0">
+              <Search className="h-4 w-4 mr-1.5" /> Search
+            </Button>
+          </div>
+
+          {/* Tablet: 2-row compact bar */}
+          <div className="hidden sm:block lg:hidden">
+            <div className="bg-white border-2 border-gray-200 rounded-2xl p-4 shadow-lg">
+              <div className="grid grid-cols-2 gap-3">
+                <Select value={selectedService} onValueChange={setSelectedService}>
+                  <SelectTrigger className="h-10 text-sm border border-gray-200"><SelectValue placeholder="Service" /></SelectTrigger>
+                  <SelectContent>{services.map(s => <SelectItem key={s.value} value={s.value} className="text-sm">{s.label}</SelectItem>)}</SelectContent>
+                </Select>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input placeholder="Location" value={location} onChange={(e) => setLocation(e.target.value)} className="pl-9 h-10 text-sm border border-gray-200" />
+                </div>
+                <Input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} className="h-10 text-sm border border-gray-200" placeholder="Check-in" />
+                <Input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} className="h-10 text-sm border border-gray-200" placeholder="Check-out" />
+              </div>
+              <Button onClick={handleSearch} className="w-full mt-3 h-11 rounded-xl">
+                <Search className="h-4 w-4 mr-2" />Search
+              </Button>
+            </div>
+          </div>
+
+          {/* Mobile: pill search bar with expandable drawer */}
+          <div className="sm:hidden">
+            <button
+              onClick={() => setMobileFilterOpen(!mobileFilterOpen)}
+              className="w-full flex items-center gap-3 bg-white border-2 border-gray-200 rounded-full px-4 py-3 shadow-lg text-left"
+            >
+              <Search className="h-5 w-5 text-gray-400 shrink-0" />
+              <span className="flex-1 text-gray-500 text-sm truncate">
+                {selectedService || location ? `${services.find(s => s.value === selectedService)?.label || "Any"} · ${location || "Anywhere"}` : "Search services, locations..."}
+              </span>
+              {mobileFilterOpen ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
+            </button>
+            {mobileFilterOpen && (
+              <div className="mt-3 bg-white border-2 border-gray-200 rounded-2xl p-4 shadow-lg">
+                <div className="grid grid-cols-2 gap-3">
+                  <Select value={selectedService} onValueChange={setSelectedService}>
+                    <SelectTrigger className="h-10 text-sm border border-gray-200"><SelectValue placeholder="Service" /></SelectTrigger>
+                    <SelectContent>{services.map(s => <SelectItem key={s.value} value={s.value} className="text-sm">{s.label}</SelectItem>)}</SelectContent>
+                  </Select>
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input placeholder="Location" value={location} onChange={(e) => setLocation(e.target.value)} className="pl-9 h-10 text-sm border border-gray-200" />
+                  </div>
+                  <Input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} className="h-10 text-sm border border-gray-200" />
+                  <Input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} className="h-10 text-sm border border-gray-200" />
+                  <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 border border-gray-200">
+                    <span className="text-xs text-gray-500">Rooms</span>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => setRooms(Math.max(1, rooms - 1))} className="h-6 w-6 rounded-full border flex items-center justify-center"><Minus className="h-3 w-3" /></button>
+                      <span className="text-sm font-semibold w-4 text-center">{rooms}</span>
+                      <button onClick={() => setRooms(rooms + 1)} className="h-6 w-6 rounded-full border flex items-center justify-center"><Plus className="h-3 w-3" /></button>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 border border-gray-200">
+                    <span className="text-xs text-gray-500">Guests</span>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => setGuests(Math.max(1, guests - 1))} className="h-6 w-6 rounded-full border flex items-center justify-center"><Minus className="h-3 w-3" /></button>
+                      <span className="text-sm font-semibold w-4 text-center">{guests}</span>
+                      <button onClick={() => setGuests(guests + 1)} className="h-6 w-6 rounded-full border flex items-center justify-center"><Plus className="h-3 w-3" /></button>
+                    </div>
+                  </div>
+                </div>
+                <Button onClick={handleSearch} className="w-full mt-3 h-11 rounded-xl">
+                  <Search className="h-4 w-4 mr-2" />Search
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
       </section>
       {/* ─────────────────────────────────────────────────────────────────────── */}
@@ -453,24 +607,7 @@ export default function HomePage() {
       </section>
       {/* ─────────────────────────────────────────────────────────────────────── */}
 
-      {/* Service Categories */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Explore Services</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {services.map((service) => (
-            <Link key={service.value} href={`/services?type=${service.value}`}>
-              <Card className="hover:shadow-md transition-all cursor-pointer group border-gray-100">
-                <CardContent className="p-6 text-center">
-                  <div className={cn("h-12 w-12 rounded-xl mx-auto mb-3 flex items-center justify-center", service.color)}>
-                    <service.icon className="h-6 w-6" />
-                  </div>
-                  <p className="font-medium text-gray-900 group-hover:text-primary transition-colors">{service.label}</p>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
-        </div>
-      </section>
+      
 
       {/* Offers */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
