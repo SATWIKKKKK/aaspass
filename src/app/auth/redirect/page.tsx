@@ -16,8 +16,11 @@ export default function AuthRedirectPage() {
       router.replace("/login");
       return;
     }
+    // Route to the correct dashboard by role
     const role = (session?.user as any)?.role;
     if (role === "OWNER") {
+      router.replace("/admin/dashboard");
+    } else if (role === "ADMIN") {
       router.replace("/admin/dashboard");
     } else {
       router.replace("/dashboard");

@@ -46,14 +46,16 @@ export function Navbar({ variant = "public", showSearch = true, autoHide = false
   }, [searchQuery, router]);
 
   const navLinks = variant === "admin" ? [
+    { href: "/home", label: "Home", icon: Home },
     { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/admin/properties/new", label: "Add Property", icon: BookOpen },
-    { href: "/notifications", label: "Notifications", icon: Bell },
   ] : variant === "student" ? [
+    { href: "/home", label: "Home", icon: Home },
     { href: "/services", label: "Services", icon: BookOpen },
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/chat", label: "AI Chat", icon: MessageSquare },
   ] : [
+    { href: "/home", label: "Home", icon: Home },
     { href: "/services", label: "Services", icon: BookOpen },
     { href: "#", label: "Premium", icon: Crown, isPremium: true },
     { href: "/contact", label: "Contact", icon: MessageSquare },
@@ -70,7 +72,8 @@ export function Navbar({ variant = "public", showSearch = true, autoHide = false
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-6">
             <Link href="/" className="flex items-center gap-2"><div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center"><span className="text-white font-bold text-sm">A</span></div><span className="text-xl font-bold text-gray-900">AasPass</span></Link>
-            <nav className="hidden md:flex items-center gap-1">
+          </div>
+          <nav className="hidden md:flex items-center justify-center gap-1 flex-1">
               {navLinks.map((link) => (
                 (link as any).isPremium && onPremiumClick ? (
                   <button key={link.label} onClick={onPremiumClick} className={cn("flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors text-amber-600 hover:bg-amber-50")}>
@@ -82,8 +85,7 @@ export function Navbar({ variant = "public", showSearch = true, autoHide = false
                   </Link>
                 )
               ))}
-            </nav>
-          </div>
+          </nav>
 
           <div className="flex items-center gap-3">
             <form onSubmit={handleSearch} className="hidden sm:flex items-center">
@@ -113,7 +115,10 @@ export function Navbar({ variant = "public", showSearch = true, autoHide = false
                     <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-xl shadow-lg py-2 z-50" onClick={() => setProfileOpen(false)}>
                       <div className="px-4 py-2 border-b border-gray-100">
                         <p className="text-sm font-medium text-gray-900">{session.user?.name}</p><p className="text-xs text-gray-500">{session.user?.email}</p>
-                        {(session.user as any)?.isPremium && <Badge className="bg-amber-100 text-amber-700 mt-1"><Crown className="h-3 w-3 mr-1" />Premium</Badge>}
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <Badge variant="outline" className="text-[10px] text-gray-600 border-gray-200">{(session.user as any)?.role === "OWNER" ? "Owner" : (session.user as any)?.role === "ADMIN" ? "Admin" : "Student"}</Badge>
+                          {(session.user as any)?.isPremium && <Badge className="bg-amber-100 text-amber-700 text-[10px]"><Crown className="h-3 w-3 mr-0.5" />Premium</Badge>}
+                        </div>
                       </div>
                       <Link href={variant === "admin" ? "/admin/dashboard" : "/dashboard"} className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"><LayoutDashboard className="h-4 w-4" />Dashboard</Link>
                       <Link href="/settings/edit" className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"><Settings className="h-4 w-4" />Settings</Link>
@@ -128,7 +133,7 @@ export function Navbar({ variant = "public", showSearch = true, autoHide = false
             ) : (
               <div className="flex items-center gap-2">
                 <Link href="/login"><Button variant="ghost" size="sm">Sign In</Button></Link>
-                <Link href="/register"><Button size="sm">Get Started</Button></Link>
+                <Link href="/register?role=STUDENT"><Button size="sm">Get Started</Button></Link>
               </div>
             )}
 

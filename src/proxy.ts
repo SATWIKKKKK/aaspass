@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const protectedStudentRoutes = ["/dashboard", "/cart", "/notifications", "/settings", "/chat"];
+// /dashboard and /home are intentionally public — unauthenticated users can browse
+const protectedStudentRoutes = ["/cart", "/notifications", "/settings", "/chat"];
 const protectedOwnerRoutes = ["/admin"];
 const authRoutes = ["/login", "/register"];
 

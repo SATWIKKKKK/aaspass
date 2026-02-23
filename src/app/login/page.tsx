@@ -40,11 +40,15 @@ export default function LoginPage() {
         toast.error(result.error);
       } else {
         toast.success("Welcome back!");
-        // Fetch profile to determine role, then redirect to correct dashboard
+        // Fetch the user's role to redirect to correct dashboard
         try {
           const profileRes = await fetch("/api/profile");
-          const profile = await profileRes.json();
-          router.push(profile?.role === "OWNER" ? "/admin/dashboard" : "/dashboard");
+          const profileData = await profileRes.json();
+          if (profileData?.role === "OWNER" || profileData?.role === "ADMIN") {
+            router.push("/admin/dashboard");
+          } else {
+            router.push("/dashboard");
+          }
         } catch {
           router.push("/dashboard");
         }
@@ -65,16 +69,8 @@ export default function LoginPage() {
           <h1 className="text-7xl font-black tracking-tight text-primary mb-4">
             Aas<span className="text-premium">Pass</span>
           </h1>
-          <p className="text-xl text-gray-600 max-w-md">
-            Get all the services to make it feel like your home
-          </p>
-          <div className="mt-12 grid grid-cols-2 gap-4 max-w-sm mx-auto">
-            {["Hostels", "PG", "Libraries", "Coaching", "Mess", "Laundry"].map((service) => (
-              <div key={service} className="bg-white/80 rounded-lg p-3 text-sm font-medium text-gray-700 shadow-sm">
-                {service}
-              </div>
-            ))}
-          </div>
+          
+          {/* services grid removed */}
         </div>
       </div>
 

@@ -161,33 +161,32 @@ export default function HomePage() {
       </section>
 
       {/* AI Chatbox CTA */}
-      {session && (
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
           <div
             onClick={() => {
+              if (!session) { router.push("/login"); return; }
               if ((session.user as any)?.isPremium) router.push("/chat");
               else setPremiumOpen(true);
             }}
-            className="bg-gradient-to-r from-primary/5 via-premium/5 to-primary/5 border border-primary/20 rounded-xl p-4 flex items-center justify-between hover:shadow-md transition-all cursor-pointer"
+            className="bg-linear-to-r from-primary/5 via-premium/5 to-primary/5 border border-primary/20 rounded-xl p-4 flex items-center justify-between hover:shadow-md transition-all cursor-pointer"
           >
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary to-premium flex items-center justify-center">
+              <div className="h-10 w-10 rounded-full bg-linear-to-br from-primary to-premium flex items-center justify-center">
                 <MessageCircle className="h-5 w-5 text-white" />
               </div>
               <div>
                 <p className="text-sm font-semibold text-gray-900">AI Assistant</p>
                 <p className="text-xs text-gray-500">
-                  {(session.user as any)?.isPremium ? "Chat with AI to find your perfect stay" : "Upgrade to Premium for AI-powered recommendations"}
+                  {!session ? "Sign in to access AI-powered recommendations" : (session.user as any)?.isPremium ? "Chat with AI to find your perfect stay" : "Upgrade to Premium for AI-powered recommendations"}
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {!(session.user as any)?.isPremium && <Badge variant="premium"><Crown className="h-3 w-3 mr-1" /> Premium</Badge>}
+              {(!session || !(session.user as any)?.isPremium) && <Badge variant="premium"><Crown className="h-3 w-3 mr-1" /> Premium</Badge>}
               <ChevronRight className="h-4 w-4 text-gray-400" />
             </div>
           </div>
         </section>
-      )}
 
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 text-center">
         <p className="text-lg text-gray-500 italic">&ldquo;Get all the services to make it feel like your home&rdquo;</p>
@@ -223,7 +222,7 @@ export default function HomePage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {offers.map((offer, i) => (
             <Card key={i} className="overflow-hidden cursor-pointer hover:shadow-lg transition-all border-0">
-              <div className={cn("bg-gradient-to-br text-white p-6", offer.gradient)}>
+              <div className={cn("bg-linear-to-br text-white p-6", offer.gradient)}>
                 <offer.icon className="h-8 w-8 mb-3 opacity-90" />
                 <h3 className="font-bold text-lg">{offer.title}</h3>
                 <p className="text-sm mt-1 opacity-90">{offer.description}</p>

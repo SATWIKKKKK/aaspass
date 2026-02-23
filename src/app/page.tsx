@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-// Server-side: instantly redirect root visits to the role chooser
+// Server-side: send visitors to the public home page
 export default function Page() {
-  redirect("/register");
+  redirect("/home");
 }

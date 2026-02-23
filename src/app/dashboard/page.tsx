@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+
 import toast from "react-hot-toast";
 import {
   Bookmark, Plus, Calendar, Crown, Coins, Gift, RefreshCw, XCircle,
@@ -25,15 +25,14 @@ interface BookingData {
 
 export default function StudentDashboard() {
   const { data: session, status } = useSession();
-  const router = useRouter();
   const [bookings, setBookings] = useState<BookingData[]>([]);
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
 
-  useEffect(() => { if (status === "unauthenticated") router.push("/login"); }, [status, router]);
-
+  // Unauthenticated visitors are allowed — no redirect to login
   useEffect(() => {
-    if (status !== "authenticated") return;
+    if (status === "loading") return;
+    if (status === "unauthenticated") { setLoading(false); return; }
     Promise.all([
       fetch("/api/bookings").then((r) => r.json()),
       fetch("/api/profile").then((r) => r.json()),
@@ -53,7 +52,7 @@ export default function StudentDashboard() {
     <div className="min-h-screen bg-white">
       <Navbar variant="student" />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8"><h1 className="text-3xl font-bold text-gray-900">Hello {session?.user?.name?.split(" ")[0]} 👋</h1><p className="text-gray-600 mt-1">Get all your things done at one place</p></div>
+        <div className="mb-8"><h1 className="text-3xl font-bold text-gray-900">Hello {session?.user?.name ? session.user.name.split(" ")[0] : "Guest"} 👋</h1><p className="text-gray-600 mt-1">Get all your things done at one place</p></div>
 
         {/* Quick Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
@@ -65,7 +64,7 @@ export default function StudentDashboard() {
 
         {/* Bookings */}
         <section className="mb-12">
-          <div className="flex items-center justify-between mb-6"><h2 className="text-xl font-bold text-gray-900">Your Bookings</h2><Link href="/services"><Button variant="outline" size="sm"><Plus className="h-4 w-4 mr-1" /> Book More</Button></Link></div>
+          <div className="flex items-center justify-between mb-6"><h2 className="text-xl font-bold text-gray-900">Your Bookings</h2><Link href="/home"><Button variant="outline" size="sm"><Plus className="h-4 w-4 mr-1" /> Book More</Button></Link></div>
           <div className="space-y-4">
             {bookings.length === 0 && <Card><CardContent className="p-8 text-center"><Bookmark className="h-12 w-12 text-gray-300 mx-auto mb-4" /><h3 className="text-lg font-semibold text-gray-900">No bookings yet</h3><p className="text-gray-500 mt-1">Browse services and make your first booking</p><Link href="/services"><Button className="mt-4">Browse Services</Button></Link></CardContent></Card>}
             {bookings.map((booking) => (
@@ -99,7 +98,7 @@ export default function StudentDashboard() {
                 </div>
               </Card>
             ))}
-            <Link href="/services"><Card className="border-dashed border-2 hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer"><CardContent className="p-8 flex flex-col items-center justify-center text-center"><div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-3"><Plus className="h-6 w-6 text-primary" /></div><p className="font-medium text-gray-900">Add More Services</p><p className="text-sm text-gray-500 mt-1">Browse and book hostels, PGs, libraries & more</p></CardContent></Card></Link>
+            <Link href="/home"><Card className="border-dashed border-2 hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer"><CardContent className="p-8 flex flex-col items-center justify-center text-center"><div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-3"><Plus className="h-6 w-6 text-primary" /></div><p className="font-medium text-gray-900">Add More Services</p><p className="text-sm text-gray-500 mt-1">Browse and book hostels, PGs, libraries & more</p></CardContent></Card></Link>
           </div>
         </section>
 

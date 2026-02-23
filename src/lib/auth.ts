@@ -48,7 +48,8 @@ export const authConfig: NextAuthConfig = {
           id: user.id,
           name: user.name,
           email: user.email,
-          image: user.image,
+          // Never put base64 images in the JWT — it bloats the cookie past header limits (431)
+          image: user.image && !user.image.startsWith('data:') ? user.image : null,
           role: user.role,
           isPremium: user.isPremium,
         };
@@ -94,6 +95,13 @@ export const authConfig: NextAuthConfig = {
         token.id = (user as any).id || user.id;
         token.role = (user as any).role || "STUDENT";
         token.isPremium = (user as any).isPremium || false;
+      }
+      // Strip large image data from JWT to keep cookie small (prevents 431)
+      if (token.picture && typeof token.picture === 'string' && token.picture.startsWith('data:')) {
+        delete token.picture;
+      }
+      if (token.image && typeof token.image === 'string' && (token.image as string).startsWith('data:')) {
+        delete token.image;
       }
       // For Google OAuth, look up the user from DB to get role/premium
       if (account?.provider === "google" && token.email) {
