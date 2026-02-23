@@ -60,13 +60,14 @@ const offers = [
   { title: "Premium at ₹99/mo", description: "AI chat, pre-booking & 13 days late fee waiver", gradient: "from-yellow-500 to-amber-600", icon: Crown },
   { title: "Refer & Earn ₹500", description: "Invite friends and earn SuperCoins", gradient: "from-green-500 to-emerald-600", icon: Gift },
   { title: "Student Special", description: "Extra 10% off with valid student ID", gradient: "from-purple-500 to-purple-600", icon: Zap },
+  { title: "Weekend Flash Sale", description: "Flat 30% off on weekend bookings this month", gradient: "from-rose-500 to-pink-600", icon: Zap },
 ];
 
-// Formats "2026-02-23" → "Feb 23"
+// Formats "2026-02-23" → "23/02/2026"
 function fmtDate(iso: string) {
   if (!iso) return null;
-  const [y, m, d] = iso.split("-").map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+  const [y, m, d] = iso.split("-");
+  return `${d}/${m}/${y}`;
 }
 
 // DateRangePicker — hidden native inputs triggered on click
@@ -89,20 +90,20 @@ function DateRangePicker({
     : "inline-flex flex-col items-center cursor-pointer select-none group";
 
   const label = compact ? "text-[9px]" : "text-[10px]";
-  const val   = compact ? "text-xs"    : "text-sm";
+  const val   = compact ? "text-[10px]" : "text-xs";
 
   return (
     <div className="flex items-center gap-1.5 shrink-0">
-      <Calendar className={cn(compact ? "h-3.5 w-3.5" : "h-4 w-4", "text-gray-400 shrink-0")} />
+      <Calendar className={cn(compact ? "h-3.5 w-3.5" : "h-4 w-4", "text-gray-500 shrink-0")} />
 
       {/* From */}
       <div className={base} onClick={() => trigger(inRef)}>
         <span className={cn(label, "font-medium text-gray-400 uppercase tracking-wide")}>From</span>
         <span className={cn(
-          val, "font-semibold border-b-2 border-dashed pb-0.5 min-w-15 text-center transition-colors",
+          val, "font-semibold border-b-2 border-dashed pb-0.5 min-w-17.5 text-center transition-colors whitespace-nowrap",
           checkIn ? "text-gray-800 border-primary" : "text-gray-400 border-gray-300 group-hover:border-primary/50"
         )}>
-          {fmtDate(checkIn) ?? "—"}
+          {fmtDate(checkIn) ?? "_ _/_ _/_ _ _ _"}
         </span>
         <input
           ref={inRef}
@@ -120,10 +121,10 @@ function DateRangePicker({
       <div className={base} onClick={() => trigger(outRef)}>
         <span className={cn(label, "font-medium text-gray-400 uppercase tracking-wide")}>To</span>
         <span className={cn(
-          val, "font-semibold border-b-2 border-dashed pb-0.5 min-w-15 text-center transition-colors",
+          val, "font-semibold border-b-2 border-dashed pb-0.5 min-w-17.5 text-center transition-colors whitespace-nowrap",
           checkOut ? "text-gray-800 border-primary" : "text-gray-400 border-gray-300 group-hover:border-primary/50"
         )}>
-          {fmtDate(checkOut) ?? "—"}
+          {fmtDate(checkOut) ?? "_ _/_ _/_ _ _ _"}
         </span>
         <input
           ref={outRef}
@@ -332,7 +333,7 @@ export default function HomePage() {
             <div className="h-6 w-px bg-gray-200 shrink-0" />
 
             {/* Location */}
-            <div className="relative flex-1 min-w-0">
+            <div className="relative shrink-0 w-36">
               <MapPin className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
               <Input
                 placeholder="City or area"
@@ -482,7 +483,7 @@ export default function HomePage() {
           {/* Desktop: single row with border */}
           <div className="hidden lg:flex items-center gap-2 bg-white border-2 border-gray-200 rounded-full px-4 py-2.5 shadow-lg hover:shadow-xl transition-shadow">
             {/* Service selector */}
-            <div className="shrink-0 w-32">
+            <div className="shrink-0 w-36">
               <Select value={selectedService} onValueChange={setSelectedService}>
                 <SelectTrigger className="h-9 text-xs border-0 bg-transparent focus:ring-0">
                   <SelectValue placeholder="Select service" />
@@ -510,13 +511,13 @@ export default function HomePage() {
             <div className="h-8 w-px bg-gray-200 shrink-0" />
 
             {/* Location */}
-            <div className="relative flex-1 min-w-0">
-              <MapPin className="   absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <div className="relative shrink-0 w-40">
+              <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
                 placeholder="City or area"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                className="pl-9 h-9 text-sm border-r bg-transparent focus:ring-0 md:w-50"
+                className="pl-9 h-9 text-sm border-0 bg-transparent focus:ring-0 w-full"
               />
             </div>
 
@@ -662,7 +663,7 @@ export default function HomePage() {
             View All <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           {offers.map((offer, i) => (
             <Card key={i} className="overflow-hidden cursor-pointer hover:shadow-lg transition-all border-0">
               <div className={cn("bg-linear-to-br text-white p-6", offer.gradient)}>
