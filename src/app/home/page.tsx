@@ -204,7 +204,7 @@ export default function HomePage() {
           ) : (
             <div className="flex items-center gap-2">
               <Link href="/login"><Button variant="outline" size="sm" className="h-9 text-xs bg-white shadow-sm">Sign in</Button></Link>
-              <Link href="/register"><Button size="sm" className="h-9 text-xs shadow-sm">Join Free</Button></Link>
+              <Link href="/register"><Button size="sm" className="h-9 text-xs shadow-sm">Get Started</Button></Link>
             </div>
           )}
         </div>
@@ -297,7 +297,7 @@ export default function HomePage() {
           ) : (
             <div className="flex items-center gap-2 shrink-0">
               <Link href="/login"><Button variant="outline" size="sm" className="h-9 text-xs">Sign in</Button></Link>
-              <Link href="/register"><Button size="sm" className="h-9 text-xs">Join Free</Button></Link>
+              <Link href="/register"><Button size="sm" className="h-9 text-xs">Get Started</Button></Link>
             </div>
           )}
         </div>
@@ -419,7 +419,7 @@ export default function HomePage() {
           {/* Desktop: single row with border */}
           <div className="hidden lg:flex items-center gap-2 bg-white border-2 border-gray-200 rounded-full px-4 py-2.5 shadow-lg hover:shadow-xl transition-shadow">
             {/* Service selector */}
-            <div className="shrink-0 w-36">
+            <div className="shrink-0 w-32">
               <Select value={selectedService} onValueChange={setSelectedService}>
                 <SelectTrigger className="h-9 text-xs border-0 bg-transparent focus:ring-0">
                   <SelectValue placeholder="Select service" />
@@ -448,16 +448,17 @@ export default function HomePage() {
 
             {/* Location */}
             <div className="relative flex-1 min-w-0">
-              <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <MapPin className="   absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
                 placeholder="City or area"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                className="pl-9 h-9 text-sm border-0 bg-transparent focus:ring-0 w-full"
+                onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); }}
+                className="pl-9 h-9  text-sm  border-r-2 bg-transparent focus:ring-0 md:w-50"
               />
             </div>
 
-            <div className="h-8 w-px bg-gray-200 shrink-0" />
+            <div className="h-8 w-px md:mr-4 bg-gray-200 shrink-0" />
 
             {/* Dates */}
             <div className="flex items-center gap-1 shrink-0">
@@ -467,7 +468,8 @@ export default function HomePage() {
                   type="date"
                   value={checkIn}
                   onChange={(e) => setCheckIn(e.target.value)}
-                  className="pl-8 h-9 text-xs border-0 bg-transparent focus:ring-0 w-32"
+                  onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); }}
+                  className="pl-8 h-9 text-xs border-0 bg-transparent focus:ring-0 w-20 sm:w-32"
                 />
               </div>
               <span className="text-gray-400 text-xs">→</span>
@@ -477,7 +479,8 @@ export default function HomePage() {
                   type="date"
                   value={checkOut}
                   onChange={(e) => setCheckOut(e.target.value)}
-                  className="pl-8 h-9 text-xs border-0 bg-transparent focus:ring-0 w-32"
+                  onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); }}
+                  className="pl-8 h-9 text-xs border-0 bg-transparent focus:ring-0 w-20 sm:w-32"
                 />
               </div>
             </div>
@@ -498,10 +501,10 @@ export default function HomePage() {
                 </Select>
                 <div className="relative">
                   <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input placeholder="Location" value={location} onChange={(e) => setLocation(e.target.value)} className="pl-9 h-10 text-sm border border-gray-200" />
+                  <Input placeholder="Location" value={location} onChange={(e) => setLocation(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); }} className="pl-9 h-10 text-sm border border-gray-200" />
                 </div>
-                <Input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} className="h-10 text-sm border border-gray-200" placeholder="Check-in" />
-                <Input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} className="h-10 text-sm border border-gray-200" placeholder="Check-out" />
+                <Input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); }} className="h-10 text-sm border border-gray-200" placeholder="Check-in" />
+                  <Input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); }} className="h-10 text-sm border border-gray-200" placeholder="Check-out" />
               </div>
               <Button onClick={handleSearch} className="w-full mt-3 h-11 rounded-xl">
                 <Search className="h-4 w-4 mr-2" />Search
@@ -530,7 +533,7 @@ export default function HomePage() {
                   </Select>
                   <div className="relative">
                     <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input placeholder="Location" value={location} onChange={(e) => setLocation(e.target.value)} className="pl-9 h-10 text-sm border border-gray-200" />
+                    <Input placeholder="Location" value={location} onChange={(e) => setLocation(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); }} className="pl-9 h-10 text-sm border border-gray-200" />
                   </div>
                   <Input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} className="h-10 text-sm border border-gray-200" />
                   <Input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} className="h-10 text-sm border border-gray-200" />
@@ -595,9 +598,9 @@ export default function HomePage() {
           </div>
 
           {/* Tagline — right side */}
-          <div className="flex-1 flex flex-col justify-center px-0 md:px-6">
-            <p className="text-3xl sm:text-4xl lg:text-5xl font-black text-gray-900 leading-tight">
-              Get all the services to<br className="hidden sm:block" />{" "}
+          <div className="flex-1 flex flex-col justify-center px-0 md:px-6 ">
+            <p className="md:mt-6      text-3xl sm:text-4xl lg:text-5xl font-black text-gray-900 leading-tight">
+              Get all the services to<br className="hidden sm:block " />{" "}
               <span className="text-primary">make it feel</span>{" "}
               <span className="text-premium">like your home</span>
             </p>
