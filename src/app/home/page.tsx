@@ -258,20 +258,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Popular Cities */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Popular Cities</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-          {["Delhi", "Mumbai", "Bangalore", "Kolkata", "Pune", "Jaipur", "Hyderabad", "Chennai", "Lucknow", "Bhubaneswar", "Kota", "Varanasi"].map((city) => (
-            <Link key={city} href={`/services?city=${city}`}>
-              <div className="bg-white border rounded-xl p-4 text-center hover:shadow-md hover:border-primary/30 transition-all cursor-pointer">
-                <MapPin className="h-5 w-5 text-primary mx-auto mb-2" />
-                <p className="text-sm font-medium text-gray-700">{city}</p>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </section>
+      {/* Popular Cities removed per request */}
 
       <Footer />
     </div>
