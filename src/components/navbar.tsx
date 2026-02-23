@@ -122,7 +122,7 @@ export function Navbar({ variant = "public", showSearch = true, autoHide = false
                       </div>
                       <Link href={variant === "admin" ? "/admin/dashboard" : "/dashboard"} className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"><LayoutDashboard className="h-4 w-4" />Dashboard</Link>
                       <Link href="/settings/edit" className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"><Settings className="h-4 w-4" />Settings</Link>
-                      {!(session.user as any)?.isPremium && (onPremiumClick ? <button onClick={onPremiumClick} className="flex items-center gap-2 px-4 py-2 text-sm text-amber-600 hover:bg-amber-50 w-full text-left"><Crown className="h-4 w-4" />Get Premium</button> : <Link href="/premium" className="flex items-center gap-2 px-4 py-2 text-sm text-amber-600 hover:bg-amber-50"><Crown className="h-4 w-4" />Get Premium</Link>)}
+                      {!(session.user as any)?.isPremium && onPremiumClick && <button onClick={onPremiumClick} className="flex items-center gap-2 px-4 py-2 text-sm text-amber-600 hover:bg-amber-50 w-full text-left"><Crown className="h-4 w-4" />Upgrade to Premium</button>}
                       <div className="border-t border-gray-100 mt-1 pt-1">
                         <button onClick={() => signOut({ callbackUrl: "/" })} className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full"><LogOut className="h-4 w-4" />Sign Out</button>
                       </div>

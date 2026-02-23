@@ -93,17 +93,17 @@ function DateRangePicker({
   const val   = compact ? "text-[10px]" : "text-xs";
 
   return (
-    <div className="flex items-center gap-1.5 shrink-0">
+    <div className="flex items-center gap-4 shrink-0">
       <Calendar className={cn(compact ? "h-3.5 w-3.5" : "h-4 w-4", "text-gray-500 shrink-0")} />
 
       {/* From */}
-      <div className={base} onClick={() => trigger(inRef)}>
-        <span className={cn(label, "font-medium text-gray-400 uppercase tracking-wide")}>From</span>
+      <div className={cn(base, "md:ml-1")} onClick={() => trigger(inRef)}>
+        <span className={cn(label, "font-medium text-gray-600 uppercase tracking-wide")}>From</span>
         <span className={cn(
-          val, "font-semibold border-b-2 border-dashed pb-0.5 min-w-17.5 text-center transition-colors whitespace-nowrap",
+          val, "font-semibold  pb-0.5 min-w-17.5 text-center transition-colors whitespace-nowrap",
           checkIn ? "text-gray-800 border-primary" : "text-gray-400 border-gray-300 group-hover:border-primary/50"
         )}>
-          {fmtDate(checkIn) ?? "_ _/_ _/_ _ _ _"}
+          {fmtDate(checkIn) ?? "__/__/____"}
         </span>
         <input
           ref={inRef}
@@ -119,12 +119,12 @@ function DateRangePicker({
 
       {/* To */}
       <div className={base} onClick={() => trigger(outRef)}>
-        <span className={cn(label, "font-medium text-gray-400 uppercase tracking-wide")}>To</span>
+        <span className={cn(label, "font-medium text-gray-600 uppercase tracking-wide")}>To</span>
         <span className={cn(
-          val, "font-semibold border-b-2 border-dashed pb-0.5 min-w-17.5 text-center transition-colors whitespace-nowrap",
+          val, "font-semibold  pb-0.5 min-w-17.5 text-center transition-colors whitespace-nowrap",
           checkOut ? "text-gray-800 border-primary" : "text-gray-400 border-gray-300 group-hover:border-primary/50"
         )}>
-          {fmtDate(checkOut) ?? "_ _/_ _/_ _ _ _"}
+          {fmtDate(checkOut) ?? "__/__/____"}
         </span>
         <input
           ref={outRef}
@@ -293,7 +293,7 @@ export default function HomePage() {
         heroVisible ? "-translate-y-full opacity-0 pointer-events-none" : "translate-y-0 opacity-100"
       )}>
         {/* ── Desktop: single row with logo ── */}
-        <div className="hidden lg:flex items-center gap-3 px-6 py-2.5 max-w-7xl mx-auto">
+          <div className="hidden lg:flex items-center gap-3 px-6 py-2.5 lg:max-w-6xl xl:max-w-1xl mx-auto">
           {/* Logo (appears when sticky) */}
           <Link href="/home" className="flex items-center gap-2 shrink-0 group">
             <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform">
@@ -303,12 +303,12 @@ export default function HomePage() {
           </Link>
 
           {/* Combo filter bar with border */}
-          <div className="flex-1 flex items-center gap-2 bg-white border-2 border-gray-200 rounded-full px-3 py-1.5 shadow-sm">
-            {/* Service selector */}
-            <div className="shrink-0 w-32">
+          <div className="flex-1 flex items-center gap-2 bg-white border-2 border-gray-200 rounded-full px-4 py-2.5 shadow-lg hover:shadow-xl transition-shadow ml-6">
+            {/* Service selector (match hero sizing) */}
+            <div className="shrink-0 w-36">
               <Select value={selectedService} onValueChange={setSelectedService}>
-                <SelectTrigger className="h-8 text-xs border-0 bg-transparent focus:ring-0">
-                  <SelectValue placeholder="Service" />
+                <SelectTrigger className="h-9 text-xs border-0 bg-transparent focus:ring-0">
+                  <SelectValue placeholder="Select service" />
                 </SelectTrigger>
                 <SelectContent>
                   {services.map((s) => (
@@ -320,48 +320,45 @@ export default function HomePage() {
               </Select>
             </div>
 
-            <div className="h-6 w-px bg-gray-200 shrink-0" />
+            <div className="h-8 w-px bg-gray-200 shrink-0" />
 
             {/* Rooms */}
             <Counter label="Rooms" value={rooms} onChange={setRooms} />
 
-            <div className="h-6 w-px bg-gray-200 shrink-0" />
+            <div className="h-8 w-px bg-gray-200 shrink-0" />
 
             {/* Guests */}
             <Counter label="Guests" value={guests} onChange={setGuests} />
 
-            <div className="h-6 w-px bg-gray-200 shrink-0" />
+            <div className="h-8 w-px bg-gray-200 shrink-0" />
 
             {/* Location */}
-            <div className="relative shrink-0 w-36">
-              <MapPin className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+            <div className="relative shrink-0 w-60 border-2 border-gray-200 rounded-full">
+              <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
                 placeholder="City or area"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                className="pl-7 h-8 text-xs border-0 bg-transparent focus:ring-0 w-full"
+                className="pl-9 h-9 text-sm border-0 bg-transparent focus:ring-0 w-full"
               />
             </div>
 
-            <div className="h-6 w-px bg-gray-200 shrink-0" />
+            <div className="h-8 w-px bg-gray-200 shrink-0" />
 
             {/* Dates */}
-            <DateRangePicker compact checkIn={checkIn} checkOut={checkOut} onCheckIn={setCheckIn} onCheckOut={setCheckOut} />
+            <div className="mr-8">
+              <DateRangePicker checkIn={checkIn} checkOut={checkOut} onCheckIn={setCheckIn} onCheckOut={setCheckOut} />
+            </div>
 
             {/* Search button */}
-            <Button onClick={handleSearch} size="sm" className="h-8 px-4 rounded-full shrink-0">
-              <Search className="h-3.5 w-3.5" />
+            <Button onClick={handleSearch} size="sm" className="h-10 px-5 rounded-full shrink-0">
+              <Search className="h-4 w-4 mr-1.5" /> Search
             </Button>
           </div>
 
           {/* Auth (desktop) */}
-          {session ? (
+          {session && (
             <ProfileDropdown session={session} isPremium={u(session)?.isPremium} profileOpen={profileOpen} setProfileOpen={setProfileOpen} setPremiumOpen={setPremiumOpen} />
-          ) : (
-            <div className="flex items-center gap-2 shrink-0">
-              <Link href="/login"><Button variant="outline" size="sm" className="h-9 text-xs">Sign in</Button></Link>
-              <Link href="/register"><Button size="sm" className="h-9 text-xs">Get Started</Button></Link>
-            </div>
           )}
         </div>
 
@@ -376,7 +373,7 @@ export default function HomePage() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setMobileFilterOpen(!mobileFilterOpen)}
-              className="flex items-center gap-2 border-2 border-gray-200 rounded-full px-4 py-2 hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-2 border-2 border-gray-200 rounded-full px-4 py-3 shadow-lg hover:bg-gray-50 transition-colors ml-4"
             >
               <Search className="h-4 w-4 text-gray-400" />
               <span className="text-sm text-gray-600 max-w-32 truncate">
@@ -384,10 +381,8 @@ export default function HomePage() {
               </span>
               {mobileFilterOpen ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
             </button>
-            {session ? (
+            {session && (
               <ProfileDropdown session={session} isPremium={u(session)?.isPremium} profileOpen={profileOpen} setProfileOpen={setProfileOpen} setPremiumOpen={setPremiumOpen} />
-            ) : (
-              <Link href="/login"><Button size="sm" className="h-9 text-xs">Sign in</Button></Link>
             )}
           </div>
         </div>
@@ -408,7 +403,7 @@ export default function HomePage() {
               {selectedService || location ? `${services.find(s => s.value === selectedService)?.label || "Any"} · ${location || "Anywhere"}` : "Search..."}
             </span>
           </button>
-          {session ? (
+          {session && (
             <div onClick={(e) => e.stopPropagation()}>
               <button
                 onClick={() => setProfileOpen(!profileOpen)}
@@ -417,8 +412,6 @@ export default function HomePage() {
                 <span className="text-sm font-bold text-primary">{session.user?.name?.[0]?.toUpperCase() || "U"}</span>
               </button>
             </div>
-          ) : (
-            <Link href="/login" className="shrink-0"><Button size="sm" className="h-9 text-xs px-3">Sign in</Button></Link>
           )}
         </div>
 
@@ -511,7 +504,7 @@ export default function HomePage() {
             <div className="h-8 w-px bg-gray-200 shrink-0" />
 
             {/* Location */}
-            <div className="relative shrink-0 w-40">
+            <div className="relative shrink-0 w-60  border-2 border-gray-200 rounded-full">
               <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
                 placeholder="City or area"
@@ -524,10 +517,14 @@ export default function HomePage() {
             <div className="h-8 w-px bg-gray-200 shrink-0" />
 
             {/* Dates */}
-            <DateRangePicker checkIn={checkIn} checkOut={checkOut} onCheckIn={setCheckIn} onCheckOut={setCheckOut} />
+            <div className="mr-8">
+              <DateRangePicker checkIn={checkIn} checkOut={checkOut} onCheckIn={setCheckIn} onCheckOut={setCheckOut} />
+            </div>
+            
 
-            {/* Search button */}
-            <Button onClick={handleSearch} size="sm" className="h-10 px-5 rounded-full shrink-0">
+
+                        {/* Search button */}
+            <Button onClick={handleSearch} size="sm" className="  h-10 px-5 rounded-full shrink-0">
               <Search className="h-4 w-4 mr-1.5" /> Search
             </Button>
           </div>
@@ -617,7 +614,7 @@ export default function HomePage() {
               if (u(session)?.isPremium) router.push("/chat");
               else setPremiumOpen(true);
             }}
-            className="w-full md:w-auto md:max-w-xs bg-linear-to-br from-primary/5 to-premium/10 border border-primary/20 rounded-2xl p-5 flex items-start gap-4 hover:shadow-lg hover:border-primary/40 transition-all cursor-pointer group shrink-0"
+            className="w-full md:w-auto md:max-w-xs bg-linear-to-br bg-amber-300/10 border border-primary/20 rounded-2xl p-5 flex items-start gap-4 hover:shadow-lg hover:border-primary/40 transition-all cursor-pointer group shrink-0"
           >
             <div className="h-11 w-11 rounded-xl bg-linear-to-br from-primary to-premium flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
               <MessageCircle className="h-5 w-5 text-white" />
@@ -659,14 +656,12 @@ export default function HomePage() {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold text-gray-900">Offers & Coupons</h2>
-          <Link href="/services" className="text-primary text-sm font-medium flex items-center gap-1 hover:underline">
-            View All <ArrowRight className="h-4 w-4" />
-          </Link>
+         
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
           {offers.map((offer, i) => (
-            <Card key={i} className="overflow-hidden cursor-pointer hover:shadow-lg transition-all border-0">
-              <div className={cn("bg-linear-to-br text-white p-6", offer.gradient)}>
+            <Card key={i} className="overflow-hidden cursor-pointer hover:shadow-lg transition-all border-0 bg-transparent">
+              <div className={cn("h-full w-full rounded-lg bg-linear-to-br text-white p-6", offer.gradient)}>
                 <offer.icon className="h-8 w-8 mb-3 opacity-90" />
                 <h3 className="font-bold text-lg">{offer.title}</h3>
                 <p className="text-sm mt-1 opacity-90">{offer.description}</p>
