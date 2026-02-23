@@ -62,6 +62,82 @@ const offers = [
   { title: "Student Special", description: "Extra 10% off with valid student ID", gradient: "from-purple-500 to-purple-600", icon: Zap },
 ];
 
+// Formats "2026-02-23" → "Feb 23"
+function fmtDate(iso: string) {
+  if (!iso) return null;
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+}
+
+// DateRangePicker — hidden native inputs triggered on click
+function DateRangePicker({
+  checkIn, checkOut, onCheckIn, onCheckOut, compact = false,
+}: {
+  checkIn: string; checkOut: string;
+  onCheckIn: (v: string) => void; onCheckOut: (v: string) => void;
+  compact?: boolean;
+}) {
+  const inRef  = useRef<HTMLInputElement>(null);
+  const outRef = useRef<HTMLInputElement>(null);
+
+  const trigger = (ref: React.RefObject<HTMLInputElement | null>) => {
+    try { ref.current?.showPicker(); } catch { ref.current?.focus(); }
+  };
+
+  const base = compact
+    ? "inline-flex flex-col items-center cursor-pointer select-none group"
+    : "inline-flex flex-col items-center cursor-pointer select-none group";
+
+  const label = compact ? "text-[9px]" : "text-[10px]";
+  const val   = compact ? "text-xs"    : "text-sm";
+
+  return (
+    <div className="flex items-center gap-1.5 shrink-0">
+      <Calendar className={cn(compact ? "h-3.5 w-3.5" : "h-4 w-4", "text-gray-400 shrink-0")} />
+
+      {/* From */}
+      <div className={base} onClick={() => trigger(inRef)}>
+        <span className={cn(label, "font-medium text-gray-400 uppercase tracking-wide")}>From</span>
+        <span className={cn(
+          val, "font-semibold border-b-2 border-dashed pb-0.5 min-w-15 text-center transition-colors",
+          checkIn ? "text-gray-800 border-primary" : "text-gray-400 border-gray-300 group-hover:border-primary/50"
+        )}>
+          {fmtDate(checkIn) ?? "—"}
+        </span>
+        <input
+          ref={inRef}
+          type="date"
+          value={checkIn}
+          onChange={(e) => onCheckIn(e.target.value)}
+          className="absolute opacity-0 w-0 h-0 pointer-events-none"
+          tabIndex={-1}
+        />
+      </div>
+
+      <span className="text-gray-400 text-sm font-light mx-0.5">→</span>
+
+      {/* To */}
+      <div className={base} onClick={() => trigger(outRef)}>
+        <span className={cn(label, "font-medium text-gray-400 uppercase tracking-wide")}>To</span>
+        <span className={cn(
+          val, "font-semibold border-b-2 border-dashed pb-0.5 min-w-15 text-center transition-colors",
+          checkOut ? "text-gray-800 border-primary" : "text-gray-400 border-gray-300 group-hover:border-primary/50"
+        )}>
+          {fmtDate(checkOut) ?? "—"}
+        </span>
+        <input
+          ref={outRef}
+          type="date"
+          value={checkOut}
+          onChange={(e) => onCheckOut(e.target.value)}
+          className="absolute opacity-0 w-0 h-0 pointer-events-none"
+          tabIndex={-1}
+        />
+      </div>
+    </div>
+  );
+}
+
 // Counter must be defined outside component to avoid re-creating on each render
 function Counter({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
   return (
@@ -269,21 +345,7 @@ export default function HomePage() {
             <div className="h-6 w-px bg-gray-200 shrink-0" />
 
             {/* Dates */}
-            <div className="flex items-center gap-1 shrink-0">
-              <Input
-                type="date"
-                value={checkIn}
-                onChange={(e) => setCheckIn(e.target.value)}
-                className="h-8 text-xs border-0 bg-transparent focus:ring-0 w-28"
-              />
-              <span className="text-gray-400 text-xs">→</span>
-              <Input
-                type="date"
-                value={checkOut}
-                onChange={(e) => setCheckOut(e.target.value)}
-                className="h-8 text-xs border-0 bg-transparent focus:ring-0 w-28"
-              />
-            </div>
+            <DateRangePicker compact checkIn={checkIn} checkOut={checkOut} onCheckIn={setCheckIn} onCheckOut={setCheckOut} />
 
             {/* Search button */}
             <Button onClick={handleSearch} size="sm" className="h-8 px-4 rounded-full shrink-0">
@@ -371,8 +433,9 @@ export default function HomePage() {
                 <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input placeholder="Location" value={location} onChange={(e) => setLocation(e.target.value)} className="pl-9 h-10 text-sm border-2 border-gray-200" />
               </div>
-              <Input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} className="h-10 text-sm border-2 border-gray-200" />
-              <Input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} className="h-10 text-sm border-2 border-gray-200" />
+              <div className="col-span-2 flex items-center justify-center bg-gray-50 border-2 border-gray-200 rounded-lg px-4 py-2.5">
+                <DateRangePicker checkIn={checkIn} checkOut={checkOut} onCheckIn={setCheckIn} onCheckOut={setCheckOut} />
+              </div>
               <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 border-2 border-gray-200">
                 <span className="text-sm text-gray-500">Rooms</span>
                 <div className="flex items-center gap-2">
@@ -453,37 +516,14 @@ export default function HomePage() {
                 placeholder="City or area"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); }}
-                className="pl-9 h-9  text-sm  border-r-2 bg-transparent focus:ring-0 md:w-50"
+                className="pl-9 h-9 text-sm border-r bg-transparent focus:ring-0 md:w-50"
               />
             </div>
 
-            <div className="h-8 w-px md:mr-4 bg-gray-200 shrink-0" />
+            <div className="h-8 w-px bg-gray-200 shrink-0" />
 
             {/* Dates */}
-            <div className="flex items-center gap-1 shrink-0">
-              <div className="relative">
-                <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  type="date"
-                  value={checkIn}
-                  onChange={(e) => setCheckIn(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); }}
-                  className="pl-8 h-9 text-xs border-0 bg-transparent focus:ring-0 w-20 sm:w-32"
-                />
-              </div>
-              <span className="text-gray-400 text-xs">→</span>
-              <div className="relative">
-                <Calendar className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  type="date"
-                  value={checkOut}
-                  onChange={(e) => setCheckOut(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); }}
-                  className="pl-8 h-9 text-xs border-0 bg-transparent focus:ring-0 w-20 sm:w-32"
-                />
-              </div>
-            </div>
+            <DateRangePicker checkIn={checkIn} checkOut={checkOut} onCheckIn={setCheckIn} onCheckOut={setCheckOut} />
 
             {/* Search button */}
             <Button onClick={handleSearch} size="sm" className="h-10 px-5 rounded-full shrink-0">
@@ -501,10 +541,11 @@ export default function HomePage() {
                 </Select>
                 <div className="relative">
                   <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input placeholder="Location" value={location} onChange={(e) => setLocation(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); }} className="pl-9 h-10 text-sm border border-gray-200" />
+                  <Input placeholder="Location" value={location} onChange={(e) => setLocation(e.target.value)} className="pl-9 h-10 text-sm border border-gray-200" />
                 </div>
-                <Input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); }} className="h-10 text-sm border border-gray-200" placeholder="Check-in" />
-                  <Input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); }} className="h-10 text-sm border border-gray-200" placeholder="Check-out" />
+                <div className="col-span-2 flex items-center justify-center bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5">
+                  <DateRangePicker checkIn={checkIn} checkOut={checkOut} onCheckIn={setCheckIn} onCheckOut={setCheckOut} />
+                </div>
               </div>
               <Button onClick={handleSearch} className="w-full mt-3 h-11 rounded-xl">
                 <Search className="h-4 w-4 mr-2" />Search
@@ -533,10 +574,11 @@ export default function HomePage() {
                   </Select>
                   <div className="relative">
                     <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input placeholder="Location" value={location} onChange={(e) => setLocation(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); }} className="pl-9 h-10 text-sm border border-gray-200" />
+                    <Input placeholder="Location" value={location} onChange={(e) => setLocation(e.target.value)} className="pl-9 h-10 text-sm border border-gray-200" />
                   </div>
-                  <Input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} className="h-10 text-sm border border-gray-200" />
-                  <Input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} className="h-10 text-sm border border-gray-200" />
+                  <div className="col-span-2 flex items-center justify-center bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5">
+                    <DateRangePicker checkIn={checkIn} checkOut={checkOut} onCheckIn={setCheckIn} onCheckOut={setCheckOut} />
+                  </div>
                   <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 border border-gray-200">
                     <span className="text-xs text-gray-500">Rooms</span>
                     <div className="flex items-center gap-2">
