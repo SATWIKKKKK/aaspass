@@ -18,7 +18,7 @@ export async function PATCH(
     const booking = await prisma.booking.findUnique({ where: { id } });
     if (!booking) return NextResponse.json({ error: "Booking not found" }, { status: 404 });
 
-    const role = (session.user as Record<string, unknown>)?.role;
+    const role = (session.user as any)?.role;
     if (role === "STUDENT" && booking.studentId !== session.user.id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -65,7 +65,7 @@ export async function GET(
 
     if (!booking) return NextResponse.json({ error: "Booking not found" }, { status: 404 });
 
-    const role = (session.user as Record<string, unknown>)?.role;
+    const role = (session.user as any)?.role;
     if (role === "STUDENT" && booking.studentId !== session.user.id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
