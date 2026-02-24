@@ -1,278 +1,612 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useRef, Suspense, useCallback } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import toast from "react-hot-toast";
 import {
-  Search, MapPin, Star, Wifi, Wind, Utensils, Shirt, ShieldCheck,
-  Filter, X, SlidersHorizontal, ShoppingCart,
-  ArrowUpDown, Building2, Users, Heart, Loader2,
+  Search, MapPin, Calendar, Users, Building2, BookOpen, Utensils, Dumbbell, Shirt,
+  Crown, ChevronRight, ChevronDown, ChevronUp, ChevronLeft, MessageCircle,
+  Star, Wifi, Wind, ShieldCheck, ShoppingCart, Loader2, X,
+  Minus, Plus, LogOut, Settings, User, LayoutDashboard,
 } from "lucide-react";
-import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
+import { PremiumModal } from "@/components/premium-modal";
 import { cn, formatPrice, SERVICE_TYPES } from "@/lib/utils";
+
+// ── Types ────────────────────────────────────────────────────────────────────
+type SessionUser = { id?: string; name?: string | null; email?: string | null; image?: string | null; role?: string; isPremium?: boolean };
+const u = (s: { user?: object | null } | null) => s?.user as SessionUser | undefined;
 
 interface Property {
   id: string; name: string; slug: string; serviceType: string; price: number;
-  city: string; address: string; avgRating: number; totalReviews: number;
+  gstRate: number; city: string; address: string; avgRating: number; totalReviews: number;
   isAC: boolean; hasWifi: boolean; forGender: string | null;
   foodIncluded: boolean; laundryIncluded: boolean; occupancy: number | null;
   cancellationPolicy: string | null; hasMedical: boolean; nearbyLandmark: string | null;
   images: { url: string; isWideShot: boolean }[];
 }
 
-const serviceTypeFilters = [{ label: "All", value: "" }, ...SERVICE_TYPES.map((st) => ({ label: st.label, value: st.value }))];
+// ── Constants (same as /home) ────────────────────────────────────────────────
+const services = [
+  { label: "Hostel", value: "HOSTEL", icon: Building2 },
+  { label: "PG", value: "PG", icon: Building2 },
+  { label: "Library", value: "LIBRARY", icon: BookOpen },
+  { label: "Coaching", value: "COACHING", icon: BookOpen },
+  { label: "Mess", value: "MESS", icon: Utensils },
+  { label: "Laundry", value: "LAUNDRY", icon: Shirt },
+  { label: "Gym", value: "GYM", icon: Dumbbell },
+  { label: "Co-working", value: "COWORKING", icon: Users },
+];
 
+// ── Date helper ──────────────────────────────────────────────────────────────
+function fmtDate(iso: string) { if (!iso) return null; const [y, m, d] = iso.split("-"); return `${d}/${m}/${y}`; }
+
+// ── DateRangePicker (same as /home) ──────────────────────────────────────────
+function DateRangePicker({ checkIn, checkOut, onCheckIn, onCheckOut, compact = false }: {
+  checkIn: string; checkOut: string; onCheckIn: (v: string) => void; onCheckOut: (v: string) => void; compact?: boolean;
+}) {
+  const inRef = useRef<HTMLInputElement>(null);
+  const outRef = useRef<HTMLInputElement>(null);
+  const trigger = (ref: React.RefObject<HTMLInputElement | null>) => { try { ref.current?.showPicker(); } catch { ref.current?.focus(); } };
+  const label = compact ? "text-[9px]" : "text-[10px]";
+  const val = compact ? "text-[10px]" : "text-xs";
+  return (
+    <div className="flex items-center gap-4 shrink-0">
+      <Calendar className={cn(compact ? "h-3.5 w-3.5" : "h-4 w-4", "text-gray-500 shrink-0")} />
+      <div className="inline-flex flex-col items-center cursor-pointer select-none group md:ml-1" onClick={() => trigger(inRef)}>
+        <span className={cn(label, "font-medium text-gray-600 uppercase tracking-wide")}>From</span>
+        <span className={cn(val, "font-semibold pb-0.5 min-w-17.5 text-center transition-colors whitespace-nowrap", checkIn ? "text-gray-800 border-primary" : "text-gray-400 border-gray-300 group-hover:border-primary/50")}>{fmtDate(checkIn) ?? "__/__/____"}</span>
+        <input ref={inRef} type="date" value={checkIn} onChange={(e) => onCheckIn(e.target.value)} className="absolute opacity-0 w-0 h-0 pointer-events-none" tabIndex={-1} />
+      </div>
+      <span className="text-gray-400 text-sm font-light mx-0.5">→</span>
+      <div className="inline-flex flex-col items-center cursor-pointer select-none group" onClick={() => trigger(outRef)}>
+        <span className={cn(label, "font-medium text-gray-600 uppercase tracking-wide")}>To</span>
+        <span className={cn(val, "font-semibold pb-0.5 min-w-17.5 text-center transition-colors whitespace-nowrap", checkOut ? "text-gray-800 border-primary" : "text-gray-400 border-gray-300 group-hover:border-primary/50")}>{fmtDate(checkOut) ?? "__/__/____"}</span>
+        <input ref={outRef} type="date" value={checkOut} onChange={(e) => onCheckOut(e.target.value)} className="absolute opacity-0 w-0 h-0 pointer-events-none" tabIndex={-1} />
+      </div>
+    </div>
+  );
+}
+
+// ── Counter (same as /home) ──────────────────────────────────────────────────
+function Counter({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
+  return (
+    <div className="flex flex-col items-center gap-0.5" style={{ minWidth: "70px" }}>
+      <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">{label}</span>
+      <div className="flex items-center gap-1">
+        <button type="button" onClick={() => onChange(Math.max(1, value - 1))} className="h-5 w-5 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-100 transition-colors"><Minus className="h-2.5 w-2.5 text-gray-500" /></button>
+        <span className="text-sm font-semibold text-gray-800 w-4 text-center">{value}</span>
+        <button type="button" onClick={() => onChange(value + 1)} className="h-5 w-5 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-100 transition-colors"><Plus className="h-2.5 w-2.5 text-gray-500" /></button>
+      </div>
+    </div>
+  );
+}
+
+// ── Profile Dropdown (same as /home) ─────────────────────────────────────────
+function ProfileDropdown({ session, isPremium, profileOpen, setProfileOpen, setPremiumOpen }: {
+  session: { user?: { name?: string | null; email?: string | null } | null } | null;
+  isPremium?: boolean; profileOpen: boolean; setProfileOpen: (o: boolean) => void; setPremiumOpen: (o: boolean) => void;
+}) {
+  return (
+    <div className="relative" onClick={(e) => e.stopPropagation()}>
+      <button onClick={() => setProfileOpen(!profileOpen)} className="flex items-center gap-1.5 h-10 px-3 rounded-full border border-gray-200 bg-white hover:bg-gray-50 transition-colors shadow-sm">
+        <div className="h-7 w-7 bg-primary/10 rounded-full flex items-center justify-center"><span className="text-sm font-bold text-primary">{session?.user?.name?.[0]?.toUpperCase() || "U"}</span></div>
+        {isPremium && <Crown className="h-3.5 w-3.5 text-amber-500" />}
+        <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
+      </button>
+      {profileOpen && (
+        <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-xl shadow-xl py-2 z-60">
+          <div className="px-4 py-3 border-b border-gray-100">
+            <p className="text-sm font-semibold text-gray-900">{session?.user?.name}</p>
+            <p className="text-xs text-gray-500">{session?.user?.email}</p>
+            {isPremium && <Badge className="mt-1.5 bg-amber-100 text-amber-700 text-[10px]"><Crown className="h-2.5 w-2.5 mr-0.5" />Premium Member</Badge>}
+          </div>
+          {[
+            { icon: User, label: "Personal Details", href: "/profile" },
+            { icon: LayoutDashboard, label: "My Bookings", href: "/dashboard" },
+            { icon: Search, label: "Browse Services", href: "/services" },
+            { icon: Crown, label: "Upgrade to Premium", action: () => { setPremiumOpen(true); setProfileOpen(false); } },
+            { icon: Settings, label: "Settings", href: "/settings" },
+          ].map((item) =>
+            item.href ? (
+              <Link key={item.label} href={item.href} className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setProfileOpen(false)}>
+                <item.icon className="h-4 w-4 text-gray-400" />{item.label}
+              </Link>
+            ) : (
+              <button key={item.label} onClick={item.action} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-amber-600 hover:bg-amber-50 transition-colors">
+                <item.icon className="h-4 w-4" />{item.label}
+              </button>
+            )
+          )}
+          <div className="border-t border-gray-100 mt-1 pt-1">
+            <button onClick={() => signOut({ callbackUrl: "/home" })} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors"><LogOut className="h-4 w-4" />Log out</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Image Carousel (4 images) ────────────────────────────────────────────────
+function ImageCarousel({ images, name }: { images: { url: string }[]; name: string }) {
+  const [idx, setIdx] = useState(0);
+  if (!images.length) return (
+    <div className="w-full h-full bg-linear-to-br from-primary/10 to-primary/5 flex items-center justify-center"><Building2 className="h-12 w-12 text-primary/30" /></div>
+  );
+  return (
+    <div className="relative w-full h-full group">
+      <img src={images[idx]?.url} alt={`${name} ${idx + 1}`} className="w-full h-full object-cover" />
+      {images.length > 1 && (
+        <>
+          <button onClick={(e) => { e.preventDefault(); setIdx((idx - 1 + images.length) % images.length); }} className="absolute left-2 top-1/2 -translate-y-1/2 h-7 w-7 rounded-full bg-white/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white"><ChevronLeft className="h-4 w-4" /></button>
+          <button onClick={(e) => { e.preventDefault(); setIdx((idx + 1) % images.length); }} className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 rounded-full bg-white/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white"><ChevronRight className="h-4 w-4" /></button>
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+            {images.map((_, i) => <div key={i} className={cn("h-1.5 w-1.5 rounded-full transition-colors", i === idx ? "bg-white" : "bg-white/50")} />)}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── Expandable Star Rating ───────────────────────────────────────────────────
+function StarRating({ rating, reviews }: { rating: number; reviews: number }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div>
+      <button onClick={() => setExpanded(!expanded)} className="flex items-center gap-2 group">
+        <div className="flex items-center gap-1 bg-green-50 px-2 py-0.5 rounded">
+          <Star className="h-3.5 w-3.5 fill-green-600 text-green-600" />
+          <span className="text-sm font-semibold text-green-700">{rating.toFixed(1)}</span>
+        </div>
+        <span className="text-sm text-gray-500 group-hover:text-gray-700">({reviews} reviews)</span>
+      </button>
+      {expanded && (
+        <div className="mt-2 space-y-1">
+          {[5, 4, 3, 2, 1].map((star) => {
+            const pct = reviews > 0 ? Math.round((star <= Math.round(rating) ? 60 + (star * 5) : 20 - (5 - star) * 4) ) : 0;
+            return (
+              <div key={star} className="flex items-center gap-2 text-xs">
+                <span className="w-3 text-gray-500">{star}</span>
+                <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden"><div className="h-full bg-yellow-400 rounded-full" style={{ width: `${Math.max(0, Math.min(100, pct))}%` }} /></div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ── MAIN COMPONENT ──────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
 function ServicesContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { data: session } = useSession();
   const heroRef = useRef<HTMLDivElement>(null);
   const [heroVisible, setHeroVisible] = useState(true);
+  const [premiumOpen, setPremiumOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
+
+  // Combo bar state — seeded from URL params (from /home search)
+  const [selectedService, setSelectedService] = useState(searchParams.get("type") || "");
+  const [location, setLocation] = useState(searchParams.get("q") || "");
+  const [rooms, setRooms] = useState(parseInt(searchParams.get("rooms") || "1"));
+  const [guests, setGuests] = useState(parseInt(searchParams.get("guests") || "1"));
+  const [checkIn, setCheckIn] = useState(searchParams.get("from") || "");
+  const [checkOut, setCheckOut] = useState(searchParams.get("to") || "");
+
+  // Filters
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
+  const [ratingFilter, setRatingFilter] = useState("");
+  const [isACOnly, setIsACOnly] = useState(false);
+  const [hasWifiOnly, setHasWifiOnly] = useState(false);
+  const [genderFilter, setGenderFilter] = useState("");
+
+  // Data
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [addingToCart, setAddingToCart] = useState<string | null>(null);
-  const [selectedType, setSelectedType] = useState(searchParams.get("type") || "");
-  const [searchCity, setSearchCity] = useState(searchParams.get("city") || "");
-  const [selectedRatings, setSelectedRatings] = useState<number[]>([]);
-  const [selectedGender, setSelectedGender] = useState("");
-  const [isACOnly, setIsACOnly] = useState(false);
-  const [hasWifiOnly, setHasWifiOnly] = useState(false);
-  const [foodOnly, setFoodOnly] = useState(false);
-  const [laundryOnly, setLaundryOnly] = useState(false);
-  const [sortBy, setSortBy] = useState("rating");
-  const [showMobileFilters, setShowMobileFilters] = useState(false);
-  const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
 
+  const isPremium = u(session)?.isPremium;
+
+  // Fetch properties
   const fetchProperties = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (selectedType) params.set("serviceType", selectedType);
-      if (searchCity) params.set("city", searchCity);
-      if (searchQuery) params.set("q", searchQuery);
-      if (sortBy === "price-low") params.set("sort", "price_asc");
-      else if (sortBy === "price-high") params.set("sort", "price_desc");
-      else if (sortBy === "reviews") params.set("sort", "reviews");
-      else params.set("sort", "avgRating");
+      if (selectedService) params.set("serviceType", selectedService);
+      if (location) params.set("q", location);
+      if (minPrice) params.set("minPrice", minPrice);
+      if (maxPrice) params.set("maxPrice", maxPrice);
+      if (genderFilter) params.set("forGender", genderFilter);
+      if (isACOnly) params.set("isAC", "true");
+      if (hasWifiOnly) params.set("hasWifi", "true");
+      params.set("sort", "avgRating");
+      params.set("limit", "50");
       const res = await fetch(`/api/properties?${params.toString()}`);
       const data = await res.json();
       if (res.ok) setProperties(data.properties || []);
     } catch { toast.error("Failed to load properties"); }
     finally { setLoading(false); }
-  }, [selectedType, searchCity, searchQuery, sortBy]);
+  }, [selectedService, location, minPrice, maxPrice, genderFilter, isACOnly, hasWifiOnly]);
 
   useEffect(() => { fetchProperties(); }, [fetchProperties]);
 
+  // Hero observer
   useEffect(() => {
     const observer = new IntersectionObserver(([entry]) => setHeroVisible(entry.isIntersecting), { threshold: 0.1 });
     if (heroRef.current) observer.observe(heroRef.current);
     return () => observer.disconnect();
   }, []);
 
+  // Close profile dropdown on outside click
+  useEffect(() => {
+    const handler = () => setProfileOpen(false);
+    if (profileOpen) document.addEventListener("click", handler);
+    return () => document.removeEventListener("click", handler);
+  }, [profileOpen]);
+
+  // Client-side filter: rating
   const filtered = properties.filter((p) => {
-    if (searchQuery && !p.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-    if (selectedRatings.length > 0 && !selectedRatings.some((r) => p.avgRating >= r)) return false;
-    if (selectedGender && p.forGender && p.forGender !== selectedGender) return false;
-    if (isACOnly && !p.isAC) return false;
-    if (hasWifiOnly && !p.hasWifi) return false;
-    if (foodOnly && !p.foodIncluded) return false;
-    if (laundryOnly && !p.laundryIncluded) return false;
+    if (ratingFilter && p.avgRating < parseFloat(ratingFilter)) return false;
     return true;
   });
+
+  const handleSearch = () => {
+    const params = new URLSearchParams();
+    if (selectedService) params.set("type", selectedService);
+    if (location) params.set("q", location);
+    if (checkIn) params.set("from", checkIn);
+    if (checkOut) params.set("to", checkOut);
+    if (rooms > 1) params.set("rooms", String(rooms));
+    if (guests > 1) params.set("guests", String(guests));
+    router.push(`/services?${params.toString()}`);
+    fetchProperties();
+  };
+
+  const clearFilters = () => {
+    setMinPrice(""); setMaxPrice(""); setRatingFilter(""); setIsACOnly(false); setHasWifiOnly(false); setGenderFilter("");
+  };
+  const hasActiveFilters = minPrice || maxPrice || ratingFilter || isACOnly || hasWifiOnly || genderFilter;
 
   const addToCart = async (property: Property) => {
     if (!session) { router.push("/login"); return; }
     setAddingToCart(property.id);
     try {
-      const checkIn = new Date(); const checkOut = new Date(); checkOut.setMonth(checkOut.getMonth() + 1);
-      const res = await fetch("/api/cart", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ propertyId: property.id, checkIn: checkIn.toISOString(), checkOut: checkOut.toISOString() }) });
+      const ci = checkIn || new Date().toISOString();
+      const co = checkOut || new Date(Date.now() + 30 * 86400000).toISOString();
+      const res = await fetch("/api/cart", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ propertyId: property.id, checkIn: ci, checkOut: co }) });
       const data = await res.json();
-      if (res.ok) toast.success("Added to cart!");
-      else toast.error(data.error || "Failed to add to cart");
+      if (res.ok) toast.success("Added to cart!"); else toast.error(data.error || "Failed to add to cart");
     } catch { toast.error("Failed to add to cart"); }
     finally { setAddingToCart(null); }
   };
 
-  const clearFilters = () => { setSelectedType(""); setSearchCity(""); setSelectedRatings([]); setSelectedGender(""); setIsACOnly(false); setHasWifiOnly(false); setFoodOnly(false); setLaundryOnly(false); setSearchQuery(""); };
-
-  const FilterSidebar = () => (
-    <div className="space-y-6">
-      <div>
-        <h3 className="font-semibold text-gray-900 mb-3">Service Type</h3>
-        <div className="space-y-2">
-          {serviceTypeFilters.map((type) => (
-            <button key={type.value} onClick={() => setSelectedType(type.value)}
-              className={cn("block w-full text-left px-3 py-1.5 rounded-md text-sm transition-colors", selectedType === type.value ? "bg-primary text-white" : "text-gray-600 hover:bg-gray-50")}>{type.label}</button>
-          ))}
-        </div>
-      </div>
-      <Separator />
-      <div>
-        <h3 className="font-semibold text-gray-900 mb-3">Location</h3>
-        <div className="relative"><MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /><Input placeholder="City or area" value={searchCity} onChange={(e) => setSearchCity(e.target.value)} className="pl-10" /></div>
-      </div>
-      <Separator />
-      <div>
-        <h3 className="font-semibold text-gray-900 mb-3">Ratings</h3>
-        <div className="space-y-2">
-          {[4, 3, 2].map((rating) => (
-            <button key={rating} onClick={() => setSelectedRatings((prev) => prev.includes(rating) ? prev.filter((r) => r !== rating) : [...prev, rating])}
-              className={cn("flex items-center gap-2 w-full px-3 py-1.5 rounded-md text-sm transition-colors", selectedRatings.includes(rating) ? "bg-yellow-50 text-yellow-700" : "text-gray-600 hover:bg-gray-50")}>
-              <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />{rating}+ & above
-            </button>
-          ))}
-        </div>
-      </div>
-      <Separator />
-      <div>
-        <h3 className="font-semibold text-gray-900 mb-3">Gender</h3>
-        <div className="flex gap-2">
-          {[{ label: "Male", value: "MALE" }, { label: "Female", value: "FEMALE" }, { label: "Any", value: "" }].map((g) => (
-            <button key={g.value} onClick={() => setSelectedGender(g.value)}
-              className={cn("px-3 py-1.5 rounded-full text-sm font-medium transition-colors", selectedGender === g.value ? "bg-primary text-white" : "bg-gray-50 text-gray-600 hover:bg-gray-100")}>{g.label}</button>
-          ))}
-        </div>
-      </div>
-      <Separator />
-      <div>
-        <h3 className="font-semibold text-gray-900 mb-3">Amenities</h3>
-        <div className="space-y-2">
-          <div className="flex items-center gap-2"><Checkbox id="ac" checked={isACOnly} onCheckedChange={(c) => setIsACOnly(!!c)} /><Label htmlFor="ac" className="text-sm text-gray-600 cursor-pointer flex items-center gap-1"><Wind className="h-3.5 w-3.5" /> AC</Label></div>
-          <div className="flex items-center gap-2"><Checkbox id="wifi" checked={hasWifiOnly} onCheckedChange={(c) => setHasWifiOnly(!!c)} /><Label htmlFor="wifi" className="text-sm text-gray-600 cursor-pointer flex items-center gap-1"><Wifi className="h-3.5 w-3.5" /> WiFi</Label></div>
-          <div className="flex items-center gap-2"><Checkbox id="food" checked={foodOnly} onCheckedChange={(c) => setFoodOnly(!!c)} /><Label htmlFor="food" className="text-sm text-gray-600 cursor-pointer flex items-center gap-1"><Utensils className="h-3.5 w-3.5" /> Food</Label></div>
-          <div className="flex items-center gap-2"><Checkbox id="laundry" checked={laundryOnly} onCheckedChange={(c) => setLaundryOnly(!!c)} /><Label htmlFor="laundry" className="text-sm text-gray-600 cursor-pointer flex items-center gap-1"><Shirt className="h-3.5 w-3.5" /> Laundry</Label></div>
-        </div>
-      </div>
-      <Button variant="outline" className="w-full" onClick={clearFilters}>Clear All Filters</Button>
-    </div>
-  );
-
   return (
     <div className="min-h-screen bg-white">
-      <Navbar showSearch={!heroVisible} variant={session ? ((session.user as any)?.role === "OWNER" ? "admin" : "student") : "public"} />
-      <section ref={heroRef}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-4 text-center">
-          <h1 className={cn("font-black tracking-tight text-primary transition-all duration-700", heroVisible ? "text-5xl sm:text-7xl opacity-100" : "text-3xl opacity-0")}>Aas<span className="text-premium">Pass</span></h1>
+      <PremiumModal open={premiumOpen} onClose={() => setPremiumOpen(false)} />
+
+      {/* ═══ FLOATING PROFILE ICON (visible before scroll) ═══ */}
+      {heroVisible && (
+        <div className="fixed top-4 right-4 z-50 transition-all duration-300">
+          {session ? (
+            <ProfileDropdown session={session} isPremium={isPremium} profileOpen={profileOpen} setProfileOpen={setProfileOpen} setPremiumOpen={setPremiumOpen} />
+          ) : (
+            <div className="flex items-center gap-2">
+              <Link href="/login"><Button variant="outline" size="sm" className="h-9 text-xs bg-white shadow-sm">Sign in</Button></Link>
+              <Link href="/register"><Button size="sm" className="h-9 text-xs shadow-sm">Get Started</Button></Link>
+            </div>
+          )}
         </div>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-6">
-          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-            {serviceTypeFilters.map((type) => (
-              <button key={type.value} onClick={() => setSelectedType(type.value)}
-                className={cn("px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all", selectedType === type.value ? "bg-primary text-white shadow-md" : "bg-gray-50 text-gray-600 hover:bg-gray-100 border")}>{type.label}</button>
-            ))}
+      )}
+
+      {/* ═══ STICKY NAVBAR (slides in when hero scrolls out) — exact same as /home ═══ */}
+      <div className={cn(
+        "fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-md transition-all duration-500",
+        heroVisible ? "-translate-y-full opacity-0 pointer-events-none" : "translate-y-0 opacity-100"
+      )}>
+        {/* Desktop */}
+        <div className="hidden lg:flex items-center gap-3 px-6 py-2.5 lg:max-w-6xl xl:max-w-7xl mx-auto">
+          <Link href="/home" className="flex items-center gap-2 shrink-0 group">
+            <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform"><span className="text-white font-bold text-sm">A</span></div>
+            <span className="text-lg font-bold text-gray-900">Aas<span className="text-premium">Pass</span></span>
+          </Link>
+          <div className="flex-1 flex items-center gap-2 bg-white border-2 border-gray-200 rounded-full px-4 py-2.5 shadow-lg hover:shadow-xl transition-shadow ml-6">
+            <div className="shrink-0 w-36">
+              <Select value={selectedService} onValueChange={setSelectedService}><SelectTrigger className="h-9 text-xs border-0 bg-transparent focus:ring-0"><SelectValue placeholder="Select service" /></SelectTrigger>
+                <SelectContent>{services.map((s) => <SelectItem key={s.value} value={s.value} className="text-xs"><span className="flex items-center gap-2"><s.icon className="h-3.5 w-3.5" />{s.label}</span></SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="h-8 w-px bg-gray-200 shrink-0" />
+            <Counter label="Rooms" value={rooms} onChange={setRooms} />
+            <div className="h-8 w-px bg-gray-200 shrink-0" />
+            <Counter label="Guests" value={guests} onChange={setGuests} />
+            <div className="h-8 w-px bg-gray-200 shrink-0" />
+            <div className="relative shrink-0 w-60 border-2 border-gray-200 rounded-full">
+              <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input placeholder="City or area" value={location} onChange={(e) => setLocation(e.target.value)} className="pl-9 h-9 text-sm border-0 bg-transparent focus:ring-0 w-full" />
+            </div>
+            <div className="h-8 w-px bg-gray-200 shrink-0" />
+            <div className="mr-8"><DateRangePicker checkIn={checkIn} checkOut={checkOut} onCheckIn={setCheckIn} onCheckOut={setCheckOut} /></div>
+            <Button onClick={handleSearch} size="sm" className="h-10 px-5 rounded-full shrink-0"><Search className="h-4 w-4 mr-1.5" /> Search</Button>
+          </div>
+          {session && <ProfileDropdown session={session} isPremium={isPremium} profileOpen={profileOpen} setProfileOpen={setProfileOpen} setPremiumOpen={setPremiumOpen} />}
+        </div>
+
+        {/* Tablet */}
+        <div className="hidden sm:flex lg:hidden items-center justify-between px-4 py-2">
+          <Link href="/home" className="flex items-center gap-2">
+            <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center"><span className="text-white font-bold text-sm">A</span></div>
+            <span className="text-lg font-bold text-gray-900">Aas<span className="text-premium">Pass</span></span>
+          </Link>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setMobileFilterOpen(!mobileFilterOpen)} className="flex items-center gap-2 border-2 border-gray-200 rounded-full px-4 py-3 shadow-lg hover:bg-gray-50 transition-colors ml-4">
+              <Search className="h-4 w-4 text-gray-400" />
+              <span className="text-sm text-gray-600 max-w-32 truncate">{selectedService || location ? `${services.find(s => s.value === selectedService)?.label || "Any"} · ${location || "Anywhere"}` : "Search..."}</span>
+              {mobileFilterOpen ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
+            </button>
+            {session && <ProfileDropdown session={session} isPremium={isPremium} profileOpen={profileOpen} setProfileOpen={setProfileOpen} setPremiumOpen={setPremiumOpen} />}
           </div>
         </div>
-      </section>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
-        <div className="flex gap-8">
-          <aside className="hidden lg:block w-64 flex-shrink-0">
-            <div className="sticky top-20 overflow-y-auto max-h-[calc(100vh-6rem)] pb-8">
-              <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2"><SlidersHorizontal className="h-5 w-5" /> Filters</h2>
-              <FilterSidebar />
+        {/* Mobile */}
+        <div className="flex sm:hidden items-center gap-2 px-3 py-2">
+          <Link href="/home" className="shrink-0"><div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center"><span className="text-white font-bold text-sm">A</span></div></Link>
+          <button onClick={() => setMobileFilterOpen(!mobileFilterOpen)} className="flex-1 flex items-center gap-2 border-2 border-gray-200 rounded-full px-3 py-2 text-left">
+            <Search className="h-4 w-4 text-gray-400 shrink-0" />
+            <span className="text-sm text-gray-500 truncate">{selectedService || location ? `${services.find(s => s.value === selectedService)?.label || "Any"} · ${location || "Anywhere"}` : "Search..."}</span>
+          </button>
+          {session && (
+            <div onClick={(e) => e.stopPropagation()}>
+              <button onClick={() => setProfileOpen(!profileOpen)} className="h-9 w-9 bg-primary/10 rounded-full flex items-center justify-center"><span className="text-sm font-bold text-primary">{session.user?.name?.[0]?.toUpperCase() || "U"}</span></button>
             </div>
-          </aside>
+          )}
+        </div>
 
-          <div className="flex-1">
-            <div className="flex items-center justify-between mb-6">
-              <p className="text-sm text-gray-500">{loading ? "Loading..." : `${filtered.length} properties found`}</p>
-              <div className="flex items-center gap-3">
-                <Button variant="outline" size="sm" className="lg:hidden" onClick={() => setShowMobileFilters(true)}><Filter className="h-4 w-4 mr-1" /> Filters</Button>
-                <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="w-[180px]"><ArrowUpDown className="h-3.5 w-3.5 mr-1" /><SelectValue placeholder="Sort by" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="rating">Highest Rated</SelectItem>
-                    <SelectItem value="price-low">Price: Low to High</SelectItem>
-                    <SelectItem value="price-high">Price: High to Low</SelectItem>
-                    <SelectItem value="reviews">Most Reviews</SelectItem>
-                  </SelectContent>
-                </Select>
+        {/* Expanded filters (tablet & mobile) */}
+        {mobileFilterOpen && !heroVisible && (
+          <div className="lg:hidden px-4 pb-3 border-t border-gray-100 pt-3">
+            <div className="grid grid-cols-2 gap-3">
+              <Select value={selectedService} onValueChange={setSelectedService}><SelectTrigger className="h-10 text-sm border-2 border-gray-200"><SelectValue placeholder="Service" /></SelectTrigger><SelectContent>{services.map(s => <SelectItem key={s.value} value={s.value} className="text-sm">{s.label}</SelectItem>)}</SelectContent></Select>
+              <div className="relative"><MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /><Input placeholder="Location" value={location} onChange={(e) => setLocation(e.target.value)} className="pl-9 h-10 text-sm border-2 border-gray-200" /></div>
+              <div className="col-span-2 flex items-center justify-center bg-gray-50 border-2 border-gray-200 rounded-lg px-4 py-2.5"><DateRangePicker checkIn={checkIn} checkOut={checkOut} onCheckIn={setCheckIn} onCheckOut={setCheckOut} /></div>
+              <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 border-2 border-gray-200"><span className="text-sm text-gray-500">Rooms</span><div className="flex items-center gap-2"><button onClick={() => setRooms(Math.max(1, rooms - 1))} className="h-6 w-6 rounded-full border-2 border-gray-300 flex items-center justify-center hover:bg-gray-100"><Minus className="h-3 w-3" /></button><span className="text-sm font-semibold w-5 text-center">{rooms}</span><button onClick={() => setRooms(rooms + 1)} className="h-6 w-6 rounded-full border-2 border-gray-300 flex items-center justify-center hover:bg-gray-100"><Plus className="h-3 w-3" /></button></div></div>
+              <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 border-2 border-gray-200"><span className="text-sm text-gray-500">Guests</span><div className="flex items-center gap-2"><button onClick={() => setGuests(Math.max(1, guests - 1))} className="h-6 w-6 rounded-full border-2 border-gray-300 flex items-center justify-center hover:bg-gray-100"><Minus className="h-3 w-3" /></button><span className="text-sm font-semibold w-5 text-center">{guests}</span><button onClick={() => setGuests(guests + 1)} className="h-6 w-6 rounded-full border-2 border-gray-300 flex items-center justify-center hover:bg-gray-100"><Plus className="h-3 w-3" /></button></div></div>
+            </div>
+            <Button onClick={() => { handleSearch(); setMobileFilterOpen(false); }} className="w-full mt-3 h-11 rounded-xl"><Search className="h-4 w-4 mr-2" />Search</Button>
+          </div>
+        )}
+      </div>
+
+      {/* ═══ HERO: AasPass text + Combo search bar (exact same as /home) ═══ */}
+      <section ref={heroRef} className="relative pt-8 pb-4 bg-white">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_30%,rgba(var(--primary-rgb,59,130,246),0.05),transparent)] pointer-events-none" />
+        <div className="text-center pt-6 pb-8">
+          <h1 className="font-black tracking-tight text-primary text-6xl sm:text-7xl md:text-8xl lg:text-9xl leading-none select-none">Aas<span className="text-premium">Pass</span></h1>
+          <p className="mt-3 text-gray-500 text-sm sm:text-base">Find hostels, PGs, coaching, mess & more</p>
+        </div>
+        <div className="max-w-5xl mx-auto px-4">
+          {/* Desktop combo bar */}
+          <div className="hidden lg:flex items-center gap-2 bg-white border-2 border-gray-200 rounded-full px-4 py-2.5 shadow-lg hover:shadow-xl transition-shadow">
+            <div className="shrink-0 w-36"><Select value={selectedService} onValueChange={setSelectedService}><SelectTrigger className="h-9 text-xs border-0 bg-transparent focus:ring-0"><SelectValue placeholder="Select service" /></SelectTrigger><SelectContent>{services.map((s) => <SelectItem key={s.value} value={s.value} className="text-xs"><span className="flex items-center gap-2"><s.icon className="h-3.5 w-3.5" />{s.label}</span></SelectItem>)}</SelectContent></Select></div>
+            <div className="h-8 w-px bg-gray-200 shrink-0" />
+            <Counter label="Rooms" value={rooms} onChange={setRooms} />
+            <div className="h-8 w-px bg-gray-200 shrink-0" />
+            <Counter label="Guests" value={guests} onChange={setGuests} />
+            <div className="h-8 w-px bg-gray-200 shrink-0" />
+            <div className="relative shrink-0 w-60 border-2 border-gray-200 rounded-full"><MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /><Input placeholder="City or area" value={location} onChange={(e) => setLocation(e.target.value)} className="pl-9 h-9 text-sm border-0 bg-transparent focus:ring-0 w-full" /></div>
+            <div className="h-8 w-px bg-gray-200 shrink-0" />
+            <div className="mr-8"><DateRangePicker checkIn={checkIn} checkOut={checkOut} onCheckIn={setCheckIn} onCheckOut={setCheckOut} /></div>
+            <Button onClick={handleSearch} size="sm" className="h-10 px-5 rounded-full shrink-0"><Search className="h-4 w-4 mr-1.5" /> Search</Button>
+          </div>
+          {/* Tablet combo bar */}
+          <div className="hidden sm:block lg:hidden">
+            <div className="bg-white border-2 border-gray-200 rounded-2xl p-4 shadow-lg">
+              <div className="grid grid-cols-2 gap-3">
+                <Select value={selectedService} onValueChange={setSelectedService}><SelectTrigger className="h-10 text-sm border border-gray-200"><SelectValue placeholder="Service" /></SelectTrigger><SelectContent>{services.map(s => <SelectItem key={s.value} value={s.value} className="text-sm">{s.label}</SelectItem>)}</SelectContent></Select>
+                <div className="relative"><MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /><Input placeholder="Location" value={location} onChange={(e) => setLocation(e.target.value)} className="pl-9 h-10 text-sm border border-gray-200" /></div>
+                <div className="col-span-2 flex items-center justify-center bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5"><DateRangePicker checkIn={checkIn} checkOut={checkOut} onCheckIn={setCheckIn} onCheckOut={setCheckOut} /></div>
               </div>
+              <Button onClick={handleSearch} className="w-full mt-3 h-11 rounded-xl"><Search className="h-4 w-4 mr-2" />Search</Button>
             </div>
-
-            {loading ? (
-              <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-            ) : (
-              <div className="space-y-4">
-                {filtered.map((property) => (
-                  <Card key={property.id} className="overflow-hidden hover:shadow-lg transition-all">
-                    <div className="flex flex-col md:flex-row">
-                      <div className="md:w-72 h-48 md:h-auto bg-gray-100 flex-shrink-0 relative">
-                        {property.images?.[0]?.url ? (<img src={property.images[0].url} alt={property.name} className="w-full h-full object-cover" />) : (
-                          <div className="w-full h-full bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center"><Building2 className="h-12 w-12 text-primary/30" /></div>
-                        )}
-                        <button className="absolute top-3 right-3 h-8 w-8 rounded-full bg-white/90 flex items-center justify-center hover:bg-white"><Heart className="h-4 w-4 text-gray-400" /></button>
-                      </div>
-                      <div className="flex-1 p-4 md:p-6">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <Link href={`/services/${property.slug}`}><h3 className="font-bold text-lg text-gray-900 hover:text-primary transition-colors">{property.name}</h3></Link>
-                              <Badge variant="outline" className="text-xs">{SERVICE_TYPES.find((s) => s.value === property.serviceType)?.label || property.serviceType}</Badge>
-                            </div>
-                            <div className="flex items-center gap-1 mt-1 text-sm text-gray-500"><MapPin className="h-3.5 w-3.5" /> {property.address}, {property.city}</div>
-                            <div className="flex items-center gap-2 mt-2">
-                              <div className="flex items-center gap-1 bg-green-50 px-2 py-0.5 rounded"><Star className="h-3.5 w-3.5 fill-green-600 text-green-600" /><span className="text-sm font-semibold text-green-700">{property.avgRating.toFixed(1)}</span></div>
-                              <span className="text-sm text-gray-500">({property.totalReviews} reviews)</span>
-                            </div>
-                            <div className="flex items-center gap-3 mt-3 flex-wrap">
-                              {property.isAC && <span className="flex items-center gap-1 text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded"><Wind className="h-3 w-3" /> AC</span>}
-                              {property.hasWifi && <span className="flex items-center gap-1 text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded"><Wifi className="h-3 w-3" /> WiFi</span>}
-                              {property.foodIncluded && <span className="flex items-center gap-1 text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded"><Utensils className="h-3 w-3" /> Food</span>}
-                              {property.laundryIncluded && <span className="flex items-center gap-1 text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded"><Shirt className="h-3 w-3" /> Laundry</span>}
-                              {property.forGender && <span className="flex items-center gap-1 text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded"><Users className="h-3 w-3" /> {property.forGender === "MALE" ? "Boys" : "Girls"}</span>}
-                              {property.hasMedical && <span className="flex items-center gap-1 text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded"><ShieldCheck className="h-3 w-3" /> Medical</span>}
-                              {property.occupancy && <span className="text-xs text-gray-500">{property.occupancy}-sharing</span>}
-                            </div>
-                            {property.cancellationPolicy && <p className="text-xs text-green-600 mt-2">{property.cancellationPolicy}</p>}
-                            {property.nearbyLandmark && <p className="text-xs text-gray-500 mt-1">Near {property.nearbyLandmark}</p>}
-                          </div>
-                          <div className="text-right ml-4 flex-shrink-0">
-                            <p className="text-xs text-gray-500 line-through">{formatPrice(Math.round(property.price * 1.2))}</p>
-                            <p className="text-2xl font-bold text-gray-900">{formatPrice(property.price)}</p>
-                            <p className="text-xs text-gray-500">per month + GST</p>
-                            <div className="mt-3 space-y-2">
-                              <Link href={`/services/${property.slug}`}><Button size="sm" className="w-full">Book Now</Button></Link>
-                              <Button size="sm" variant="outline" className="w-full" disabled={addingToCart === property.id} onClick={() => addToCart(property)}>
-                                {addingToCart === property.id ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <ShoppingCart className="h-3.5 w-3.5 mr-1" />} Add to Cart
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-                {filtered.length === 0 && !loading && (
-                  <div className="text-center py-16"><Building2 className="h-12 w-12 text-gray-300 mx-auto mb-4" /><h3 className="text-lg font-semibold text-gray-900">No properties found</h3><p className="text-gray-500 mt-1">Try adjusting your filters or check back later</p><Button variant="outline" className="mt-4" onClick={clearFilters}>Clear Filters</Button></div>
-                )}
+          </div>
+          {/* Mobile combo bar */}
+          <div className="sm:hidden">
+            <button onClick={() => setMobileFilterOpen(!mobileFilterOpen)} className="w-full flex items-center gap-3 bg-white border-2 border-gray-200 rounded-full px-4 py-3 shadow-lg text-left">
+              <Search className="h-5 w-5 text-gray-400 shrink-0" />
+              <span className="flex-1 text-gray-500 text-sm truncate">{selectedService || location ? `${services.find(s => s.value === selectedService)?.label || "Any"} · ${location || "Anywhere"}` : "Search services, locations..."}</span>
+              {mobileFilterOpen ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
+            </button>
+            {mobileFilterOpen && (
+              <div className="mt-3 bg-white border-2 border-gray-200 rounded-2xl p-4 shadow-lg">
+                <div className="grid grid-cols-2 gap-3">
+                  <Select value={selectedService} onValueChange={setSelectedService}><SelectTrigger className="h-10 text-sm border border-gray-200"><SelectValue placeholder="Service" /></SelectTrigger><SelectContent>{services.map(s => <SelectItem key={s.value} value={s.value} className="text-sm">{s.label}</SelectItem>)}</SelectContent></Select>
+                  <div className="relative"><MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /><Input placeholder="Location" value={location} onChange={(e) => setLocation(e.target.value)} className="pl-9 h-10 text-sm border border-gray-200" /></div>
+                  <div className="col-span-2 flex items-center justify-center bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5"><DateRangePicker checkIn={checkIn} checkOut={checkOut} onCheckIn={setCheckIn} onCheckOut={setCheckOut} /></div>
+                  <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 border border-gray-200"><span className="text-xs text-gray-500">Rooms</span><div className="flex items-center gap-2"><button onClick={() => setRooms(Math.max(1, rooms - 1))} className="h-6 w-6 rounded-full border flex items-center justify-center"><Minus className="h-3 w-3" /></button><span className="text-sm font-semibold w-4 text-center">{rooms}</span><button onClick={() => setRooms(rooms + 1)} className="h-6 w-6 rounded-full border flex items-center justify-center"><Plus className="h-3 w-3" /></button></div></div>
+                  <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 border border-gray-200"><span className="text-xs text-gray-500">Guests</span><div className="flex items-center gap-2"><button onClick={() => setGuests(Math.max(1, guests - 1))} className="h-6 w-6 rounded-full border flex items-center justify-center"><Minus className="h-3 w-3" /></button><span className="text-sm font-semibold w-4 text-center">{guests}</span><button onClick={() => setGuests(guests + 1)} className="h-6 w-6 rounded-full border flex items-center justify-center"><Plus className="h-3 w-3" /></button></div></div>
+                </div>
+                <Button onClick={() => { handleSearch(); setMobileFilterOpen(false); }} className="w-full mt-3 h-11 rounded-xl"><Search className="h-4 w-4 mr-2" />Search</Button>
               </div>
             )}
           </div>
         </div>
-      </div>
+      </section>
 
-      {showMobileFilters && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setShowMobileFilters(false)} />
-          <div className="absolute right-0 top-0 h-full w-80 bg-white overflow-y-auto p-6">
-            <div className="flex items-center justify-between mb-6"><h2 className="text-lg font-bold">Filters</h2><Button variant="ghost" size="icon" onClick={() => setShowMobileFilters(false)}><X className="h-5 w-5" /></Button></div>
-            <FilterSidebar />
+      {/* ═══ CHATBOX (left) + SERVICES heading (right) ═══ */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+          <div
+            onClick={() => { if (!session) { router.push("/login"); return; } if (isPremium) router.push("/chat"); else setPremiumOpen(true); }}
+            className="w-full md:w-auto md:max-w-xs bg-amber-300/10 border border-primary/20 rounded-2xl p-5 flex items-start gap-4 hover:shadow-lg hover:border-primary/40 transition-all cursor-pointer group shrink-0"
+          >
+            <div className="h-11 w-11 rounded-xl bg-linear-to-br from-primary to-premium flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform"><MessageCircle className="h-5 w-5 text-white" /></div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <p className="text-sm font-bold text-gray-900">AI Assistant</p>
+                {(!session || !isPremium) && <Badge variant="premium" className="text-[10px] py-0 px-1.5"><Crown className="h-2.5 w-2.5 mr-0.5" />Premium</Badge>}
+              </div>
+              <p className="text-xs text-gray-500 leading-relaxed">{!session ? "Sign in to access AI-powered recommendations" : isPremium ? "Chat with AI to find your perfect stay" : "Upgrade to Premium for AI-powered help"}</p>
+            </div>
+            <ChevronRight className="h-4 w-4 text-gray-400 shrink-0 self-center group-hover:translate-x-0.5 transition-transform" />
+          </div>
+          <div className="flex-1 flex flex-col justify-center px-0 md:px-6">
+            <p className="text-3xl sm:text-4xl lg:text-5xl font-black text-gray-900 leading-tight">Services</p>
+            <p className="mt-2 text-sm text-gray-400 font-medium">Hostels · PGs · Libraries · Coaching · Mess · Gyms & more</p>
           </div>
         </div>
-      )}
+      </section>
+
+      {/* ═══ HORIZONTAL FILTER BAR ═══ */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-6">
+        <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-hide">
+          {/* Price range */}
+          <div className="flex items-center gap-1.5 shrink-0 bg-gray-50 border border-gray-200 rounded-full px-3 py-2">
+            <span className="text-xs font-medium text-gray-600 whitespace-nowrap">Price:</span>
+            <Input placeholder="Min" value={minPrice} onChange={(e) => setMinPrice(e.target.value)} className="h-7 w-16 text-xs border-gray-200 rounded-full px-2" />
+            <span className="text-xs text-gray-400">–</span>
+            <Input placeholder="Max" value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} className="h-7 w-16 text-xs border-gray-200 rounded-full px-2" />
+          </div>
+
+          {/* Ratings */}
+          <Select value={ratingFilter} onValueChange={setRatingFilter}>
+            <SelectTrigger className="h-9 w-28 text-xs border-gray-200 rounded-full bg-gray-50 shrink-0"><Star className="h-3 w-3 mr-1 text-yellow-500" /><SelectValue placeholder="Ratings" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="0" className="text-xs">All</SelectItem>
+              <SelectItem value="4" className="text-xs">4+ Stars</SelectItem>
+              <SelectItem value="3" className="text-xs">3+ Stars</SelectItem>
+              <SelectItem value="2" className="text-xs">2+ Stars</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* AC / Non-AC */}
+          <button onClick={() => setIsACOnly(!isACOnly)} className={cn("flex items-center gap-1.5 h-9 px-4 rounded-full text-xs font-medium border transition-colors shrink-0", isACOnly ? "bg-primary text-white border-primary" : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100")}>
+            <Wind className="h-3.5 w-3.5" /> AC
+          </button>
+
+          {/* WiFi */}
+          <button onClick={() => setHasWifiOnly(!hasWifiOnly)} className={cn("flex items-center gap-1.5 h-9 px-4 rounded-full text-xs font-medium border transition-colors shrink-0", hasWifiOnly ? "bg-primary text-white border-primary" : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100")}>
+            <Wifi className="h-3.5 w-3.5" /> WiFi
+          </button>
+
+          {/* Male / Female */}
+          <Select value={genderFilter} onValueChange={setGenderFilter}>
+            <SelectTrigger className="h-9 w-32 text-xs border-gray-200 rounded-full bg-gray-50 shrink-0"><Users className="h-3 w-3 mr-1" /><SelectValue placeholder="Gender" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="0" className="text-xs">Any</SelectItem>
+              <SelectItem value="MALE" className="text-xs">Male</SelectItem>
+              <SelectItem value="FEMALE" className="text-xs">Female</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Clear */}
+          {hasActiveFilters && (
+            <button onClick={clearFilters} className="flex items-center gap-1 h-9 px-4 rounded-full text-xs font-medium text-red-600 bg-red-50 border border-red-200 hover:bg-red-100 transition-colors shrink-0">
+              <X className="h-3 w-3" /> Clear
+            </button>
+          )}
+        </div>
+      </section>
+
+      {/* ═══ RESULTS COUNT ═══ */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-4">
+        <p className="text-sm text-gray-500">{loading ? "Loading..." : `${filtered.length} services found`}</p>
+      </div>
+
+      {/* ═══ SERVICE LISTING CARDS ═══ */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+        {loading ? (
+          <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-16">
+            <Building2 className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900">No services found</h3>
+            <p className="text-gray-500 mt-1">Try adjusting your filters or search criteria</p>
+            <Button variant="outline" className="mt-4" onClick={clearFilters}>Clear Filters</Button>
+          </div>
+        ) : (
+          <div className="space-y-5">
+            {filtered.map((property) => (
+              <Card key={property.id} className="overflow-hidden hover:shadow-lg transition-all">
+                <div className="flex flex-col md:flex-row">
+                  {/* Left: Images */}
+                  <div className="md:w-80 lg:w-96 h-56 md:h-auto bg-gray-100 shrink-0 relative">
+                    <ImageCarousel images={property.images} name={property.name} />
+                  </div>
+
+                  {/* Right: Details */}
+                  <div className="flex-1 p-4 md:p-6">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        {/* Name + type badge */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Link href={`/services/${property.slug}`}><h3 className="font-bold text-lg text-gray-900 hover:text-primary transition-colors">{property.name}</h3></Link>
+                          <Badge variant="outline" className="text-xs">{SERVICE_TYPES.find((s) => s.value === property.serviceType)?.label || property.serviceType}</Badge>
+                        </div>
+
+                        {/* Location */}
+                        <div className="flex items-center gap-1 mt-1 text-sm text-gray-500"><MapPin className="h-3.5 w-3.5" /> {property.address}, {property.city}</div>
+
+                        {/* Ratings (expandable) */}
+                        <div className="mt-2">
+                          <StarRating rating={property.avgRating} reviews={property.totalReviews} />
+                        </div>
+
+                        {/* Cancellation policy */}
+                        {property.cancellationPolicy && <p className="text-xs text-green-600 mt-2 font-medium">{property.cancellationPolicy}</p>}
+
+                        {/* Amenities / Features */}
+                        <div className="flex items-center gap-2.5 mt-3 flex-wrap">
+                          {property.hasWifi && <span className="flex items-center gap-1 text-xs text-gray-600 bg-gray-50 px-2.5 py-1 rounded-full border border-gray-100"><Wifi className="h-3 w-3" /> WiFi</span>}
+                          {property.isAC && <span className="flex items-center gap-1 text-xs text-gray-600 bg-gray-50 px-2.5 py-1 rounded-full border border-gray-100"><Wind className="h-3 w-3" /> AC</span>}
+                          {property.foodIncluded && <span className="flex items-center gap-1 text-xs text-gray-600 bg-gray-50 px-2.5 py-1 rounded-full border border-gray-100"><Utensils className="h-3 w-3" /> Food</span>}
+                          {property.hasMedical && <span className="flex items-center gap-1 text-xs text-gray-600 bg-gray-50 px-2.5 py-1 rounded-full border border-gray-100"><ShieldCheck className="h-3 w-3" /> Medical</span>}
+                          {property.laundryIncluded && <span className="flex items-center gap-1 text-xs text-gray-600 bg-gray-50 px-2.5 py-1 rounded-full border border-gray-100"><Shirt className="h-3 w-3" /> Laundry</span>}
+                          {property.forGender && <span className="flex items-center gap-1 text-xs text-gray-600 bg-gray-50 px-2.5 py-1 rounded-full border border-gray-100"><Users className="h-3 w-3" /> {property.forGender === "MALE" ? "Boys" : "Girls"}</span>}
+                          {property.occupancy && <span className="text-xs text-gray-500 bg-gray-50 px-2.5 py-1 rounded-full border border-gray-100">{property.occupancy}-sharing</span>}
+                        </div>
+
+                        {/* Nearby landmark */}
+                        {property.nearbyLandmark && <p className="text-xs text-gray-500 mt-2 flex items-center gap-1"><MapPin className="h-3 w-3" /> Near {property.nearbyLandmark}</p>}
+                      </div>
+
+                      {/* Price + Actions (right corner) */}
+                      <div className="text-right ml-4 shrink-0">
+                        <p className="text-xs text-gray-500 line-through">{formatPrice(Math.round(property.price * 1.2))}</p>
+                        <p className="text-2xl font-bold text-gray-900">{formatPrice(property.price)}</p>
+                        <p className="text-xs text-gray-500">+ {property.gstRate}% GST</p>
+                        <p className="text-xs text-gray-400 mt-0.5">Total: {formatPrice(Math.round(property.price * (1 + property.gstRate / 100)))}</p>
+
+                        <div className="mt-3 space-y-2">
+                          <Link href={`/services/${property.slug}`}><Button size="sm" variant="outline" className="w-full text-xs">View More</Button></Link>
+                          <Link href={`/services/${property.slug}`}><Button size="sm" className="w-full text-xs">Book Now</Button></Link>
+                          <Button size="sm" variant="outline" className="w-full text-xs" disabled={addingToCart === property.id} onClick={() => addToCart(property)}>
+                            {addingToCart === property.id ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <ShoppingCart className="h-3.5 w-3.5 mr-1" />} Cart
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+      </section>
+
       <Footer />
     </div>
   );

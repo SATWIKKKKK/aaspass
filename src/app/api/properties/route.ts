@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
         skip: (page - 1) * limit,
         take: limit,
         include: {
-          images: { take: 1 },
+          images: { take: 4, orderBy: { order: "asc" } },
           owner: { select: { name: true } },
         },
       }),

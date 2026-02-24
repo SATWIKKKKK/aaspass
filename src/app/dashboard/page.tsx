@@ -7,7 +7,7 @@ import toast from "react-hot-toast";
 import {
   Plus, Calendar, Crown, Coins, RefreshCw, XCircle,
   MessageSquare, Share2, ChevronDown, Loader2, Settings, LogOut,
-  Bookmark, LayoutDashboard, Ticket, Award,
+  Bookmark, LayoutDashboard, Ticket, Award, Search,
 } from "lucide-react";
 import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
@@ -232,6 +232,9 @@ export default function StudentDashboard() {
                       <p className="text-xs text-gray-500">{session.user?.email}</p>
                       {isPremium && <Badge className="bg-amber-100 text-amber-700 text-[10px] mt-1"><Crown className="h-3 w-3 mr-0.5" />Premium</Badge>}
                     </div>
+                    <Link href="/services" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setProfileOpen(false)}>
+                      <Search className="h-4 w-4 text-gray-400" /> Browse Services
+                    </Link>
                     <Link href="/dashboard" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setProfileOpen(false)}>
                       <LayoutDashboard className="h-4 w-4 text-gray-400" /> My Bookings
                     </Link>
