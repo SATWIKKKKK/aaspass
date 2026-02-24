@@ -121,9 +121,11 @@ function RegisterFormInner() {
         {/* Left — AasPass branding, perfectly centred */}
         <div className="lg:w-5/12 bg-linear-to-br from-primary/8 to-primary/15 flex items-center justify-center px-10 py-14 lg:py-0">
           <div className="text-center">
-            <h1 className="text-6xl font-black tracking-tight text-primary leading-none mb-4">
-              Aas<span className="text-premium">Pass</span>
-            </h1>
+            <Link href="/home" className="inline-block group">
+              <h1 className="text-6xl font-black tracking-tight text-primary leading-none mb-4 group-hover:opacity-80 transition-opacity">
+                Aas<span className="text-premium">Pass</span>
+              </h1>
+            </Link>
             <p className="text-base text-gray-500 max-w-xs leading-relaxed">
               Get all the services to make it feel like your home
             </p>

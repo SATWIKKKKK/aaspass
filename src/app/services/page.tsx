@@ -395,7 +395,7 @@ function ServicesContent() {
       <section ref={heroRef} className="relative pt-8 pb-4 bg-white">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_30%,rgba(var(--primary-rgb,59,130,246),0.05),transparent)] pointer-events-none" />
         <div className="text-center pt-6 pb-8">
-          <h1 className="font-black tracking-tight text-primary text-6xl sm:text-7xl md:text-8xl lg:text-9xl leading-none select-none">Aas<span className="text-premium">Pass</span></h1>
+          <Link href="/home"><h1 className="font-black tracking-tight text-primary text-6xl sm:text-7xl md:text-8xl lg:text-9xl leading-none select-none hover:opacity-80 transition-opacity">Aas<span className="text-premium">Pass</span></h1></Link>
           <p className="mt-3 text-gray-500 text-sm sm:text-base">Find hostels, PGs, coaching, mess & more</p>
         </div>
         <div className="max-w-5xl mx-auto px-4">

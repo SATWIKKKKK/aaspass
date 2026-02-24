@@ -265,9 +265,11 @@ export default function StudentDashboard() {
 
       {/* --- AASPASS HERO TEXT --- */}
       <div className="text-center pt-8 pb-4">
-        <h1 className="font-black tracking-tight text-primary text-6xl sm:text-7xl md:text-8xl lg:text-9xl leading-none select-none">
-          Aas<span className="text-premium">Pass</span>
-        </h1>
+        <Link href="/home">
+          <h1 className="font-black tracking-tight text-primary text-6xl sm:text-7xl md:text-8xl lg:text-9xl leading-none select-none hover:opacity-80 transition-opacity">
+            Aas<span className="text-premium">Pass</span>
+          </h1>
+        </Link>
       </div>
 
       {/* --- MAIN CONTENT --- */}
