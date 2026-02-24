@@ -128,7 +128,7 @@ function RegisterFormInner() {
       </div>
 
       {/* Right side — form */}
-      <div className="flex-1 flex items-start justify-center overflow-y-auto px-10 py-8">
+      <div className="flex-1 flex items-start justify-center overflow-y-auto px-4 sm:px-6 md:px-10 py-8">
         <div className="w-full max-w-xl">
           {/* Mobile logo */}
           <div className="lg:hidden text-center mb-6">
@@ -207,7 +207,7 @@ function RegisterFormInner() {
                 </div>
 
                 {/* Rows 3-4: Email + Aadhar (left) | Profile Photo spanning both (right) */}
-                <div className="grid grid-cols-2 gap-4 items-start">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
                   <div className="space-y-4">
                     <div>
                       <Label>Email <span className="text-red-500">*</span></Label>

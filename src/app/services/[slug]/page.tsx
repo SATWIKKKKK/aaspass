@@ -55,7 +55,7 @@ export default function PropertyPage() {
     async function load() {
       try {
         const res = await fetch(`/api/properties/${params.slug}`);
-        if (res.ok) { const data = await res.json(); setProperty(data); }
+        if (res.ok) { const data = await res.json(); setProperty(data.property); }
         else toast.error("Property not found");
       } catch { toast.error("Failed to load property"); }
       finally { setLoading(false); }
@@ -140,7 +140,7 @@ export default function PropertyPage() {
             )}
           </div>
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-48 bg-gray-100">
+            <div key={i} className={cn("h-48 bg-gray-100", i > 2 && "hidden md:block")}>
               {property.images?.[i]?.url ? (
                 <img src={property.images[i].url} alt="" className="w-full h-full object-cover" />
               ) : (

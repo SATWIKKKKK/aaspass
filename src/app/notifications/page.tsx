@@ -31,7 +31,7 @@ export default function NotificationsPage() {
 
   const markAsRead = async (id: string) => {
     try {
-      const res = await fetch("/api/notifications", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+      const res = await fetch("/api/notifications", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids: [id] }) });
       if (res.ok) setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, isRead: true } : n));
     } catch { toast.error("Failed to update"); }
   };

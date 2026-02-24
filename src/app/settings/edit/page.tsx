@@ -27,7 +27,8 @@ export default function EditProfilePage() {
   useEffect(() => {
     if (status !== "authenticated") return;
     fetch("/api/profile").then((r) => r.json()).then((data) => {
-      setForm({ name: data.name || "", email: data.email || "", phone: data.phone || "", aadharNo: data.aadharNo || "", gender: data.gender || "MALE" });
+      const u = data.user || data;
+      setForm({ name: u.name || "", email: u.email || "", phone: u.phone || "", aadharNo: u.aadharNo || "", gender: u.gender || "MALE" });
     }).catch(() => toast.error("Failed to load profile")).finally(() => setLoading(false));
   }, [status]);
 

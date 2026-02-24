@@ -549,7 +549,7 @@ function ServicesContent() {
 
                   {/* Right: Details */}
                   <div className="flex-1 p-4 md:p-6">
-                    <div className="flex items-start justify-between">
+                    <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
                         {/* Name + type badge */}
                         <div className="flex items-center gap-2 flex-wrap">
@@ -584,7 +584,7 @@ function ServicesContent() {
                       </div>
 
                       {/* Price + Actions (right corner) */}
-                      <div className="text-right ml-4 shrink-0">
+                      <div className="text-left sm:text-right sm:ml-4 shrink-0 w-full sm:w-auto">
                         <p className="text-xs text-gray-500 line-through">{formatPrice(Math.round(property.price * 1.2))}</p>
                         <p className="text-2xl font-bold text-gray-900">{formatPrice(property.price)}</p>
                         <p className="text-xs text-gray-500">+ {property.gstRate}% GST</p>
