@@ -21,13 +21,16 @@ export async function GET(req: NextRequest) {
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "12");
 
-    const where: any = { status: "VERIFIED" };
+    const where: any = {};
     if (owner === "me") {
       const session = await auth();
       if (!session || (session.user as any)?.role !== "OWNER") {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
       where.ownerId = session.user.id!;
+      // Owner sees all their properties regardless of status
+    } else {
+      where.status = "VERIFIED"; // Public API only shows verified
     }
     if (serviceType) where.serviceType = serviceType;
     if (city) where.city = { contains: city, mode: "insensitive" };

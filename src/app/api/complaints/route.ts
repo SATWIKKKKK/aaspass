@@ -9,10 +9,12 @@ export async function GET(req: NextRequest) {
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const where: any = {};
-    if (session.user?.role === "STUDENT") {
+    const role = (session.user as any)?.role;
+    if (role === "STUDENT") {
       where.studentId = session.user.id;
-    } else if (session.user?.role === "OWNER") {
-      where.ownerId = session.user.id;
+    } else if (role === "OWNER") {
+      // Filter by properties owned by this user (ownerId on complaint is rarely set)
+      where.property = { ownerId: session.user.id };
     }
 
     const complaints = await prisma.complaint.findMany({

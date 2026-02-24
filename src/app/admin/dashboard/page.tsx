@@ -1,34 +1,145 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useSession, signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import {
-  Building2, Plus, LayoutDashboard, Users, DollarSign, Star,
-  ArrowUpRight, Loader2, BarChart3, AlertCircle,
+  Plus, Crown, ChevronDown, ChevronLeft, ChevronRight, Loader2,
+  Settings, LogOut, LayoutDashboard, Building2, Pencil, BarChart3,
+  Megaphone, Send, MapPin, Star, X, Eye, TrendingUp, ArrowRight,
+  Ticket, Users, DollarSign,
 } from "lucide-react";
-import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { cn, formatPrice, formatDate, SERVICE_TYPES } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { PremiumModal } from "@/components/premium-modal";
+import { cn, formatPrice } from "@/lib/utils";
 
+/* ───── Types ───── */
+interface PropertyImage { id: string; url: string; isWideShot: boolean; order: number }
 interface PropertyData {
   id: string; name: string; slug: string; serviceType: string; status: string;
-  price: number; avgRating: number; totalReviews: number; city: string;
-  images: { url: string }[];
+  price: number; gstRate: number; avgRating: number; totalReviews: number;
+  city: string; address: string; images: PropertyImage[];
   _count?: { bookings: number };
 }
+interface OwnerStats {
+  totalProperties: number; verifiedProperties: number;
+  totalBookings: number; activeBookings: number; pendingBookings: number;
+  completedBookings: number; cancelledBookings: number;
+  totalRevenue: number; avgRating: number; totalReviews: number;
+  totalComplaints: number; openComplaints: number;
+  totalAnnouncements: number;
+  monthlyRevenue: { month: string; revenue: number; bookings: number }[];
+}
 
+/* ───── Image Carousel ───── */
+function ImageCarousel({ images, className }: { images: PropertyImage[]; className?: string }) {
+  const [idx, setIdx] = useState(0);
+  const imgs = images.length > 0 ? images : [{ id: "ph", url: "", isWideShot: false, order: 0 }];
+  return (
+    <div className={cn("relative group overflow-hidden bg-gray-100", className)}>
+      {imgs[idx]?.url ? (
+        <img src={imgs[idx].url} alt="" className="w-full h-full object-cover transition-all duration-300" />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center bg-linear-to-br from-primary/10 to-primary/5">
+          <Building2 className="h-10 w-10 text-primary/30" />
+        </div>
+      )}
+      {imgs.length > 1 && (
+        <>
+          <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIdx((i) => (i - 1 + imgs.length) % imgs.length); }}
+            className="absolute left-1 top-1/2 -translate-y-1/2 h-9 w-9 sm:h-7 sm:w-7 rounded-full bg-white/80 flex items-center justify-center opacity-70 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shadow">
+            <ChevronLeft className="h-4 w-4 text-gray-700" />
+          </button>
+          <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIdx((i) => (i + 1) % imgs.length); }}
+            className="absolute right-1 top-1/2 -translate-y-1/2 h-9 w-9 sm:h-7 sm:w-7 rounded-full bg-white/80 flex items-center justify-center opacity-70 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shadow">
+            <ChevronRight className="h-4 w-4 text-gray-700" />
+          </button>
+          <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex gap-1.5">
+            {imgs.map((_, i) => (
+              <button key={i} onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIdx(i); }}
+                className={cn("h-2 w-2 rounded-full transition-all cursor-pointer", i === idx ? "bg-white w-4" : "bg-white/60")} />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ───── Announcement Modal ───── */
+function AnnouncementModal({ open, onClose, property }: {
+  open: boolean; onClose: () => void; property: PropertyData | null;
+}) {
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [sending, setSending] = useState(false);
+  if (!open || !property) return null;
+
+  const handleSend = async () => {
+    if (!title.trim() || !content.trim()) { toast.error("Fill both title and message"); return; }
+    setSending(true);
+    try {
+      const res = await fetch("/api/announcements", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, content, propertyId: property.id }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(`Announcement sent! ${data.notifiedCount || 0} student(s) notified`);
+        setTitle(""); setContent(""); onClose();
+      } else toast.error(data.error || "Failed to send");
+    } catch { toast.error("Something went wrong"); }
+    finally { setSending(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between p-5 border-b border-gray-100">
+          <div>
+            <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              <Megaphone className="h-5 w-5 text-primary" />Send Announcement
+            </h3>
+            <p className="text-sm text-gray-500 mt-0.5">To students booked at <span className="font-medium">{property.name}</span></p>
+          </div>
+          <button onClick={onClose} className="h-10 w-10 rounded-full hover:bg-gray-100 flex items-center justify-center"><X className="h-5 w-5" /></button>
+        </div>
+        <div className="p-5 space-y-4">
+          <div><Label className="text-sm font-medium">Title</Label><Input placeholder="e.g. Water Supply Update" value={title} onChange={(e) => setTitle(e.target.value)} className="mt-1" /></div>
+          <div><Label className="text-sm font-medium">Message</Label><Textarea placeholder="Write your announcement details..." rows={4} value={content} onChange={(e) => setContent(e.target.value)} className="mt-1" /></div>
+        </div>
+        <div className="flex items-center justify-end gap-2 p-5 border-t border-gray-100">
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={handleSend} disabled={sending}>
+            {sending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Sending...</> : <><Send className="h-4 w-4 mr-2" />Send Announcement</>}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════ MAIN DASHBOARD ═══════════════════ */
 export default function AdminDashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [properties, setProperties] = useState<PropertyData[]>([]);
-  const [bookings, setBookings] = useState<any[]>([]);
+  const [stats, setStats] = useState<OwnerStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [premiumOpen, setPremiumOpen] = useState(false);
+  const [announceProp, setAnnounceProp] = useState<PropertyData | null>(null);
+
+  const isPremium = (session?.user as any)?.isPremium;
+  const userName = session?.user?.name ? session.user.name.split(" ")[0] : "Owner";
 
   useEffect(() => { if (status === "unauthenticated") router.push("/login"); }, [status, router]);
 
@@ -36,87 +147,287 @@ export default function AdminDashboard() {
     if (status !== "authenticated") return;
     Promise.all([
       fetch("/api/properties?owner=me").then((r) => r.json()),
-      fetch("/api/bookings").then((r) => r.json()),
-    ]).then(([propData, bookData]) => {
+      fetch("/api/owner/stats").then((r) => r.json()),
+    ]).then(([propData, statsData]) => {
       setProperties(propData.properties || []);
-      setBookings(bookData.bookings || []);
+      if (!statsData.error) setStats(statsData);
     }).catch(() => toast.error("Failed to load data"))
-    .finally(() => setLoading(false));
+      .finally(() => setLoading(false));
   }, [status]);
 
-  if (status === "loading" || loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+  useEffect(() => {
+    const handler = () => setProfileOpen(false);
+    if (profileOpen) document.addEventListener("click", handler);
+    return () => document.removeEventListener("click", handler);
+  }, [profileOpen]);
 
-  const totalRevenue = bookings.reduce((sum: number, b: any) => sum + (b.grandTotal || 0), 0);
-  const activeBookings = bookings.filter((b: any) => ["ACTIVE", "CONFIRMED"].includes(b.status));
+  if (status === "loading" || loading)
+    return <div className="min-h-screen bg-white flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+
+  const displayProperties = properties.slice(0, 2);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar variant="admin" />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex items-center justify-between mb-8">
-          <div><h1 className="text-3xl font-bold text-gray-900">Owner Dashboard</h1><p className="text-gray-600 mt-1">Manage your properties and bookings</p></div>
-          <Link href="/admin/properties/new"><Button><Plus className="h-4 w-4 mr-2" /> Add Property</Button></Link>
-        </div>
+    <div className="min-h-screen bg-white">
+      <PremiumModal open={premiumOpen} onClose={() => setPremiumOpen(false)} />
+      <AnnouncementModal open={!!announceProp} onClose={() => setAnnounceProp(null)} property={announceProp} />
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <Card><CardContent className="p-4 flex items-center gap-3"><div className="h-10 w-10 rounded-lg bg-blue-50 flex items-center justify-center"><Building2 className="h-5 w-5 text-blue-600" /></div><div><p className="text-2xl font-bold text-gray-900">{properties.length}</p><p className="text-xs text-gray-500">Properties</p></div></CardContent></Card>
-          <Card><CardContent className="p-4 flex items-center gap-3"><div className="h-10 w-10 rounded-lg bg-green-50 flex items-center justify-center"><DollarSign className="h-5 w-5 text-green-600" /></div><div><p className="text-2xl font-bold text-gray-900">{formatPrice(totalRevenue)}</p><p className="text-xs text-gray-500">Revenue</p></div></CardContent></Card>
-          <Card><CardContent className="p-4 flex items-center gap-3"><div className="h-10 w-10 rounded-lg bg-purple-50 flex items-center justify-center"><Users className="h-5 w-5 text-purple-600" /></div><div><p className="text-2xl font-bold text-gray-900">{activeBookings.length}</p><p className="text-xs text-gray-500">Active Bookings</p></div></CardContent></Card>
-          <Card><CardContent className="p-4 flex items-center gap-3"><div className="h-10 w-10 rounded-lg bg-yellow-50 flex items-center justify-center"><Star className="h-5 w-5 text-yellow-600" /></div><div><p className="text-2xl font-bold text-gray-900">{properties.length > 0 ? (properties.reduce((s, p) => s + p.avgRating, 0) / properties.length).toFixed(1) : "0"}</p><p className="text-xs text-gray-500">Avg Rating</p></div></CardContent></Card>
-        </div>
-
-        {/* Properties */}
-        <section className="mb-8">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Your Properties</h2>
-          {properties.length === 0 ? (
-            <Card><CardContent className="p-12 text-center"><Building2 className="h-12 w-12 text-gray-300 mx-auto mb-4" /><h3 className="text-lg font-semibold text-gray-900">No properties yet</h3><p className="text-gray-500 mt-1">List your first property to start earning</p><Link href="/admin/properties/new"><Button className="mt-4">Add Property</Button></Link></CardContent></Card>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {properties.map((property) => (
-                <Card key={property.id} className="overflow-hidden hover:shadow-md transition-shadow">
-                  <div className="h-40 bg-gray-100">
-                    {property.images?.[0]?.url ? <img src={property.images[0].url} alt="" className="w-full h-full object-cover" /> :
-                    <div className="w-full h-full bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center"><Building2 className="h-10 w-10 text-primary/30" /></div>}
+      {/* ── NAVBAR ── */}
+      <header className="bg-white/95 backdrop-blur-md border-b border-gray-100 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <Link href="/home" className="flex items-center gap-2"><span className="sr-only">AasPass</span></Link>
+            {session ? (
+              <div className="relative" onClick={(e) => e.stopPropagation()}>
+                <button onClick={() => setProfileOpen(!profileOpen)}
+                  className="flex items-center gap-2 h-10 px-3 rounded-full border border-gray-200 bg-white hover:bg-gray-50 transition-colors shadow-sm">
+                  <div className="h-7 w-7 bg-primary/10 rounded-full flex items-center justify-center">
+                    <span className="text-sm font-bold text-primary">{session.user?.name?.[0]?.toUpperCase() || "O"}</span>
                   </div>
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <div><h3 className="font-semibold text-gray-900">{property.name}</h3><p className="text-xs text-gray-500">{property.city}</p></div>
-                      <Badge variant={property.status === "ACTIVE" ? "success" : "secondary"}>{property.status}</Badge>
+                  {isPremium && <Crown className="h-3.5 w-3.5 text-amber-500" />}
+                  <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
+                </button>
+                {profileOpen && (
+                  <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-xl shadow-xl py-2 z-60">
+                    <div className="px-4 py-3 border-b border-gray-100">
+                      <p className="text-sm font-semibold text-gray-900">{session.user?.name}</p>
+                      <p className="text-xs text-gray-500">{session.user?.email}</p>
+                      <Badge className="bg-blue-100 text-blue-700 text-[10px] mt-1"><Building2 className="h-3 w-3 mr-0.5" />Owner</Badge>
                     </div>
-                    <div className="flex items-center gap-3 text-sm text-gray-500 mb-3">
-                      <span className="flex items-center gap-1"><Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />{property.avgRating.toFixed(1)}</span>
-                      <span>{formatPrice(property.price)}/mo</span>
+                    <Link href="/admin/dashboard" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setProfileOpen(false)}>
+                      <LayoutDashboard className="h-4 w-4 text-gray-400" /> Dashboard
+                    </Link>
+                    <Link href="/admin/properties" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setProfileOpen(false)}>
+                      <Building2 className="h-4 w-4 text-gray-400" /> My Properties
+                    </Link>
+                    <Link href="/admin/properties/new" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setProfileOpen(false)}>
+                      <Plus className="h-4 w-4 text-gray-400" /> Add Property
+                    </Link>
+                    {!isPremium && (
+                      <button onClick={() => { setPremiumOpen(true); setProfileOpen(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-amber-600 hover:bg-amber-50">
+                        <Crown className="h-4 w-4" /> Upgrade to Premium
+                      </button>
+                    )}
+                    <Link href="/settings" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setProfileOpen(false)}>
+                      <Settings className="h-4 w-4 text-gray-400" /> Settings
+                    </Link>
+                    <div className="border-t border-gray-100 mt-1 pt-1">
+                      <button onClick={() => signOut({ callbackUrl: "/home" })} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50">
+                        <LogOut className="h-4 w-4" /> Sign Out
+                      </button>
                     </div>
-                    <Link href={`/admin/properties/${property.slug}/manage`}><Button variant="outline" size="sm" className="w-full">Manage <ArrowUpRight className="h-3.5 w-3.5 ml-1" /></Button></Link>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <Link href="/login"><Button variant="outline" size="sm">Sign In</Button></Link>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* ── HERO ── */}
+      <div className="text-center pt-8 pb-4">
+        <h1 className="font-black tracking-tight text-primary text-6xl sm:text-7xl md:text-8xl lg:text-9xl leading-none select-none">
+          Aas<span className="text-premium">Pass</span>
+        </h1>
+      </div>
+
+      {/* ── MAIN CONTENT ── */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        {/* Greeting */}
+        <div className="mb-8">
+          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Hello {userName}</h2>
+          <p className="text-gray-600 mt-1">Manage your properties, track bookings, and grow your business.</p>
+        </div>
+
+        {/* ═══ YOUR PROPERTIES ═══ */}
+        <section className="mb-12">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-bold text-gray-900">Your Properties</h3>
+            {properties.length > 2 && (
+              <Link href="/admin/properties" className="flex items-center gap-1 text-sm font-medium text-primary hover:underline">
+                View All ({properties.length}) <ArrowRight className="h-4 w-4" />
+              </Link>
+            )}
+          </div>
+
+          <div className="flex flex-col lg:flex-row gap-6">
+            {/* Add Property — fixed width */}
+            <Link href="/admin/properties/new" className="block shrink-0 lg:w-64 xl:w-72">
+              <Card className="border-2 border-dashed border-primary/30 hover:border-primary/60 hover:bg-primary/5 transition-all cursor-pointer h-full">
+                <CardContent className="p-8 flex flex-col items-center justify-center text-center h-full min-h-55">
+                  <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                    <Plus className="h-8 w-8 text-primary" />
+                  </div>
+                  <p className="font-semibold text-gray-900 text-lg">Add Property</p>
+                  <p className="text-sm text-gray-500 mt-1">List a new hostel, PG, gym...</p>
+                </CardContent>
+              </Card>
+            </Link>
+
+            {/* Property Cards — stretch to fill */}
+            {properties.length === 0 ? (
+              <div className="flex-1 flex items-center justify-center min-h-55">
+                <Card className="border-2 border-dashed border-gray-200 w-full h-full">
+                  <CardContent className="p-12 text-center flex flex-col items-center justify-center h-full">
+                    <Building2 className="h-12 w-12 text-gray-300 mb-4" />
+                    <h4 className="text-lg font-semibold text-gray-900">No properties yet</h4>
+                    <p className="text-sm text-gray-500 mt-1">Click &quot;Add Property&quot; to list your first one</p>
                   </CardContent>
                 </Card>
-              ))}
-            </div>
-          )}
+              </div>
+            ) : (
+              <div className="flex-1 flex flex-col sm:flex-row gap-6 min-w-0">
+                {displayProperties.map((property) => (
+                  <PropertyCard
+                    key={property.id}
+                    property={property}
+                    onAnnounce={() => setAnnounceProp(property)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </section>
 
-        {/* Recent Bookings */}
-        <section>
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Recent Bookings</h2>
-          {bookings.length === 0 ? <Card><CardContent className="p-8 text-center text-gray-500">No bookings yet.</CardContent></Card> :
-          <div className="space-y-3">
-            {bookings.slice(0, 10).map((booking: any) => (
-              <Card key={booking.id}><CardContent className="p-4 flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-gray-900">{booking.property?.name || "Property"}</p>
-                  <p className="text-sm text-gray-500">{booking.student?.name || "Student"} &bull; {formatDate(booking.checkIn)} - {formatDate(booking.checkOut)}</p>
+        {/* ═══ BUSINESS STATS ═══ */}
+        <section className="mb-12">
+          <h3 className="text-xl font-bold text-gray-900 mb-6">Special For You</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+
+            {/* Premium */}
+            <Card className="bg-linear-to-br from-amber-50 to-yellow-50 border-amber-100 hover:shadow-md transition-shadow">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-lg"><Crown className="h-5 w-5 text-amber-600" />Get Premium</CardTitle>
+                <CardDescription>Boost your property visibility</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-600 mb-3">Premium owners get featured placement, priority support, and analytics.</p>
+                <Button size="sm" variant="premium" onClick={() => setPremiumOpen(true)}>
+                  {isPremium ? "Manage Premium" : "Upgrade Now"}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Dynamic Business Stats */}
+            <Card className="bg-linear-to-br from-blue-50 to-indigo-50 border-blue-100 hover:shadow-md transition-shadow">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-lg"><TrendingUp className="h-5 w-5 text-blue-600" />Business Stats</CardTitle>
+                <CardDescription>Your performance overview</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-2xl font-bold text-blue-700">{stats?.totalProperties || 0}</p>
+                    <p className="text-xs text-gray-500">Properties</p>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-green-700">{formatPrice(stats?.totalRevenue || 0)}</p>
+                    <p className="text-xs text-gray-500">Revenue</p>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-purple-700">{stats?.activeBookings || 0}</p>
+                    <p className="text-xs text-gray-500">Active Bookings</p>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-yellow-700">{stats?.avgRating?.toFixed(1) || "0.0"}</p>
+                    <p className="text-xs text-gray-500">Avg Rating</p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="font-semibold text-gray-900">{formatPrice(booking.grandTotal || 0)}</p>
-                  <Badge variant={["ACTIVE", "CONFIRMED"].includes(booking.status) ? "success" : "secondary"} className="text-xs">{booking.status}</Badge>
+              </CardContent>
+            </Card>
+
+            {/* Owner Offers */}
+            <Card className="bg-linear-to-br from-green-50 to-emerald-50 border-green-100 hover:shadow-md transition-shadow">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-lg"><Ticket className="h-5 w-5 text-green-600" />Owner Offers</CardTitle>
+                <CardDescription>Exclusive deals for property owners</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between bg-white/70 rounded-lg px-3 py-2 border border-green-100">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">FREE LISTING</p>
+                      <p className="text-[10px] text-gray-500">First property listed free</p>
+                    </div>
+                    <Badge className="bg-green-100 text-green-700 text-[10px]">Active</Badge>
+                  </div>
+                  <div className="flex items-center justify-between bg-white/70 rounded-lg px-3 py-2 border border-green-100">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">BOOST50</p>
+                      <p className="text-[10px] text-gray-500">50% off featured boost</p>
+                    </div>
+                    <Badge className="bg-amber-100 text-amber-700 text-[10px]">Limited</Badge>
+                  </div>
                 </div>
-              </CardContent></Card>
-            ))}
-          </div>}
+              </CardContent>
+            </Card>
+          </div>
         </section>
       </div>
+
       <Footer />
     </div>
+  );
+}
+
+/* ═══════════════════ PROPERTY CARD ═══════════════════ */
+function PropertyCard({ property, onAnnounce }: { property: PropertyData; onAnnounce: () => void }) {
+  return (
+    <Card className="flex-1 min-w-0 overflow-hidden hover:shadow-lg transition-shadow h-full min-h-55">
+      <div className="flex flex-col sm:flex-row h-full">
+        {/* Left: images */}
+        <ImageCarousel
+          images={property.images}
+          className="w-full sm:w-40 md:w-48 lg:w-52 h-48 sm:h-auto shrink-0 rounded-t-xl sm:rounded-t-none sm:rounded-l-xl"
+        />
+
+        {/* Right: info + action buttons */}
+        <div className="flex-1 p-4 flex flex-col justify-between min-w-0">
+          <div className="mb-3">
+            <div className="flex items-start gap-2">
+              <div className="min-w-0 flex-1">
+                <h4 className="font-semibold text-gray-900 text-base truncate">{property.name}</h4>
+                <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5 truncate">
+                  <MapPin className="h-3 w-3 shrink-0" />{property.address}, {property.city}
+                </p>
+              </div>
+              <Badge
+                variant={property.status === "VERIFIED" ? "success" : property.status === "PENDING" ? "secondary" : "destructive"}
+                className="text-[10px] shrink-0"
+              >
+                {property.status}
+              </Badge>
+            </div>
+            <div className="flex items-center gap-3 text-xs text-gray-500 mt-2">
+              <span className="flex items-center gap-0.5"><Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />{property.avgRating.toFixed(1)}</span>
+              <span>{formatPrice(property.price)}/mo</span>
+              <span className="capitalize">{property.serviceType.toLowerCase()}</span>
+            </div>
+          </div>
+
+          {/* Action buttons — 2×2 grid */}
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <Link href={`/admin/properties/${property.slug}/manage?tab=edit`} className="flex-1">
+                <Button size="sm" variant="outline" className="w-full text-xs h-8"><Pencil className="h-3 w-3 mr-1" />Edit</Button>
+              </Link>
+              <Link href={`/admin/properties/${property.slug}/manage`} className="flex-1">
+                <Button size="sm" variant="outline" className="w-full text-xs h-8"><Eye className="h-3 w-3 mr-1" />Manage</Button>
+              </Link>
+            </div>
+            <div className="flex gap-2">
+              <Link href={`/admin/properties/${property.slug}/manage?tab=analytics`} className="flex-1">
+                <Button size="sm" variant="outline" className="w-full text-xs h-8"><BarChart3 className="h-3 w-3 mr-1" />Analysis</Button>
+              </Link>
+              <Button size="sm" variant="outline" className="flex-1 text-xs h-8" onClick={onAnnounce}>
+                <Megaphone className="h-3 w-3 mr-1" />Announce
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Card>
   );
 }

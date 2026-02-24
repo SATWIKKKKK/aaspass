@@ -47,3 +47,25 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Failed to update notifications" }, { status: 500 });
   }
 }
+
+// POST /api/notifications — create notification (for announcements)
+export async function POST(req: NextRequest) {
+  try {
+    const session = await auth();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const { userId, title, message, link } = await req.json();
+    if (!userId || !title || !message) {
+      return NextResponse.json({ error: "userId, title, and message are required" }, { status: 400 });
+    }
+
+    const notification = await prisma.notification.create({
+      data: { userId, title, message, link: link || null },
+    });
+
+    return NextResponse.json({ notification }, { status: 201 });
+  } catch (error) {
+    console.error("POST /api/notifications error:", error);
+    return NextResponse.json({ error: "Failed to create notification" }, { status: 500 });
+  }
+}

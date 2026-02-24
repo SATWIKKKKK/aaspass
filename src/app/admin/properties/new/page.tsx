@@ -7,7 +7,8 @@ import Link from "next/link";
 import toast from "react-hot-toast";
 import {
   Building2, ChevronLeft, ChevronRight, Upload, MapPin, Wifi, Wind,
-  Utensils, Shirt, ShieldCheck, Users, Check, Loader2,
+  Utensils, Shirt, ShieldCheck, Users, Check, Loader2, Plus, X,
+  ArrowUp, ArrowDown, ImageIcon, Star as StarIcon,
 } from "lucide-react";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
@@ -17,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { SERVICE_TYPES, type ServiceTypeValue } from "@/lib/utils";
 
 const STEPS = [
@@ -25,13 +27,17 @@ const STEPS = [
   { id: 3, title: "Location", desc: "Where is it?" },
   { id: 4, title: "Amenities", desc: "Features and facilities" },
   { id: 5, title: "Rules & Policy", desc: "Rules and cancellation" },
+  { id: 6, title: "Photos", desc: "Add property images" },
 ];
+
+interface ImageEntry { url: string; isWideShot: boolean; previewError: boolean }
 
 export default function NewPropertyPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
+  const [images, setImages] = useState<ImageEntry[]>([]);
   const [form, setForm] = useState({
     name: "", serviceType: "HOSTEL" as ServiceTypeValue, description: "",
     price: "", gstRate: "18",
@@ -43,13 +49,31 @@ export default function NewPropertyPage() {
     foodRating: "", hasMedical: false,
     nearbyMess: "", nearbyLaundry: "",
     rules: "", cancellationPolicy: "",
-    imageUrls: "",
   });
 
   const update = (field: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const val = e.target.type === "checkbox" ? (e.target as HTMLInputElement).checked : e.target.value;
     setForm((p) => ({ ...p, [field]: val }));
   };
+
+  /* ─── Image helpers ─── */
+  const addImage = () => setImages((prev) => [...prev, { url: "", isWideShot: false, previewError: false }]);
+  const removeImage = (idx: number) => setImages((prev) => prev.filter((_, i) => i !== idx));
+  const updateImageUrl = (idx: number, url: string) =>
+    setImages((prev) => prev.map((img, i) => i === idx ? { ...img, url, previewError: false } : img));
+  const toggleWideShot = (idx: number) =>
+    setImages((prev) => prev.map((img, i) => i === idx ? { ...img, isWideShot: !img.isWideShot } : img));
+  const moveImage = (idx: number, dir: -1 | 1) => {
+    const newIdx = idx + dir;
+    if (newIdx < 0 || newIdx >= images.length) return;
+    setImages((prev) => {
+      const arr = [...prev];
+      [arr[idx], arr[newIdx]] = [arr[newIdx], arr[idx]];
+      return arr;
+    });
+  };
+  const setPreviewError = (idx: number) =>
+    setImages((prev) => prev.map((img, i) => i === idx ? { ...img, previewError: true } : img));
 
   const handleSubmit = async () => {
     if (!form.name || !form.description || !form.price || !form.address || !form.city || !form.state || !form.pincode) {
@@ -75,17 +99,22 @@ export default function NewPropertyPage() {
       if (form.foodRating) body.foodRating = parseFloat(form.foodRating);
       if (form.nearbyMess) body.nearbyMess = form.nearbyMess;
       if (form.nearbyLaundry) body.nearbyLaundry = form.nearbyLaundry;
-      if (form.imageUrls.trim()) body.images = form.imageUrls.split("\n").map((u: string) => ({ url: u.trim(), isWideShot: false })).filter((img: any) => img.url);
+
+      const validImages = images.filter((img) => img.url.trim());
+      if (validImages.length > 0) body.images = validImages.map((img) => ({ url: img.url.trim(), isWideShot: img.isWideShot }));
 
       const res = await fetch("/api/properties", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const data = await res.json();
-      if (res.ok) { toast.success("Property listed successfully! 🎉"); router.push("/admin/dashboard"); }
+      if (res.ok) { toast.success("Property listed successfully!"); router.push("/admin/dashboard"); }
       else toast.error(data.error || "Failed to create property");
     } catch { toast.error("Failed to create property"); }
     finally { setSubmitting(false); }
   };
 
   if (status === "loading") return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+
+  const totalSteps = STEPS.length;
+  const currentStep = STEPS[step - 1];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -97,7 +126,7 @@ export default function NewPropertyPage() {
         {/* Step Indicator */}
         <div className="flex items-center gap-2 mb-8 overflow-x-auto pb-2">
           {STEPS.map((s) => (
-            <button key={s.id} onClick={() => setStep(s.id)} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${step === s.id ? "bg-primary text-white" : step > s.id ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+            <button key={s.id} onClick={() => setStep(s.id)} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${step === s.id ? "bg-primary text-white" : step > s.id ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"}`}>
               {step > s.id ? <Check className="h-4 w-4" /> : <span className="h-5 w-5 rounded-full bg-white/20 flex items-center justify-center text-xs">{s.id}</span>}
               {s.title}
             </button>
@@ -105,7 +134,7 @@ export default function NewPropertyPage() {
         </div>
 
         <Card>
-          <CardHeader><CardTitle>{STEPS[step - 1].title}</CardTitle><CardDescription>{STEPS[step - 1].desc}</CardDescription></CardHeader>
+          <CardHeader><CardTitle>{currentStep.title}</CardTitle><CardDescription>{currentStep.desc}</CardDescription></CardHeader>
           <CardContent className="space-y-4">
             {step === 1 && (<>
               <div><Label>Property Name *</Label><Input placeholder="Sunrise Boys Hostel" value={form.name} onChange={update("name")} /></div>
@@ -115,7 +144,6 @@ export default function NewPropertyPage() {
                 </select>
               </div>
               <div><Label>Description *</Label><Textarea placeholder="Describe your property, facilities, and what makes it special..." rows={5} value={form.description} onChange={update("description")} /></div>
-              <div><Label>Image URLs (one per line)</Label><Textarea placeholder="https://example.com/image1.jpg&#10;https://example.com/image2.jpg" rows={3} value={form.imageUrls} onChange={update("imageUrls")} /></div>
             </>)}
 
             {step === 2 && (<>
@@ -187,9 +215,94 @@ export default function NewPropertyPage() {
               <div><Label>Cancellation Policy</Label><Textarea placeholder="Full refund if cancelled 7 days before check-in. 50% refund within 3 days." rows={3} value={form.cancellationPolicy} onChange={update("cancellationPolicy")} /></div>
             </>)}
 
+            {/* ── Step 6: Photos ── */}
+            {step === 6 && (<>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Add image URLs for your property. The first image will be the cover photo.</p>
+                  <p className="text-xs text-gray-400 mt-1">Supported: Direct image URLs (jpg, png, webp). Recommended: at least 3 photos.</p>
+                </div>
+                <Badge variant="secondary" className="shrink-0">{images.filter((i) => i.url.trim()).length} / {images.length}</Badge>
+              </div>
+
+              {/* Image list */}
+              <div className="space-y-4">
+                {images.map((img, idx) => (
+                  <div key={idx} className="flex gap-3 p-3 border border-gray-200 rounded-xl bg-white">
+                    {/* Preview */}
+                    <div className="w-24 h-24 shrink-0 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 relative">
+                      {img.url.trim() && !img.previewError ? (
+                        <img
+                          src={img.url}
+                          alt={`Photo ${idx + 1}`}
+                          className="w-full h-full object-cover"
+                          onError={() => setPreviewError(idx)}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center text-gray-300">
+                          <ImageIcon className="h-8 w-8" />
+                          <span className="text-[10px] mt-0.5">{img.previewError ? "Invalid URL" : "Preview"}</span>
+                        </div>
+                      )}
+                      {idx === 0 && img.url.trim() && (
+                        <span className="absolute top-1 left-1 bg-primary text-white text-[9px] font-bold px-1.5 py-0.5 rounded">COVER</span>
+                      )}
+                    </div>
+
+                    {/* URL + controls */}
+                    <div className="flex-1 min-w-0 flex flex-col justify-between">
+                      <div>
+                        <Input
+                          placeholder="https://images.unsplash.com/photo-..."
+                          value={img.url}
+                          onChange={(e) => updateImageUrl(idx, e.target.value)}
+                          className="text-sm"
+                        />
+                        <div className="flex items-center gap-3 mt-2">
+                          <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
+                            <input type="checkbox" checked={img.isWideShot} onChange={() => toggleWideShot(idx)} className="rounded border-gray-300 h-3 w-3" />
+                            Wide shot
+                          </label>
+                          <span className="text-xs text-gray-400">Photo {idx + 1}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 mt-2">
+                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => moveImage(idx, -1)} disabled={idx === 0}>
+                          <ArrowUp className="h-3 w-3" />
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => moveImage(idx, 1)} disabled={idx === images.length - 1}>
+                          <ArrowDown className="h-3 w-3" />
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 ml-auto" onClick={() => removeImage(idx)}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Add button */}
+              <Button variant="outline" onClick={addImage} className="w-full border-dashed border-2" disabled={images.length >= 10}>
+                <Plus className="h-4 w-4 mr-2" />Add Image {images.length >= 10 && "(Max 10)"}
+              </Button>
+
+              {images.length === 0 && (
+                <div className="text-center py-8 border-2 border-dashed border-gray-200 rounded-xl">
+                  <ImageIcon className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-sm text-gray-500">No images added yet</p>
+                  <p className="text-xs text-gray-400 mt-1">Click &quot;Add Image&quot; to add photo URLs</p>
+                  <Button variant="outline" size="sm" onClick={addImage} className="mt-4">
+                    <Plus className="h-3 w-3 mr-1" />Add First Image
+                  </Button>
+                </div>
+              )}
+            </>)}
+
             <div className="flex justify-between pt-4">
               <Button variant="outline" onClick={() => setStep((s) => Math.max(1, s - 1))} disabled={step === 1}><ChevronLeft className="h-4 w-4 mr-1" /> Previous</Button>
-              {step < 5 ? <Button onClick={() => setStep((s) => Math.min(5, s + 1))}>Next <ChevronRight className="h-4 w-4 ml-1" /></Button>
+              {step < totalSteps
+                ? <Button onClick={() => setStep((s) => Math.min(totalSteps, s + 1))}>Next <ChevronRight className="h-4 w-4 ml-1" /></Button>
                 : <Button onClick={handleSubmit} disabled={submitting}>{submitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Publishing...</> : <><Check className="h-4 w-4 mr-1" />Publish Property</>}</Button>
               }
             </div>
