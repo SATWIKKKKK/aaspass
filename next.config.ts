@@ -10,6 +10,7 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "**" }, // allow any HTTPS image
     ],
   },
+  serverExternalPackages: ["razorpay"],
   typescript: { ignoreBuildErrors: false },
 };
 

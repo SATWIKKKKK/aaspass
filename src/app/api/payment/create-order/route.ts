@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import Razorpay from "razorpay";
 
 const PLANS: Record<string, { amount: number; durationDays: number; label: string }> = {
   monthly:   { amount: 9900,  durationDays: 30,  label: "AasPass Premium – Monthly"   },
@@ -8,9 +7,11 @@ const PLANS: Record<string, { amount: number; durationDays: number; label: strin
   yearly:    { amount: 79900, durationDays: 365, label: "AasPass Premium – Yearly"    },
 };
 
-let _razorpay: Razorpay | null = null;
-function getRazorpay() {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _razorpay: any = null;
+async function getRazorpay() {
   if (!_razorpay) {
+    const Razorpay = (await import("razorpay")).default;
     _razorpay = new Razorpay({
       key_id:     process.env.RAZORPAY_KEY_ID!,
       key_secret: process.env.RAZORPAY_KEY_SECRET!,
@@ -31,12 +32,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
   }
 
+  const userId = (session.user as any).id ?? "unknown";
+
   try {
-    const order = await getRazorpay().orders.create({
+    const razorpay = await getRazorpay();
+    const order = await razorpay.orders.create({
       amount:   plan.amount,
       currency: "INR",
-      receipt:  `rcpt_${session.user.id}_${Date.now()}`,
-      notes:    { planId, userId: session.user.id ?? "", label: plan.label },
+      receipt:  `rcpt_${userId}_${Date.now()}`,
+      notes:    { planId, userId, label: plan.label },
     });
 
     return NextResponse.json({
@@ -48,8 +52,12 @@ export async function POST(req: NextRequest) {
       keyId:        process.env.RAZORPAY_KEY_ID,
     });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "Failed to create order";
-    console.error("[Razorpay create-order]", err);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    // Razorpay SDK throws { error: { code, description, source, ... } }
+    const rzError = (err as any)?.error;
+    const msg = rzError?.description
+      || (err instanceof Error ? err.message : "")
+      || JSON.stringify(err);
+    console.error("[Razorpay create-order]", JSON.stringify(err, null, 2));
+    return NextResponse.json({ error: msg || "Failed to create order" }, { status: 500 });
   }
 }

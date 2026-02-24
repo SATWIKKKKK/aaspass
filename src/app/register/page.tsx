@@ -114,38 +114,38 @@ function RegisterFormInner() {
   const isOwner = form.role === "OWNER";
 
   return (
-    <div className="min-h-screen bg-white flex">
-      {/* Left branding */}
-      <div className="hidden lg:flex lg:w-1/3 bg-linear-to-br from-primary/5 to-primary/10 items-center justify-center p-8">
-        <div className="text-center">
-          <h1 className="text-5xl font-black tracking-tight text-primary mb-3">
-            Aas<span className="text-premium">Pass</span>
-          </h1>
-          <p className="text-base text-gray-600 max-w-xs">
-            Get all the services to make it feel like your home
-          </p>
-        </div>
-      </div>
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-8">
+      {/* Single outer rounded card containing both branding + form */}
+      <div className="w-full max-w-5xl rounded-3xl shadow-2xl overflow-hidden flex flex-col lg:flex-row bg-white">
 
-      {/* Right side — form */}
-      <div className="flex-1 flex items-start justify-center overflow-y-auto px-4 sm:px-6 md:px-10 py-8">
-        <div className="w-full max-w-xl">
-          {/* Mobile logo */}
-          <div className="lg:hidden text-center mb-6">
-            <h1 className="text-4xl font-black tracking-tight text-primary">
+        {/* Left — AasPass branding, perfectly centred */}
+        <div className="lg:w-5/12 bg-linear-to-br from-primary/8 to-primary/15 flex items-center justify-center px-10 py-14 lg:py-0">
+          <div className="text-center">
+            <h1 className="text-6xl font-black tracking-tight text-primary leading-none mb-4">
               Aas<span className="text-premium">Pass</span>
             </h1>
+            <p className="text-base text-gray-500 max-w-xs leading-relaxed">
+              Get all the services to make it feel like your home
+            </p>
+            <div className="mt-6 flex items-center justify-center gap-2 text-xs text-gray-400">
+              <span className="h-px w-10 bg-gray-300" />
+              <span>Trusted by students across India</span>
+              <span className="h-px w-10 bg-gray-300" />
+            </div>
           </div>
+        </div>
 
-          <Card className="border-0 shadow-lg">
-            <CardHeader className="pb-3 space-y-1">
+        {/* Right — form */}
+        <div className="lg:w-7/12 overflow-y-auto px-6 sm:px-10 py-8">
+          <Card className="border-0 shadow-none">
+            <CardHeader className="pb-3 space-y-1 px-0">
               <CardTitle className="text-2xl font-bold">Create Account</CardTitle>
               <CardDescription>
                 Join as a {isOwner ? "Property Owner" : "Student"}
               </CardDescription>
             </CardHeader>
 
-            <CardContent className="px-6 pb-6">
+            <CardContent className="px-0 pb-6">
               {/* Role toggle */}
               <div className="grid grid-cols-2 gap-3 mb-5">
                 <button type="button" onClick={() => handleRoleChange("STUDENT")}
