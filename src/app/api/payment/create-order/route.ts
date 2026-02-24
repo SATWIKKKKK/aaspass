@@ -36,10 +36,13 @@ export async function POST(req: NextRequest) {
 
   try {
     const razorpay = await getRazorpay();
+    // Razorpay receipt max 40 chars — use short id + timestamp suffix
+    const shortId = userId.slice(-8);
+    const receipt = `rcpt_${shortId}_${Date.now()}`.slice(0, 40);
     const order = await razorpay.orders.create({
       amount:   plan.amount,
       currency: "INR",
-      receipt:  `rcpt_${userId}_${Date.now()}`,
+      receipt,
       notes:    { planId, userId, label: plan.label },
     });
 
