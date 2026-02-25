@@ -94,7 +94,7 @@ function RegisterFormInner() {
           toast.error("Account created but login failed. Please sign in manually.");
           router.push("/login");
         } else {
-          router.push("/dashboard");
+          router.push(form.role === "OWNER" ? "/admin/dashboard" : "/dashboard");
           router.refresh();
         }
       }
