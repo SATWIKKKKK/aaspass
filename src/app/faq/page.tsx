@@ -7,7 +7,7 @@ import { Footer } from "@/components/footer";
 import { cn } from "@/lib/utils";
 
 const faqs = [
-  { q: "What is AasPass?", a: "AasPass is India&apos;s leading platform for students to discover, compare, and book hostels, PGs, coaching centers, mess services, tiffin services, and laundry services — all in one place." },
+  { q: "What is AasPass?", a: "AasPass is India&apos;s leading platform for students to discover, compare, and book accommodation, mess/tiffin, libraries, laundry, gyms & more — all in one place." },
   { q: "How do I book a property?", a: "Browse services, select a property, choose your dates, and click 'Book Now'. You&apos;ll be guided through a secure payment process. Once confirmed, you&apos;ll receive a booking confirmation via email." },
   { q: "Is my payment secure?", a: "Yes. All payments are processed through secure, PCI-compliant payment gateways. Your card details are never stored on our servers." },
   { q: "What is AasPass Premium?", a: "Premium is our subscription plan that offers AI chatbot access, pre-booking priority, 13-day late fee waiver, exclusive coupons, and 2x-4x SuperCoins on bookings." },

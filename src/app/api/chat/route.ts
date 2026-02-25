@@ -87,11 +87,11 @@ function generateSmartResponse(message: string, properties: any[]) {
   if (/^(hi|hello|hey|good morning|good evening|namaste)/.test(lowerMsg)) {
     return `👋 Hello! I'm the AasPass AI Assistant. I can help you find:
 
-🏠 Hostels & PGs
-📚 Libraries & Coaching Centers
-🍽️ Mess & Food Services
+🏠 Accommodation (Hostels & PGs)
+📚 Libraries
+🍽️ Mess & Tiffin Services
 👕 Laundry Services
-🏋️ Gyms & Co-working Spaces
+🏋️ Gyms & Sports
 
 Just tell me what you're looking for and which city, and I'll find the best options for you!`;
   }

@@ -216,14 +216,14 @@ function RegisterFormInner() {
                       <Input type="email" placeholder="you@example.com" value={form.email} onChange={update("email")} required />
                     </div>
                     <div>
-                      <Label>Aadhar No <span className="text-xs text-gray-400">(optional)</span></Label>
+                      <Label>Aadhaar No <span className="text-xs text-gray-400"></span></Label>
                       <Input placeholder="1234-5678-9012" value={form.aadharNo} onChange={update("aadharNo")} />
                     </div>
                   </div>
 
                   {/* Profile Photo */}
-                  <div className="flex flex-col gap-1">
-                    <Label>Profile Photo <span className="text-xs text-gray-400">(optional)</span></Label>
+                  <div className="flex flex-col gap-1 mt-2">
+                    <Label>Profile Photo <span className="text-xs text-gray-400"></span></Label>
                     <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) processFile(f); }} />
                     {photoPreview ? (
                       <div className="relative rounded-xl overflow-hidden border-2 border-primary/20" style={{ height: "110px" }}>
@@ -246,8 +246,8 @@ function RegisterFormInner() {
                         }`}
                       >
                         <Camera className="h-5 w-5 text-gray-400" />
-                        <span className="text-[11px] text-gray-500 leading-tight">Drag &amp; drop<br />or click</span>
-                        <span className="text-[10px] text-gray-400">JPEG · PNG · WebP &lt;2 MB</span>
+                        <span className="text-[12px] text-gray-500 leading-tight">Drag &amp; drop<br />or click</span>
+                        
                       </div>
                     )}
                   </div>

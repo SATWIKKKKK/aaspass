@@ -198,10 +198,10 @@ function ProfileDropdown({ session, isPremium, profileOpen, setProfileOpen, setP
             )}
           </div>
           {[
-            { icon: User, label: "Personal Details", href: "/profile" },
-            { icon: LayoutDashboard, label: "My Bookings", href: "/dashboard" },
-            { icon: Crown, label: "Upgrade to Premium", action: () => { setPremiumOpen(true); setProfileOpen(false); } },
-            { icon: Settings, label: "Settings", href: "/settings" },
+            { icon: User, label: "Personal Details", href: "/settings/profile" },
+            { icon: LayoutDashboard, label: "Dashboard", href: u(session)?.role === "OWNER" ? "/admin/dashboard" : "/dashboard" },
+            ...(!isPremium ? [{ icon: Crown, label: "Upgrade to Premium", action: () => { setPremiumOpen(true); setProfileOpen(false); } }] : []),
+            { icon: Settings, label: "Settings", href: "/settings/edit" },
           ].map((item) => (
             item.href ? (
               <Link key={item.label} href={item.href} className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setProfileOpen(false)}>
