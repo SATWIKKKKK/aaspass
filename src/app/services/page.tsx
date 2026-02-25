@@ -18,7 +18,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PremiumModal } from "@/components/premium-modal";
-import { cn, formatPrice, SERVICE_TYPES } from "@/lib/utils";
+import { cn, formatPrice, SERVICE_TYPES, SERVICE_CATEGORIES, serviceTypeLabel } from "@/lib/utils";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 type SessionUser = { id?: string; name?: string | null; email?: string | null; image?: string | null; role?: string; isPremium?: boolean };
@@ -33,17 +33,16 @@ interface Property {
   images: { url: string; isWideShot: boolean }[];
 }
 
-// ── Constants (same as /home) ────────────────────────────────────────────────
-const services = [
-  { label: "Hostel", value: "HOSTEL", icon: Building2 },
-  { label: "PG", value: "PG", icon: Building2 },
-  { label: "Library", value: "LIBRARY", icon: BookOpen },
-  { label: "Coaching", value: "COACHING", icon: BookOpen },
-  { label: "Mess", value: "MESS", icon: Utensils },
-  { label: "Laundry", value: "LAUNDRY", icon: Shirt },
-  { label: "Gym", value: "GYM", icon: Dumbbell },
-  { label: "Co-working", value: "COWORKING", icon: Users },
+// ── Service categories (priority order) ──────────────────────────────────────
+const serviceCategories = [
+  { label: "Accommodation", value: "ACCOMMODATION", icon: Building2, dbTypes: "HOSTEL,PG" },
+  { label: "Mess/Tiffin", value: "MESS", icon: Utensils, dbTypes: "MESS" },
+  { label: "Library", value: "LIBRARY", icon: BookOpen, dbTypes: "LIBRARY" },
+  { label: "Laundry", value: "LAUNDRY", icon: Shirt, dbTypes: "LAUNDRY" },
+  { label: "Gym", value: "GYM", icon: Dumbbell, dbTypes: "GYM" },
 ];
+// Legacy flat list for select dropdown
+const services = serviceCategories;
 
 // ── Date helper ──────────────────────────────────────────────────────────────
 function fmtDate(iso: string) { if (!iso) return null; const [y, m, d] = iso.split("-"); return `${d}/${m}/${y}`; }
@@ -201,6 +200,8 @@ function ServicesContent() {
 
   // Combo bar state — seeded from URL params (from /home search)
   const [selectedService, setSelectedService] = useState(searchParams.get("type") || "");
+  const [dbTypes, setDbTypes] = useState(searchParams.get("dbTypes") || "");
+  const [accommodationSubFilter, setAccommodationSubFilter] = useState<"" | "HOSTEL" | "PG">("");
   const [location, setLocation] = useState(searchParams.get("q") || "");
   const [rooms, setRooms] = useState(parseInt(searchParams.get("rooms") || "1"));
   const [guests, setGuests] = useState(parseInt(searchParams.get("guests") || "1"));
@@ -227,7 +228,17 @@ function ServicesContent() {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (selectedService) params.set("serviceType", selectedService);
+      // Resolve what service types to send to the API
+      if (accommodationSubFilter) {
+        // Specific sub-filter within Accommodation (Hostel or PG only)
+        params.set("serviceType", accommodationSubFilter);
+      } else if (dbTypes) {
+        params.set("serviceType", dbTypes); // e.g. "HOSTEL,PG"
+      } else if (selectedService) {
+        // Lookup category's dbTypes
+        const cat = serviceCategories.find((c) => c.value === selectedService);
+        params.set("serviceType", cat ? cat.dbTypes : selectedService);
+      }
       if (location) params.set("q", location);
       if (minPrice) params.set("minPrice", minPrice);
       if (maxPrice) params.set("maxPrice", maxPrice);
@@ -241,7 +252,7 @@ function ServicesContent() {
       if (res.ok) setProperties(data.properties || []);
     } catch { toast.error("Failed to load properties"); }
     finally { setLoading(false); }
-  }, [selectedService, location, minPrice, maxPrice, genderFilter, isACOnly, hasWifiOnly]);
+  }, [selectedService, dbTypes, accommodationSubFilter, location, minPrice, maxPrice, genderFilter, isACOnly, hasWifiOnly]);
 
   useEffect(() => { fetchProperties(); }, [fetchProperties]);
 
@@ -267,7 +278,11 @@ function ServicesContent() {
 
   const handleSearch = () => {
     const params = new URLSearchParams();
-    if (selectedService) params.set("type", selectedService);
+    if (selectedService) {
+      params.set("type", selectedService);
+      const cat = serviceCategories.find((c) => c.value === selectedService);
+      if (cat) params.set("dbTypes", cat.dbTypes);
+    }
     if (location) params.set("q", location);
     if (checkIn) params.set("from", checkIn);
     if (checkOut) params.set("to", checkOut);
@@ -276,6 +291,11 @@ function ServicesContent() {
     router.push(`/services?${params.toString()}`);
     fetchProperties();
   };
+
+  /** Resolve the display heading — show selected service category name or "Services" */
+  const headingText = selectedService
+    ? (serviceCategories.find((c) => c.value === selectedService)?.label || selectedService)
+    : "Services";
 
   const clearFilters = () => {
     setMinPrice(""); setMaxPrice(""); setRatingFilter(""); setIsACOnly(false); setHasWifiOnly(false); setGenderFilter("");
@@ -396,7 +416,7 @@ function ServicesContent() {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_30%,rgba(var(--primary-rgb,59,130,246),0.05),transparent)] pointer-events-none" />
         <div className="text-center pt-6 pb-8">
           <Link href="/home"><h1 className="font-black tracking-tight text-primary text-6xl sm:text-7xl md:text-8xl lg:text-9xl leading-none select-none hover:opacity-80 transition-opacity">Aas<span className="text-premium">Pass</span></h1></Link>
-          <p className="mt-3 text-gray-500 text-sm sm:text-base">Find hostels, PGs, coaching, mess & more</p>
+          <p className="mt-3 text-gray-500 text-sm sm:text-base">Find accommodation, mess, libraries, laundry & more</p>
         </div>
         <div className="max-w-5xl mx-auto px-4">
           {/* Desktop combo bar */}
@@ -464,8 +484,8 @@ function ServicesContent() {
             <ChevronRight className="h-4 w-4 text-gray-400 shrink-0 self-center group-hover:translate-x-0.5 transition-transform" />
           </div>
           <div className="flex-1 flex flex-col justify-center px-0 md:px-6">
-            <p className="text-3xl sm:text-4xl lg:text-5xl font-black text-gray-900 leading-tight">Services</p>
-            <p className="mt-2 text-sm text-gray-400 font-medium">Hostels · PGs · Libraries · Coaching · Mess · Gyms & more</p>
+            <p className="text-3xl sm:text-4xl lg:text-5xl font-black text-gray-900 leading-tight">{headingText}</p>
+            <p className="mt-2 text-sm text-gray-400 font-medium">Accommodation · Mess/Tiffin · Libraries · Laundry · Gyms & more</p>
           </div>
         </div>
       </section>
@@ -473,6 +493,15 @@ function ServicesContent() {
       {/* ═══ HORIZONTAL FILTER BAR ═══ */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-6">
         <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-hide">
+          {/* Accommodation sub-filter: Hostel / PG */}
+          {selectedService === "ACCOMMODATION" && (
+            <div className="flex items-center gap-1 shrink-0 bg-gray-50 border border-gray-200 rounded-full p-1">
+              {([{ value: "" as const, label: "All" }, { value: "HOSTEL" as const, label: "Hostel" }, { value: "PG" as const, label: "PG" }]).map((opt) => (
+                <button key={opt.value} onClick={() => setAccommodationSubFilter(opt.value)} className={cn("px-3 py-1.5 rounded-full text-xs font-medium transition-colors", accommodationSubFilter === opt.value ? "bg-primary text-white" : "text-gray-600 hover:bg-gray-100")}>{opt.label}</button>
+              ))}
+            </div>
+          )}
+
           {/* Price range */}
           <div className="flex items-center gap-1.5 shrink-0 bg-gray-50 border border-gray-200 rounded-full px-3 py-2">
             <span className="text-xs font-medium text-gray-600 whitespace-nowrap">Price:</span>

@@ -56,3 +56,29 @@ export const SERVICE_TYPES = [
 ] as const;
 
 export type ServiceTypeValue = (typeof SERVICE_TYPES)[number]["value"];
+
+// UI-level service categories with priority ordering
+// Accommodation = HOSTEL + PG (merged). Coaching & Co-working removed.
+export const SERVICE_CATEGORIES = [
+  { value: "ACCOMMODATION", label: "Accommodation", dbTypes: ["HOSTEL", "PG"] as string[] },
+  { value: "MESS", label: "Mess/Tiffin", dbTypes: ["MESS"] as string[] },
+  { value: "LIBRARY", label: "Library", dbTypes: ["LIBRARY"] as string[] },
+  { value: "LAUNDRY", label: "Laundry", dbTypes: ["LAUNDRY"] as string[] },
+  { value: "GYM", label: "Gym", dbTypes: ["GYM"] as string[] },
+] as const;
+
+/** Map a UI category value to the DB service types it covers */
+export function categoryToDbTypes(category: string): string[] {
+  const cat = SERVICE_CATEGORIES.find((c) => c.value === category);
+  return cat ? [...cat.dbTypes] : [category];
+}
+
+/** Resolve a display label for a DB serviceType (e.g. HOSTEL → Accommodation) */
+export function serviceTypeLabel(dbType: string): string {
+  // First check if it falls under a category
+  const cat = SERVICE_CATEGORIES.find((c) => c.dbTypes.includes(dbType));
+  if (cat) return cat.label;
+  // Fallback to SERVICE_TYPES label
+  const st = SERVICE_TYPES.find((s) => s.value === dbType);
+  return st?.label || dbType;
+}

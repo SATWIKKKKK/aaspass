@@ -53,11 +53,18 @@ interface Conversation {
 
 // ==================== SUGGESTIONS ====================
 
-const SUGGESTIONS = [
-  { icon: Search, text: "Find hostels near IIT Delhi under ₹8000", color: "text-blue-500" },
+const SEARCH_SUGGESTIONS = [
+  { icon: Search, text: "Find accommodation near KIIT under ₹8000", color: "text-blue-500" },
   { icon: MapPin, text: "Girls PG in Kota with food and WiFi", color: "text-green-500" },
-  { icon: Star, text: "Best coaching centers in Mukherjee Nagar", color: "text-yellow-500" },
+  { icon: Star, text: "Top-rated libraries near Salt Lake, Kolkata", color: "text-yellow-500" },
   { icon: Home, text: "Affordable mess services near KIIT Bhubaneswar", color: "text-purple-500" },
+];
+
+const CHAT_SUGGESTIONS = [
+  { icon: MessageSquare, text: "What should I look for in a hostel?", color: "text-blue-500" },
+  { icon: MapPin, text: "How do I compare PG vs hostel options?", color: "text-green-500" },
+  { icon: Star, text: "Tips for finding budget-friendly accommodation", color: "text-yellow-500" },
+  { icon: Home, text: "What amenities are essential for students?", color: "text-purple-500" },
 ];
 
 // ==================== PROPERTY CARD ====================
@@ -339,14 +346,14 @@ export default function ChatPage() {
               <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center mb-6 shadow-lg">
                 <Bot className="h-8 w-8 text-white" />
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">AasPass AI</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">{mode === "search" ? "AI Property Search" : "AI Chat Assistant"}</h2>
               <p className="text-gray-500 text-center max-w-md mb-8">
                 {mode === "search"
-                  ? "Describe what you're looking for in natural language and I'll find the best matches."
-                  : "Ask me anything about hostels, PGs, coaching, or student services."}
+                  ? "Describe what you're looking for — location, budget, amenities — and I'll find the best matches for you."
+                  : "Ask me anything about student life, accommodation tips, or how to make the most of AasPass."}
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xl w-full">
-                {SUGGESTIONS.map((s, i) => (
+                {(mode === "search" ? SEARCH_SUGGESTIONS : CHAT_SUGGESTIONS).map((s, i) => (
                   <button key={i} onClick={() => sendMessage(s.text)} className="flex items-start gap-3 p-4 rounded-xl border border-gray-200 hover:border-primary/40 hover:bg-primary/5 text-left transition-all group">
                     <s.icon className={cn("h-5 w-5 mt-0.5 flex-shrink-0", s.color)} />
                     <span className="text-sm text-gray-600 group-hover:text-gray-900">{s.text}</span>

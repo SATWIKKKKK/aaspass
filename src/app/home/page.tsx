@@ -44,19 +44,20 @@ import { cn } from "@/lib/utils";
 type SessionUser = { id?: string; name?: string | null; email?: string | null; image?: string | null; role?: string; isPremium?: boolean; };
 const u = (session: { user?: object | null } | null) => session?.user as SessionUser | undefined;
 
-const services = [
-  { label: "Hostel", value: "HOSTEL", icon: Building2, color: "bg-blue-50 text-blue-600" },
-  { label: "PG", value: "PG", icon: Building2, color: "bg-purple-50 text-purple-600" },
-  { label: "Library", value: "LIBRARY", icon: BookOpen, color: "bg-green-50 text-green-600" },
-  { label: "Coaching", value: "COACHING", icon: BookOpen, color: "bg-orange-50 text-orange-600" },
-  { label: "Mess", value: "MESS", icon: Utensils, color: "bg-red-50 text-red-600" },
-  { label: "Laundry", value: "LAUNDRY", icon: Shirt, color: "bg-teal-50 text-teal-600" },
-  { label: "Gym", value: "GYM", icon: Dumbbell, color: "bg-pink-50 text-pink-600" },
-  { label: "Co-working", value: "COWORKING", icon: Users, color: "bg-indigo-50 text-indigo-600" },
+// Service categories — priority ordered. Accommodation = Hostel + PG merged.
+const serviceCategories = [
+  { label: "Accommodation", value: "ACCOMMODATION", icon: Building2, color: "bg-blue-50 text-blue-600", dbTypes: "HOSTEL,PG" },
+  { label: "Mess/Tiffin", value: "MESS", icon: Utensils, color: "bg-red-50 text-red-600", dbTypes: "MESS" },
+  { label: "Library", value: "LIBRARY", icon: BookOpen, color: "bg-green-50 text-green-600", dbTypes: "LIBRARY" },
+  { label: "Laundry", value: "LAUNDRY", icon: Shirt, color: "bg-teal-50 text-teal-600", dbTypes: "LAUNDRY" },
+  { label: "Gym", value: "GYM", icon: Dumbbell, color: "bg-pink-50 text-pink-600", dbTypes: "GYM" },
 ];
 
+// Keep a flat services list for the Select dropdown (used in combo search bar)
+const services = serviceCategories;
+
 const offers = [
-  { title: "First Booking 20% Off", description: "Use code AASPASS20 on your first hostel booking", gradient: "from-blue-500 to-blue-600", icon: Percent },
+  { title: "First Booking 20% Off", description: "Use code AASPASS20 on your first booking", gradient: "from-blue-500 to-blue-600", icon: Percent },
   { title: "Premium at ₹99/mo", description: "AI chat, pre-booking & 13 days late fee waiver", gradient: "from-yellow-500 to-amber-600", icon: Crown },
   { title: "Refer & Earn ₹500", description: "Invite friends and earn SuperCoins", gradient: "from-green-500 to-emerald-600", icon: Gift },
   { title: "Student Special", description: "Extra 10% off with valid student ID", gradient: "from-purple-500 to-purple-600", icon: Zap },
@@ -256,13 +257,23 @@ export default function HomePage() {
 
   const handleSearch = () => {
     const params = new URLSearchParams();
-    if (selectedService) params.set("type", selectedService);
+    if (selectedService) {
+      // Map UI category to DB service types
+      const cat = serviceCategories.find((c) => c.value === selectedService);
+      params.set("type", selectedService);
+      if (cat) params.set("dbTypes", cat.dbTypes);
+    }
     if (location) params.set("q", location);
     if (checkIn) params.set("from", checkIn);
     if (checkOut) params.set("to", checkOut);
     if (rooms > 1) params.set("rooms", String(rooms));
     if (guests > 1) params.set("guests", String(guests));
     router.push(`/services?${params.toString()}`);
+  };
+
+  /** Direct-click a service category from the horizontal bar */
+  const handleCategoryClick = (cat: typeof serviceCategories[number]) => {
+    router.push(`/services?type=${cat.value}&dbTypes=${cat.dbTypes}`);
   };
 
   return (
@@ -455,7 +466,7 @@ export default function HomePage() {
       </div>
       {/* ─────────────────────────────────────────────────────────────────────── */}
 
-      {/* ─── HERO: AasPass text + Combo search bar below ─────────────────────── */}
+      {/* ─── HERO: AasPass text + Service categories + Combo search bar below ── */}
       <section
         ref={heroRef}
         className="relative pt-8 pb-4 bg-white"
@@ -464,11 +475,32 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_30%,rgba(var(--primary-rgb,59,130,246),0.05),transparent)] pointer-events-none" />
 
         {/* AasPass Logo Text (medium-big, not full viewport) */}
-        <div className="text-center pt-6 pb-8">
+        <div className="text-center pt-6 pb-4">
           <h1 className="font-black tracking-tight text-primary text-6xl sm:text-7xl md:text-8xl lg:text-9xl leading-none select-none">
             Aas<span className="text-premium">Pass</span>
           </h1>
-          <p className="mt-3 text-gray-500 text-sm sm:text-base">Find hostels, PGs, coaching, mess & more</p>
+          <p className="mt-3 text-gray-500 text-sm sm:text-base">Find accommodation, mess, libraries, laundry & more</p>
+        </div>
+
+        {/* ── HORIZONTAL SERVICE CATEGORY BAR ── */}
+        <div className="max-w-3xl mx-auto px-4 pb-6">
+          <div className="flex items-center justify-center gap-2 sm:gap-3 flex-wrap">
+            {serviceCategories.map((cat) => (
+              <button
+                key={cat.value}
+                onClick={() => handleCategoryClick(cat)}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2.5 rounded-full border-2 text-sm font-medium transition-all hover:shadow-md",
+                  selectedService === cat.value
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-gray-200 bg-white text-gray-700 hover:border-primary/40 hover:bg-primary/5"
+                )}
+              >
+                <cat.icon className="h-4 w-4" />
+                <span className="whitespace-nowrap">{cat.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* ── COMBO SEARCH BAR (in hero, visible on initial load) ── */}
@@ -644,7 +676,7 @@ export default function HomePage() {
               <span className="text-primary">make it feel</span>{" "}
               <span className="text-premium">like your home</span>
             </p>
-            <p className="mt-3 text-sm text-gray-400 font-medium">Hostels · PGs · Libraries · Coaching · Mess · Gyms & more</p>
+            <p className="mt-3 text-sm text-gray-400 font-medium">Accommodation · Mess/Tiffin · Libraries · Laundry · Gyms & more</p>
           </div>
         </div>
       </section>

@@ -32,7 +32,15 @@ export async function GET(req: NextRequest) {
     } else {
       where.status = "VERIFIED"; // Public API only shows verified
     }
-    if (serviceType) where.serviceType = serviceType;
+    // Support comma-separated service types (e.g. "HOSTEL,PG" for Accommodation)
+    if (serviceType) {
+      const types = serviceType.split(",").map((t: string) => t.trim()).filter(Boolean);
+      if (types.length === 1) {
+        where.serviceType = types[0];
+      } else if (types.length > 1) {
+        where.serviceType = { in: types };
+      }
+    }
     if (city) where.city = { contains: city, mode: "insensitive" };
     if (q) {
       where.OR = [

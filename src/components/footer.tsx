@@ -14,7 +14,7 @@ export function Footer() {
               <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center"><span className="text-white font-bold text-sm">A</span></div>
               <span className="text-xl font-bold text-white">AasPass</span>
             </div>
-            <p className="text-sm text-gray-400 leading-relaxed">Your one-stop platform for student accommodation — hostels, PGs, libraries, coaching, and more.</p>
+            <p className="text-sm text-gray-400 leading-relaxed">Your one-stop platform for student services — accommodation, mess/tiffin, libraries, laundry, gyms & more.</p>
             <div className="flex items-center gap-2 mt-4 text-sm"><MapPin className="h-4 w-4 text-primary" /> Bhubaneswar, Odisha, India</div>
           </div>
 

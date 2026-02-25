@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import {
@@ -20,7 +20,7 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { cn, formatPrice, calculateGST, formatDate, SERVICE_TYPES } from "@/lib/utils";
+import { cn, formatPrice, calculateGST, formatDate, serviceTypeLabel } from "@/lib/utils";
 
 interface PropertyData {
   id: string; name: string; slug: string; serviceType: string; description: string;
@@ -40,11 +40,13 @@ interface PropertyData {
 export default function PropertyPage() {
   const params = useParams();
   const router = useRouter();
+  const sp = useSearchParams();
   const { data: session } = useSession();
   const [property, setProperty] = useState<PropertyData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [checkIn, setCheckIn] = useState("");
-  const [checkOut, setCheckOut] = useState("");
+  const [checkIn, setCheckIn] = useState(sp.get("from") || "");
+  const [checkOut, setCheckOut] = useState(sp.get("to") || "");
+  const [hasBooking, setHasBooking] = useState(false);
   const [newReview, setNewReview] = useState("");
   const [newRating, setNewRating] = useState(0);
   const [submittingReview, setSubmittingReview] = useState(false);
@@ -55,13 +57,24 @@ export default function PropertyPage() {
     async function load() {
       try {
         const res = await fetch(`/api/properties/${params.slug}`);
-        if (res.ok) { const data = await res.json(); setProperty(data.property); }
-        else toast.error("Property not found");
+        if (res.ok) {
+          const data = await res.json();
+          setProperty(data.property);
+          // Check if current user has a confirmed booking for this property
+          if (session) {
+            try {
+              const bRes = await fetch("/api/bookings");
+              const bData = await bRes.json();
+              const booked = (bData.bookings || []).some((b: any) => b.propertyId === data.property.id && ["CONFIRMED", "COMPLETED"].includes(b.status));
+              setHasBooking(booked);
+            } catch {}
+          }
+        } else toast.error("Property not found");
       } catch { toast.error("Failed to load property"); }
       finally { setLoading(false); }
     }
     if (params.slug) load();
-  }, [params.slug]);
+  }, [params.slug, session]);
 
   if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   if (!property) return <div className="min-h-screen flex items-center justify-center"><p>Property not found</p></div>;
@@ -161,7 +174,7 @@ export default function PropertyPage() {
               <div className="flex items-center gap-3 flex-wrap">
                 <h1 className="text-3xl font-bold text-gray-900">{property.name}</h1>
                 <Badge variant="outline">
-                  {SERVICE_TYPES.find((s) => s.value === property.serviceType)?.label || property.serviceType}
+                  {serviceTypeLabel(property.serviceType)}
                 </Badge>
                 {property.forGender && (
                   <Badge variant={property.forGender === "MALE" ? "default" : "secondary"}>
@@ -245,7 +258,7 @@ export default function PropertyPage() {
                   </CardContent></Card>
                 ))}
 
-                {session && (
+                {session && hasBooking && (
                   <Card><CardHeader><CardTitle className="text-lg">Write a Review</CardTitle></CardHeader>
                     <CardContent className="space-y-4">
                       <div><Label className="text-sm">Rating</Label>
@@ -280,7 +293,7 @@ export default function PropertyPage() {
                 <div className="flex items-center gap-3"><div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center"><span className="font-semibold text-primary">{property.owner.name[0]}</span></div><div><p className="font-medium text-gray-900">{property.owner.name}</p>{property.owner.phone && <p className="text-xs text-gray-500">{property.owner.phone}</p>}</div></div>
                 <div className="flex gap-2 mt-3">
                   {property.owner.phone && <a href={`tel:${property.owner.phone}`} className="flex-1"><Button variant="outline" size="sm" className="w-full"><Phone className="h-3.5 w-3.5 mr-1" /> Call</Button></a>}
-                  <Link href="/chat" className="flex-1"><Button variant="outline" size="sm" className="w-full"><MessageSquare className="h-3.5 w-3.5 mr-1" /> Chat</Button></Link>
+                  {property.owner.phone && <a href={`https://wa.me/${property.owner.phone.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer" className="flex-1"><Button variant="outline" size="sm" className="w-full"><MessageSquare className="h-3.5 w-3.5 mr-1" /> Chat</Button></a>}
                 </div>
               </CardContent></Card>
             </div>
