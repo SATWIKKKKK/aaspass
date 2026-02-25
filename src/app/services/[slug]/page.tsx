@@ -20,7 +20,7 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { cn, formatPrice, calculateGST, formatDate, serviceTypeLabel } from "@/lib/utils";
+import { cn, formatPrice, calculateGST, calculateDynamicPrice, getDailyRate, formatDate, serviceTypeLabel } from "@/lib/utils";
 
 interface PropertyData {
   id: string; name: string; slug: string; serviceType: string; description: string;
@@ -79,7 +79,8 @@ export default function PropertyPage() {
   if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   if (!property) return <div className="min-h-screen flex items-center justify-center"><p>Property not found</p></div>;
 
-  const { base, gst, total } = calculateGST(property.price, property.gstRate);
+  const pricing = calculateDynamicPrice(property.price, property.gstRate, checkIn, checkOut);
+  const perDay = getDailyRate(property.price);
 
   const loadRazorpayScript = (): Promise<boolean> => {
     return new Promise((resolve) => {
@@ -340,11 +341,16 @@ export default function PropertyPage() {
           <div className="lg:col-span-1">
             <div className="sticky top-20 space-y-4">
               <Card className="shadow-lg"><CardContent className="p-6 space-y-4">
-                <div><p className="text-sm text-gray-500 line-through">{formatPrice(Math.round(property.price * 1.2))}</p><div className="flex items-baseline gap-1"><span className="text-3xl font-bold text-gray-900">{formatPrice(property.price)}</span><span className="text-sm text-gray-500">/month</span></div></div>
+                <div><p className="text-sm text-gray-500 line-through">{formatPrice(Math.round(property.price * 1.2))}</p><div className="flex items-baseline gap-1"><span className="text-3xl font-bold text-gray-900">{formatPrice(property.price)}</span><span className="text-sm text-gray-500">/month</span></div><p className="text-xs text-gray-400 mt-0.5">{formatPrice(perDay)}/day</p></div>
                 <Separator />
                 <div className="space-y-3"><div><Label className="text-xs">Check-in Date</Label><Input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} /></div><div><Label className="text-xs">Check-out Date</Label><Input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} /></div></div>
                 <Separator />
-                <div className="space-y-2 text-sm"><div className="flex justify-between"><span className="text-gray-500">Base Price</span><span>{formatPrice(base)}</span></div><div className="flex justify-between"><span className="text-gray-500">GST ({property.gstRate}%)</span><span>{formatPrice(gst)}</span></div><Separator /><div className="flex justify-between font-semibold text-base"><span>Total</span><span className="text-primary">{formatPrice(total)}</span></div></div>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between"><span className="text-gray-500">{formatPrice(pricing.perDay)}/day × {pricing.days} day{pricing.days !== 1 ? "s" : ""}</span><span>{formatPrice(pricing.base)}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-500">GST ({property.gstRate}%)</span><span>{formatPrice(pricing.gst)}</span></div>
+                  <Separator />
+                  <div className="flex justify-between font-semibold text-base"><span>Total</span><span className="text-primary">{formatPrice(pricing.total)}</span></div>
+                </div>
                 <Button className="w-full h-12 text-base" size="lg" onClick={handleBookNow} disabled={booking}>{booking ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Booking...</> : "Book Now"}</Button>
                 <Button variant="outline" className="w-full" onClick={handleAddToCart} disabled={addingToCart}>{addingToCart ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ShoppingCart className="h-4 w-4 mr-2" />} Add to Cart</Button>
               </CardContent></Card>

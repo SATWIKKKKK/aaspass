@@ -37,6 +37,41 @@ export function calculateGST(price: number, rate: number = 18): { base: number; 
   return { base, gst, total };
 }
 
+/** Calculate the number of days between two date strings. Minimum 1 day. */
+export function getDaysBetween(checkIn: string, checkOut: string): number {
+  if (!checkIn || !checkOut) return 1;
+  const d1 = new Date(checkIn);
+  const d2 = new Date(checkOut);
+  const diff = Math.ceil((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
+  return diff > 0 ? diff : 1;
+}
+
+/** Calculate per-day rate from monthly price (price / 30). */
+export function getDailyRate(monthlyPrice: number): number {
+  return Math.round(monthlyPrice / 30);
+}
+
+/** Full dynamic pricing: returns breakdown for a date range.
+ *  - perDay: monthly price / 30
+ *  - days: number of days
+ *  - base: perDay × days
+ *  - gst: base × gstRate%
+ *  - total: base + gst
+ */
+export function calculateDynamicPrice(
+  monthlyPrice: number,
+  gstRate: number,
+  checkIn?: string,
+  checkOut?: string
+): { perDay: number; days: number; base: number; gst: number; total: number } {
+  const days = checkIn && checkOut ? getDaysBetween(checkIn, checkOut) : 30;
+  const perDay = getDailyRate(monthlyPrice);
+  const base = perDay * days;
+  const gst = Math.round((base * gstRate) / 100);
+  const total = base + gst;
+  return { perDay, days, base, gst, total };
+}
+
 export function slugify(text: string): string {
   return text
     .toLowerCase()

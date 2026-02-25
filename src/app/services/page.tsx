@@ -5,10 +5,11 @@ import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import toast from "react-hot-toast";
+import { RouteGuard } from "@/components/route-guard";
 import {
   Search, MapPin, Calendar, Users, Building2, BookOpen, Utensils, Dumbbell, Shirt,
   Crown, ChevronRight, ChevronDown, ChevronUp, ChevronLeft, MessageCircle,
-  Star, Wifi, Wind, ShieldCheck, ShoppingCart, Loader2, X,
+  Star, Wifi, Wind, ShieldCheck, ShoppingCart, Loader2, X, Home, Map,
   Minus, Plus, LogOut, Settings, User, LayoutDashboard,
 } from "lucide-react";
 import { Footer } from "@/components/footer";
@@ -18,7 +19,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PremiumModal } from "@/components/premium-modal";
-import { cn, formatPrice, SERVICE_TYPES, SERVICE_CATEGORIES, serviceTypeLabel } from "@/lib/utils";
+import { cn, formatPrice, SERVICE_TYPES, SERVICE_CATEGORIES, serviceTypeLabel, getDailyRate, calculateDynamicPrice } from "@/lib/utils";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 type SessionUser = { id?: string; name?: string | null; email?: string | null; image?: string | null; role?: string; isPremium?: boolean };
@@ -328,6 +329,13 @@ function ServicesContent() {
     <div className="min-h-screen bg-white">
       <PremiumModal open={premiumOpen} onClose={() => setPremiumOpen(false)} />
 
+      {/* ═══ FLOATING HOME ICON (visible before scroll) ═══ */}
+      {heroVisible && (
+        <Link href="/dashboard" className="fixed top-4 left-4 z-50 h-10 w-10 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-sm hover:bg-gray-50 hover:shadow-md transition-all" title="Dashboard">
+          <Home className="h-5 w-5 text-primary" />
+        </Link>
+      )}
+
       {/* ═══ FLOATING PROFILE ICON (visible before scroll) ═══ */}
       {heroVisible && (
         <div className="fixed top-4 right-4 z-50 transition-all duration-300">
@@ -349,6 +357,7 @@ function ServicesContent() {
       )}>
         {/* Desktop */}
         <div className="hidden lg:flex items-center gap-3 px-6 py-2.5 lg:max-w-6xl xl:max-w-7xl mx-auto">
+          <Link href="/dashboard" className="h-9 w-9 bg-primary/10 rounded-full flex items-center justify-center hover:bg-primary/20 transition-colors shrink-0" title="Dashboard"><Home className="h-4 w-4 text-primary" /></Link>
           <Link href="/home" className="flex items-center gap-2 shrink-0 group">
             <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform"><span className="text-white font-bold text-sm">A</span></div>
             <span className="text-lg font-bold text-gray-900">Aas<span className="text-premium">Pass</span></span>
@@ -368,6 +377,7 @@ function ServicesContent() {
               <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input placeholder="City or area" value={location} onChange={(e) => setLocation(e.target.value)} className="pl-9 h-9 text-sm border-0 bg-transparent focus:ring-0 w-full" />
             </div>
+            <Link href="/services/map" className="h-9 w-9 rounded-full border-2 border-gray-200 flex items-center justify-center hover:bg-primary/10 hover:border-primary/30 transition-colors shrink-0" title="Search on Map"><Map className="h-4 w-4 text-gray-500" /></Link>
             <div className="h-8 w-px bg-gray-200 shrink-0" />
             <div className="mr-8"><DateRangePicker checkIn={checkIn} checkOut={checkOut} onCheckIn={setCheckIn} onCheckOut={setCheckOut} /></div>
             <Button onClick={handleSearch} size="sm" className="h-10 px-5 rounded-full shrink-0"><Search className="h-4 w-4 mr-1.5" /> Search</Button>
@@ -377,6 +387,7 @@ function ServicesContent() {
 
         {/* Tablet */}
         <div className="hidden sm:flex lg:hidden items-center justify-between px-4 py-2">
+          <Link href="/dashboard" className="h-9 w-9 bg-primary/10 rounded-full flex items-center justify-center hover:bg-primary/20 transition-colors shrink-0 mr-2" title="Dashboard"><Home className="h-4 w-4 text-primary" /></Link>
           <Link href="/home" className="flex items-center gap-2">
             <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center"><span className="text-white font-bold text-sm">A</span></div>
             <span className="text-lg font-bold text-gray-900">Aas<span className="text-premium">Pass</span></span>
@@ -393,6 +404,7 @@ function ServicesContent() {
 
         {/* Mobile */}
         <div className="flex sm:hidden items-center gap-2 px-3 py-2">
+          <Link href="/dashboard" className="shrink-0 h-8 w-8 bg-primary/10 rounded-full flex items-center justify-center" title="Dashboard"><Home className="h-3.5 w-3.5 text-primary" /></Link>
           <Link href="/home" className="shrink-0"><div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center"><span className="text-white font-bold text-sm">A</span></div></Link>
           <button onClick={() => setMobileFilterOpen(!mobileFilterOpen)} className="flex-1 flex items-center gap-2 border-2 border-gray-200 rounded-full px-3 py-2 text-left">
             <Search className="h-4 w-4 text-gray-400 shrink-0" />
@@ -437,6 +449,7 @@ function ServicesContent() {
             <Counter label="Guests" value={guests} onChange={setGuests} />
             <div className="h-8 w-px bg-gray-200 shrink-0" />
             <div className="relative shrink-0 w-60 border-2 border-gray-200 rounded-full"><MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /><Input placeholder="City or area" value={location} onChange={(e) => setLocation(e.target.value)} className="pl-9 h-9 text-sm border-0 bg-transparent focus:ring-0 w-full" /></div>
+            <Link href="/services/map" className="h-9 w-9 rounded-full border-2 border-gray-200 flex items-center justify-center hover:bg-primary/10 hover:border-primary/30 transition-colors shrink-0" title="Search on Map"><Map className="h-4 w-4 text-gray-500" /></Link>
             <div className="h-8 w-px bg-gray-200 shrink-0" />
             <div className="mr-8"><DateRangePicker checkIn={checkIn} checkOut={checkOut} onCheckIn={setCheckIn} onCheckOut={setCheckOut} /></div>
             <Button onClick={handleSearch} size="sm" className="h-10 px-5 rounded-full shrink-0"><Search className="h-4 w-4 mr-1.5" /> Search</Button>
@@ -591,7 +604,7 @@ function ServicesContent() {
                       <div className="flex-1 min-w-0">
                         {/* Name + type badge */}
                         <div className="flex items-center gap-2 flex-wrap">
-                          <Link href={`/services/${property.slug}`}><h3 className="font-bold text-lg text-gray-900 hover:text-primary transition-colors">{property.name}</h3></Link>
+                          <Link href={`/services/${property.slug}${checkIn || checkOut ? `?from=${checkIn}&to=${checkOut}` : ''}`}><h3 className="font-bold text-lg text-gray-900 hover:text-primary transition-colors">{property.name}</h3></Link>
                           <Badge variant="outline" className="text-xs">{SERVICE_TYPES.find((s) => s.value === property.serviceType)?.label || property.serviceType}</Badge>
                         </div>
 
@@ -623,14 +636,21 @@ function ServicesContent() {
 
                       {/* Price + Actions (right corner) */}
                       <div className="text-left sm:text-right sm:ml-4 shrink-0 w-full sm:w-auto">
-                        <p className="text-xs text-gray-500 line-through">{formatPrice(Math.round(property.price * 1.2))}</p>
-                        <p className="text-2xl font-bold text-gray-900">{formatPrice(property.price)}</p>
-                        <p className="text-xs text-gray-500">+ {property.gstRate}% GST</p>
-                        <p className="text-xs text-gray-400 mt-0.5">Total: {formatPrice(Math.round(property.price * (1 + property.gstRate / 100)))}</p>
+                        {(() => {
+                          const pricing = calculateDynamicPrice(property.price, property.gstRate, checkIn, checkOut);
+                          return (
+                            <>
+                              <p className="text-xs text-gray-500 line-through">{formatPrice(Math.round(property.price * 1.2))}</p>
+                              <p className="text-2xl font-bold text-gray-900">{formatPrice(property.price)}<span className="text-xs font-normal text-gray-400">/mo</span></p>
+                              <p className="text-xs text-gray-500">{formatPrice(pricing.perDay)}/day{checkIn && checkOut ? ` × ${pricing.days}d` : ""}</p>
+                              <p className="text-xs text-gray-400 mt-0.5">Total: {formatPrice(pricing.total)} <span className="text-[10px]">(incl. {property.gstRate}% GST)</span></p>
+                            </>
+                          );
+                        })()}
 
                         <div className="mt-3 space-y-2">
-                          <Link href={`/services/${property.slug}`}><Button size="sm" variant="outline" className="w-full text-xs">View More</Button></Link>
-                          <Link href={`/services/${property.slug}`}><Button size="sm" className="w-full text-xs">Book Now</Button></Link>
+                          <Link href={`/services/${property.slug}${checkIn || checkOut ? `?from=${checkIn}&to=${checkOut}` : ''}`}><Button size="sm" variant="outline" className="w-full text-xs">View More</Button></Link>
+                          <Link href={`/services/${property.slug}${checkIn || checkOut ? `?from=${checkIn}&to=${checkOut}` : ''}`}><Button size="sm" className="w-full text-xs">Book Now</Button></Link>
                           <Button size="sm" variant="outline" className="w-full text-xs" disabled={addingToCart === property.id} onClick={() => addToCart(property)}>
                             {addingToCart === property.id ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <ShoppingCart className="h-3.5 w-3.5 mr-1" />} Cart
                           </Button>
@@ -652,8 +672,10 @@ function ServicesContent() {
 
 export default function ServicesPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-white flex items-center justify-center"><div className="animate-spin h-8 w-8 border-4 border-primary/30 border-t-primary rounded-full" /></div>}>
-      <ServicesContent />
-    </Suspense>
+    <RouteGuard allowedRole="STUDENT">
+      <Suspense fallback={<div className="min-h-screen bg-white flex items-center justify-center"><div className="animate-spin h-8 w-8 border-4 border-primary/30 border-t-primary rounded-full" /></div>}>
+        <ServicesContent />
+      </Suspense>
+    </RouteGuard>
   );
 }

@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { PremiumModal } from "@/components/premium-modal";
+import { RouteGuard } from "@/components/route-guard";
 import { cn, formatDate, formatPrice } from "@/lib/utils";
 
 interface BookingData {
@@ -134,7 +135,8 @@ function BookingCard({
   );
 }
 
-export default function StudentDashboard() {
+/* ═══════════════════ MAIN DASHBOARD ═══════════════════ */
+function StudentDashboardInner() {
   const { data: session, status } = useSession();
   const [bookings, setBookings] = useState<BookingData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -431,5 +433,13 @@ export default function StudentDashboard() {
 
       <Footer />
     </div>
+  );
+}
+
+export default function StudentDashboard() {
+  return (
+    <RouteGuard allowedRole="STUDENT">
+      <StudentDashboardInner />
+    </RouteGuard>
   );
 }

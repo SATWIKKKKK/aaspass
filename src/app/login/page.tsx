@@ -44,7 +44,8 @@ export default function LoginPage() {
         try {
           const profileRes = await fetch("/api/profile");
           const profileData = await profileRes.json();
-          if (profileData?.role === "OWNER" || profileData?.role === "ADMIN") {
+          const role = profileData?.user?.role;
+          if (role === "OWNER" || role === "ADMIN") {
             router.push("/admin/dashboard");
           } else {
             router.push("/dashboard");

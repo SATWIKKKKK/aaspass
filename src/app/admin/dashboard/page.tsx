@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { PremiumModal } from "@/components/premium-modal";
+import { RouteGuard } from "@/components/route-guard";
 import { cn, formatPrice } from "@/lib/utils";
 
 /* ───── Types ───── */
@@ -128,7 +129,7 @@ function AnnouncementModal({ open, onClose, property }: {
 }
 
 /* ═══════════════════ MAIN DASHBOARD ═══════════════════ */
-export default function AdminDashboard() {
+function AdminDashboardInner() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [properties, setProperties] = useState<PropertyData[]>([]);
@@ -428,5 +429,13 @@ function PropertyCard({ property, onAnnounce }: { property: PropertyData; onAnno
         </div>
       </div>
     </Card>
+  );
+}
+
+export default function AdminDashboard() {
+  return (
+    <RouteGuard allowedRole="OWNER">
+      <AdminDashboardInner />
+    </RouteGuard>
   );
 }

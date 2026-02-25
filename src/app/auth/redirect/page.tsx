@@ -21,37 +21,57 @@ function AuthRedirectInner() {
       router.replace("/login");
       return;
     }
+    if (didApply.current) return;
+    didApply.current = true;
 
     const pendingRole = searchParams.get("pendingRole")?.toUpperCase();
-    const sessionRole = (session?.user as any)?.role as string;
 
-    // If a pendingRole was requested and it differs from the current session role,
-    // update the DB and refresh the JWT so the rest of the app sees the right role.
-    if (pendingRole && ["STUDENT", "OWNER"].includes(pendingRole) && pendingRole !== sessionRole && !didApply.current) {
-      didApply.current = true;
-      fetch("/api/auth/update-role", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: pendingRole }),
-      })
-        .then(() => update({ role: pendingRole })) // refresh JWT in-place
-        .then(() => {
-          router.replace(pendingRole === "OWNER" ? "/admin/dashboard" : "/dashboard");
-        })
-        .catch(() => {
-          // Fallback: still redirect based on pendingRole even if update failed
-          router.replace(pendingRole === "OWNER" ? "/admin/dashboard" : "/dashboard");
-        });
-      return;
+    // Always fetch the actual role from the database — never trust the stale JWT alone
+    async function resolveAndRedirect() {
+      let dbRole: string | null = null;
+      try {
+        const res = await fetch("/api/profile");
+        const data = await res.json();
+        dbRole = data?.user?.role || null;
+      } catch {
+        // If profile fetch fails, fall back to session role
+      }
+
+      // If a pendingRole was requested (from /register Google OAuth), apply it
+      if (pendingRole && ["STUDENT", "OWNER"].includes(pendingRole)) {
+        if (pendingRole !== dbRole) {
+          try {
+            await fetch("/api/auth/update-role", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ role: pendingRole }),
+            });
+            await update({ role: pendingRole });
+          } catch {
+            // Continue even if update fails
+          }
+        } else {
+          // Ensure JWT matches DB
+          await update({ role: pendingRole });
+        }
+        router.replace(pendingRole === "OWNER" ? "/admin/dashboard" : "/dashboard");
+        return;
+      }
+
+      // No pendingRole — use actual DB role (most reliable)
+      const role = dbRole || (session?.user as any)?.role || "STUDENT";
+      // Ensure JWT matches actual DB role
+      if (role !== (session?.user as any)?.role) {
+        try { await update({ role }); } catch {}
+      }
+      if (role === "OWNER" || role === "ADMIN") {
+        router.replace("/admin/dashboard");
+      } else {
+        router.replace("/dashboard");
+      }
     }
 
-    // Normal role-based redirect
-    const role = pendingRole || sessionRole;
-    if (role === "OWNER" || role === "ADMIN") {
-      router.replace("/admin/dashboard");
-    } else {
-      router.replace("/dashboard");
-    }
+    resolveAndRedirect();
   }, [status, session, router, searchParams, update]);
 
   return (

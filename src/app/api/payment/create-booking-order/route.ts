@@ -37,9 +37,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Property not found" }, { status: 404 });
     }
 
-    // Calculate total with GST
-    const gst = Math.round(property.price * (property.gstRate / 100));
-    const totalAmount = property.price + gst;
+    // Calculate dynamic pricing based on date range
+    const checkInDate = new Date(checkIn);
+    const checkOutDate = new Date(checkOut);
+    const daysDiff = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
+    const days = daysDiff > 0 ? daysDiff : 1;
+    const perDay = Math.round(property.price / 30);
+    const basePrice = perDay * days;
+    const gst = Math.round(basePrice * (property.gstRate / 100));
+    const totalAmount = basePrice + gst;
     // Razorpay expects amount in paise
     const amountInPaise = Math.round(totalAmount * 100);
 
@@ -66,7 +72,9 @@ export async function POST(req: NextRequest) {
       amount: order.amount,
       currency: order.currency,
       propertyName: property.name,
-      basePrice: property.price,
+      perDay,
+      days,
+      basePrice,
       gst,
       totalAmount,
       keyId: process.env.RAZORPAY_KEY_ID,

@@ -49,7 +49,15 @@ export async function POST(req: NextRequest) {
     }
 
     const gstAmount = Math.round(property.price * (property.gstRate / 100));
-    const grandTotal = property.price + gstAmount;
+    // Dynamic pricing based on date range
+    const checkInDate = new Date(checkIn);
+    const checkOutDate = new Date(checkOut);
+    const daysDiff = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
+    const days = daysDiff > 0 ? daysDiff : 1;
+    const perDay = Math.round(property.price / 30);
+    const basePrice = perDay * days;
+    const gstCalc = Math.round(basePrice * (property.gstRate / 100));
+    const grandTotal = basePrice + gstCalc;
 
     // Create booking with CONFIRMED status since payment is verified
     const booking = await prisma.booking.create({
@@ -58,8 +66,8 @@ export async function POST(req: NextRequest) {
         propertyId,
         checkIn: new Date(checkIn),
         checkOut: new Date(checkOut),
-        totalPrice: property.price,
-        gstAmount,
+        totalPrice: basePrice,
+        gstAmount: gstCalc,
         grandTotal,
         status: "CONFIRMED",
         notes: `Razorpay Payment ID: ${razorpay_payment_id}`,
