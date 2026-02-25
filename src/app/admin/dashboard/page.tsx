@@ -9,7 +9,7 @@ import {
   Plus, Crown, ChevronDown, ChevronLeft, ChevronRight, Loader2,
   Settings, LogOut, LayoutDashboard, Building2, Pencil, BarChart3,
   Megaphone, Send, MapPin, Star, X, Eye, TrendingUp, ArrowRight,
-  Ticket, Users, DollarSign,
+  Ticket, Users, DollarSign, User,
 } from "lucide-react";
 import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
@@ -168,14 +168,16 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-white">
-      <PremiumModal open={premiumOpen} onClose={() => setPremiumOpen(false)} />
       <AnnouncementModal open={!!announceProp} onClose={() => setAnnounceProp(null)} property={announceProp} />
 
       {/* ── NAVBAR ── */}
       <header className="bg-white/95 backdrop-blur-md border-b border-gray-100 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <Link href="/home" className="flex items-center gap-2"><span className="sr-only">AasPass</span></Link>
+            <Link href="/admin/dashboard" className="flex items-center gap-2">
+              <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center"><span className="text-white font-bold text-sm">A</span></div>
+              <span className="text-xl font-bold text-gray-900">AasPass</span>
+            </Link>
             {session ? (
               <div className="relative" onClick={(e) => e.stopPropagation()}>
                 <button onClick={() => setProfileOpen(!profileOpen)}
@@ -183,7 +185,6 @@ export default function AdminDashboard() {
                   <div className="h-7 w-7 bg-primary/10 rounded-full flex items-center justify-center">
                     <span className="text-sm font-bold text-primary">{session.user?.name?.[0]?.toUpperCase() || "O"}</span>
                   </div>
-                  {isPremium && <Crown className="h-3.5 w-3.5 text-amber-500" />}
                   <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
                 </button>
                 {profileOpen && (
@@ -193,6 +194,9 @@ export default function AdminDashboard() {
                       <p className="text-xs text-gray-500">{session.user?.email}</p>
                       <Badge className="bg-blue-100 text-blue-700 text-[10px] mt-1"><Building2 className="h-3 w-3 mr-0.5" />Owner</Badge>
                     </div>
+                    <Link href="/settings/profile" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setProfileOpen(false)}>
+                      <User className="h-4 w-4 text-gray-400" /> Personal Details
+                    </Link>
                     <Link href="/admin/dashboard" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setProfileOpen(false)}>
                       <LayoutDashboard className="h-4 w-4 text-gray-400" /> Dashboard
                     </Link>
@@ -202,12 +206,7 @@ export default function AdminDashboard() {
                     <Link href="/admin/properties/new" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setProfileOpen(false)}>
                       <Plus className="h-4 w-4 text-gray-400" /> Add Property
                     </Link>
-                    {!isPremium && (
-                      <button onClick={() => { setPremiumOpen(true); setProfileOpen(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-amber-600 hover:bg-amber-50">
-                        <Crown className="h-4 w-4" /> Upgrade to Premium
-                      </button>
-                    )}
-                    <Link href="/settings" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setProfileOpen(false)}>
+                    <Link href="/settings/edit" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setProfileOpen(false)}>
                       <Settings className="h-4 w-4 text-gray-400" /> Settings
                     </Link>
                     <div className="border-t border-gray-100 mt-1 pt-1">

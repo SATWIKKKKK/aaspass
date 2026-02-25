@@ -114,7 +114,6 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState<"chat" | "search">("search");
   const messagesEnd = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const chatContainer = useRef<HTMLDivElement>(null);
@@ -181,7 +180,6 @@ export default function ChatPage() {
       role: "user",
       content: messageText,
       timestamp: new Date(),
-      isSearch: mode === "search",
     };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
@@ -190,51 +188,19 @@ export default function ChatPage() {
     if (inputRef.current) inputRef.current.style.height = "auto";
 
     try {
-      if (mode === "search") {
-        const res = await fetch("/api/ai-search", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query: messageText }),
-        });
-        const data = await res.json();
-
-        if (res.status === 403) {
-          setMessages((prev) => [...prev, {
-            id: (Date.now() + 1).toString(),
-            role: "assistant",
-            content: "🔒 AI Search is a Premium feature. Upgrade your plan to get smart, AI-powered property recommendations!",
-            timestamp: new Date(),
-          }]);
-        } else if (data.error) {
-          setMessages((prev) => [...prev, {
-            id: (Date.now() + 1).toString(),
-            role: "assistant",
-            content: data.error,
-            timestamp: new Date(),
-          }]);
-        } else {
-          setMessages((prev) => [...prev, {
-            id: (Date.now() + 1).toString(),
-            role: "assistant",
-            content: data.message || `Found ${data.totalResults} results`,
-            timestamp: new Date(),
-            properties: data.results || [],
-          }]);
-        }
-      } else {
-        const res = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: messageText }),
-        });
-        const data = await res.json();
-        setMessages((prev) => [...prev, {
-          id: (Date.now() + 1).toString(),
-          role: "assistant",
-          content: data.reply || "I couldn't process that. Please try again.",
-          timestamp: new Date(),
-        }]);
-      }
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: messageText }),
+      });
+      const data = await res.json();
+      setMessages((prev) => [...prev, {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: data.reply || "I couldn't process that. Please try again.",
+        timestamp: new Date(),
+        properties: data.properties || [],
+      }]);
 
       const title = messageText.slice(0, 40) + (messageText.length > 40 ? "..." : "");
       setConversations((prev) => {
@@ -329,14 +295,6 @@ export default function ChatPage() {
             <h1 className="font-semibold text-gray-900 text-sm">AasPass AI</h1>
             <p className="text-[10px] text-gray-400">Powered by AI</p>
           </div>
-          <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
-            <button onClick={() => setMode("search")} className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all", mode === "search" ? "bg-white text-primary shadow-sm" : "text-gray-500 hover:text-gray-700")}>
-              <Search className="h-3 w-3" /> Search
-            </button>
-            <button onClick={() => setMode("chat")} className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all", mode === "chat" ? "bg-white text-primary shadow-sm" : "text-gray-500 hover:text-gray-700")}>
-              <MessageSquare className="h-3 w-3" /> Chat
-            </button>
-          </div>
           {(session.user as any)?.isPremium && <Badge className="bg-amber-100 text-amber-700 text-[10px]"><Crown className="h-3 w-3 mr-1" /> Premium</Badge>}
         </div>
 
@@ -346,14 +304,12 @@ export default function ChatPage() {
               <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center mb-6 shadow-lg">
                 <Bot className="h-8 w-8 text-white" />
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">{mode === "search" ? "AI Property Search" : "AI Chat Assistant"}</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">AI Chat Assistant</h2>
               <p className="text-gray-500 text-center max-w-md mb-8">
-                {mode === "search"
-                  ? "Describe what you're looking for — location, budget, amenities — and I'll find the best matches for you."
-                  : "Ask me anything about student life, accommodation tips, or how to make the most of AasPass."}
+                Ask me anything about student life, accommodation tips, property recommendations, or how to make the most of AasPass.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xl w-full">
-                {(mode === "search" ? SEARCH_SUGGESTIONS : CHAT_SUGGESTIONS).map((s, i) => (
+                {CHAT_SUGGESTIONS.map((s, i) => (
                   <button key={i} onClick={() => sendMessage(s.text)} className="flex items-start gap-3 p-4 rounded-xl border border-gray-200 hover:border-primary/40 hover:bg-primary/5 text-left transition-all group">
                     <s.icon className={cn("h-5 w-5 mt-0.5 flex-shrink-0", s.color)} />
                     <span className="text-sm text-gray-600 group-hover:text-gray-900">{s.text}</span>
@@ -408,7 +364,7 @@ export default function ChatPage() {
                         <div className="h-2 w-2 rounded-full bg-gray-300 animate-bounce" style={{ animationDelay: "150ms" }} />
                         <div className="h-2 w-2 rounded-full bg-gray-300 animate-bounce" style={{ animationDelay: "300ms" }} />
                       </div>
-                      <span className="text-xs text-gray-400 ml-1">{mode === "search" ? "Searching..." : "Thinking..."}</span>
+                      <span className="text-xs text-gray-400 ml-1">Thinking...</span>
                     </div>
                   </div>
                 </div>
@@ -428,7 +384,7 @@ export default function ChatPage() {
             <div className="relative flex items-end gap-2 bg-gray-50 border border-gray-200 rounded-2xl px-4 py-2 focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/10 transition-all">
               <textarea
                 ref={inputRef}
-                placeholder={mode === "search" ? "Describe what you're looking for..." : "Ask anything about services..."}
+                placeholder="Ask anything about services, accommodation tips, or recommendations..."
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}

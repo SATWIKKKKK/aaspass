@@ -7,7 +7,7 @@ import toast from "react-hot-toast";
 import {
   Plus, Calendar, Crown, Coins, RefreshCw, XCircle,
   MessageSquare, Share2, ChevronDown, Loader2, Settings, LogOut,
-  Bookmark, LayoutDashboard, Ticket, Award, Search,
+  Bookmark, LayoutDashboard, Ticket, Award, Search, User, Building2,
 } from "lucide-react";
 import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
@@ -230,20 +230,26 @@ export default function StudentDashboard() {
                     <div className="px-4 py-3 border-b border-gray-100">
                       <p className="text-sm font-semibold text-gray-900">{session.user?.name}</p>
                       <p className="text-xs text-gray-500">{session.user?.email}</p>
-                      {isPremium && <Badge className="bg-amber-100 text-amber-700 text-[10px] mt-1"><Crown className="h-3 w-3 mr-0.5" />Premium</Badge>}
+                      <div className="flex items-center gap-1.5 mt-1.5">
+                        <Badge variant="outline" className="text-[10px] text-gray-600 border-gray-200">Student</Badge>
+                        {isPremium && <Badge className="bg-amber-100 text-amber-700 text-[10px]"><Crown className="h-3 w-3 mr-0.5" />Premium</Badge>}
+                      </div>
                     </div>
-                    <Link href="/services" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setProfileOpen(false)}>
-                      <Search className="h-4 w-4 text-gray-400" /> Browse Services
+                    <Link href="/settings/profile" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setProfileOpen(false)}>
+                      <User className="h-4 w-4 text-gray-400" /> Personal Details
                     </Link>
                     <Link href="/dashboard" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setProfileOpen(false)}>
-                      <LayoutDashboard className="h-4 w-4 text-gray-400" /> My Bookings
+                      <LayoutDashboard className="h-4 w-4 text-gray-400" /> My Dashboard
+                    </Link>
+                    <Link href="/services" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setProfileOpen(false)}>
+                      <Search className="h-4 w-4 text-gray-400" /> Browse Services
                     </Link>
                     {!isPremium && (
                       <button onClick={() => { setPremiumOpen(true); setProfileOpen(false); }} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-amber-600 hover:bg-amber-50 transition-colors">
                         <Crown className="h-4 w-4" /> Upgrade to Premium
                       </button>
                     )}
-                    <Link href="/settings" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setProfileOpen(false)}>
+                    <Link href="/settings/edit" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setProfileOpen(false)}>
                       <Settings className="h-4 w-4 text-gray-400" /> Settings
                     </Link>
                     <div className="border-t border-gray-100 mt-1 pt-1">

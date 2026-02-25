@@ -88,11 +88,12 @@ function Counter({ label, value, onChange }: { label: string; value: number; onC
   );
 }
 
-// ── Profile Dropdown (same as /home) ─────────────────────────────────────────
+// ── Profile Dropdown (unified) ───────────────────────────────────────────────
 function ProfileDropdown({ session, isPremium, profileOpen, setProfileOpen, setPremiumOpen }: {
   session: { user?: { name?: string | null; email?: string | null } | null } | null;
   isPremium?: boolean; profileOpen: boolean; setProfileOpen: (o: boolean) => void; setPremiumOpen: (o: boolean) => void;
 }) {
+  const isOwner = u(session)?.role === "OWNER";
   return (
     <div className="relative" onClick={(e) => e.stopPropagation()}>
       <button onClick={() => setProfileOpen(!profileOpen)} className="flex items-center gap-1.5 h-10 px-3 rounded-full border border-gray-200 bg-white hover:bg-gray-50 transition-colors shadow-sm">
@@ -105,15 +106,23 @@ function ProfileDropdown({ session, isPremium, profileOpen, setProfileOpen, setP
           <div className="px-4 py-3 border-b border-gray-100">
             <p className="text-sm font-semibold text-gray-900">{session?.user?.name}</p>
             <p className="text-xs text-gray-500">{session?.user?.email}</p>
-            {isPremium && <Badge className="mt-1.5 bg-amber-100 text-amber-700 text-[10px]"><Crown className="h-2.5 w-2.5 mr-0.5" />Premium Member</Badge>}
+            <div className="flex items-center gap-1.5 mt-1.5">
+              <Badge variant="outline" className="text-[10px] text-gray-600 border-gray-200">{isOwner ? "Owner" : "Student"}</Badge>
+              {isPremium && <Badge className="bg-amber-100 text-amber-700 text-[10px]"><Crown className="h-2.5 w-2.5 mr-0.5" />Premium</Badge>}
+            </div>
           </div>
-          {[
-            { icon: User, label: "Personal Details", href: "/profile" },
-            { icon: LayoutDashboard, label: "My Bookings", href: "/dashboard" },
+          {(isOwner ? [
+            { icon: User, label: "Personal Details", href: "/settings/profile" },
+            { icon: LayoutDashboard, label: "Dashboard", href: "/admin/dashboard" },
+            { icon: Building2, label: "My Properties", href: "/admin/properties" },
+            { icon: Settings, label: "Settings", href: "/settings/edit" },
+          ] : [
+            { icon: User, label: "Personal Details", href: "/settings/profile" },
+            { icon: LayoutDashboard, label: "My Dashboard", href: "/dashboard" },
             { icon: Search, label: "Browse Services", href: "/services" },
-            { icon: Crown, label: "Upgrade to Premium", action: () => { setPremiumOpen(true); setProfileOpen(false); } },
-            { icon: Settings, label: "Settings", href: "/settings" },
-          ].map((item) =>
+            ...(!isPremium ? [{ icon: Crown, label: "Upgrade to Premium", action: () => { setPremiumOpen(true); setProfileOpen(false); } }] : []),
+            { icon: Settings, label: "Settings", href: "/settings/edit" },
+          ] as any[]).map((item: any) =>
             item.href ? (
               <Link key={item.label} href={item.href} className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setProfileOpen(false)}>
                 <item.icon className="h-4 w-4 text-gray-400" />{item.label}

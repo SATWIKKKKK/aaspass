@@ -61,6 +61,7 @@ export async function PUT(
       latitude, longitude, nearbyLandmark, distanceMarket, distanceInstitute,
       isAC, hasWifi, forGender, occupancy, foodIncluded, laundryIncluded,
       foodRating, hasMedical, nearbyMess, nearbyLaundry, cancellationPolicy, rules, images,
+      capacity, availableRooms, closingTime,
     } = body;
 
     // Build update data — only include fields that are provided
@@ -93,6 +94,9 @@ export async function PUT(
     if (nearbyLaundry !== undefined) data.nearbyLaundry = nearbyLaundry || null;
     if (cancellationPolicy !== undefined) data.cancellationPolicy = cancellationPolicy || null;
     if (rules !== undefined) data.rules = rules || null;
+    if (capacity !== undefined) data.capacity = capacity ? parseInt(capacity) : null;
+    if (availableRooms !== undefined) data.availableRooms = availableRooms ? parseInt(availableRooms) : null;
+    if (closingTime !== undefined) data.closingTime = closingTime || null;
 
     // Handle image updates: if images array provided, replace all images
     if (images !== undefined) {

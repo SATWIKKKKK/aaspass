@@ -156,6 +156,11 @@ model Property {
   nearbyMess        String?
   nearbyLaundry     String?
 
+  // Capacity
+  capacity          Int?           // Total capacity (rooms/seats)
+  availableRooms    Int?           // Currently available
+  closingTime       String?        // e.g. "10:00 PM"
+
   // Cancellation
   cancellationPolicy String?      @db.Text
 
@@ -201,6 +206,7 @@ model PropertyImage {
   publicId   String?
   isWideShot Boolean  @default(false)
   order      Int      @default(0)
+  category   String?  // e.g. "room", "bathroom", "exterior", "view", "common_area", "kitchen"
   propertyId String
   property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 

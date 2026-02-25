@@ -176,6 +176,7 @@ type ProfileDropdownProps = {
 };
 
 function ProfileDropdown({ session, isPremium, profileOpen, setProfileOpen, setPremiumOpen }: ProfileDropdownProps) {
+  const isOwner = u(session)?.role === "OWNER";
   return (
     <div className="relative" onClick={(e) => e.stopPropagation()}>
       <button
@@ -193,16 +194,23 @@ function ProfileDropdown({ session, isPremium, profileOpen, setProfileOpen, setP
           <div className="px-4 py-3 border-b border-gray-100">
             <p className="text-sm font-semibold text-gray-900">{session?.user?.name}</p>
             <p className="text-xs text-gray-500">{session?.user?.email}</p>
-            {isPremium && (
-              <Badge className="mt-1.5 bg-amber-100 text-amber-700 text-[10px]"><Crown className="h-2.5 w-2.5 mr-0.5" />Premium Member</Badge>
-            )}
+            <div className="flex items-center gap-1.5 mt-1.5">
+              <Badge variant="outline" className="text-[10px] text-gray-600 border-gray-200">{isOwner ? "Owner" : "Student"}</Badge>
+              {isPremium && <Badge className="bg-amber-100 text-amber-700 text-[10px]"><Crown className="h-2.5 w-2.5 mr-0.5" />Premium</Badge>}
+            </div>
           </div>
-          {[
+          {(isOwner ? [
             { icon: User, label: "Personal Details", href: "/settings/profile" },
-            { icon: LayoutDashboard, label: "Dashboard", href: u(session)?.role === "OWNER" ? "/admin/dashboard" : "/dashboard" },
+            { icon: LayoutDashboard, label: "Dashboard", href: "/admin/dashboard" },
+            { icon: Building2, label: "My Properties", href: "/admin/properties" },
+            { icon: Settings, label: "Settings", href: "/settings/edit" },
+          ] : [
+            { icon: User, label: "Personal Details", href: "/settings/profile" },
+            { icon: LayoutDashboard, label: "My Dashboard", href: "/dashboard" },
+            { icon: Search, label: "Browse Services", href: "/services" },
             ...(!isPremium ? [{ icon: Crown, label: "Upgrade to Premium", action: () => { setPremiumOpen(true); setProfileOpen(false); } }] : []),
             { icon: Settings, label: "Settings", href: "/settings/edit" },
-          ].map((item) => (
+          ] as any[]).map((item: any) => (
             item.href ? (
               <Link key={item.label} href={item.href} className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setProfileOpen(false)}>
                 <item.icon className="h-4 w-4 text-gray-400" />{item.label}

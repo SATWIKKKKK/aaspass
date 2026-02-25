@@ -48,7 +48,8 @@ export default function NewPropertyPage() {
     occupancy: "", foodIncluded: false, laundryIncluded: false,
     foodRating: "", hasMedical: false,
     nearbyMess: "", nearbyLaundry: "",
-    rules: "", cancellationPolicy: "",
+    rules: "", cancellationPolicy: "", closingTime: "",
+    capacity: "", availableRooms: "",
   });
 
   const update = (field: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -99,6 +100,9 @@ export default function NewPropertyPage() {
       if (form.foodRating) body.foodRating = parseFloat(form.foodRating);
       if (form.nearbyMess) body.nearbyMess = form.nearbyMess;
       if (form.nearbyLaundry) body.nearbyLaundry = form.nearbyLaundry;
+      if (form.capacity) body.capacity = parseInt(form.capacity);
+      if (form.availableRooms) body.availableRooms = parseInt(form.availableRooms);
+      if (form.closingTime) body.closingTime = form.closingTime;
 
       const validImages = images.filter((img) => img.url.trim());
       if (validImages.length > 0) body.images = validImages.map((img) => ({ url: img.url.trim(), isWideShot: img.isWideShot }));
@@ -118,7 +122,7 @@ export default function NewPropertyPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navbar variant="admin" />
+      <Navbar variant="minimal-admin" showNavLinks={false} />
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Link href="/admin/dashboard" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-primary mb-4"><ChevronLeft className="h-4 w-4" /> Back to Dashboard</Link>
         <h1 className="text-2xl font-bold text-gray-900 mb-2">List New Property</h1>
@@ -157,6 +161,10 @@ export default function NewPropertyPage() {
                 </select>
               </div>
               <div><Label>Occupancy (sharing)</Label><Input type="number" placeholder="2" value={form.occupancy} onChange={update("occupancy")} /></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><Label>Total Capacity (rooms/seats)</Label><Input type="number" placeholder="50" value={form.capacity} onChange={update("capacity")} /></div>
+                <div><Label>Available Rooms/Seats</Label><Input type="number" placeholder="10" value={form.availableRooms} onChange={update("availableRooms")} /></div>
+              </div>
             </>)}
 
             {step === 3 && (<>
@@ -213,6 +221,7 @@ export default function NewPropertyPage() {
             {step === 5 && (<>
               <div><Label>Rules & Regulations</Label><Textarea placeholder="1. No smoking inside premises&#10;2. Gate closes at 10 PM&#10;3. Visitors only in common area" rows={5} value={form.rules} onChange={update("rules")} /></div>
               <div><Label>Cancellation Policy</Label><Textarea placeholder="Full refund if cancelled 7 days before check-in. 50% refund within 3 days." rows={3} value={form.cancellationPolicy} onChange={update("cancellationPolicy")} /></div>
+              <div><Label>Closing Time</Label><Input type="time" placeholder="22:00" value={form.closingTime} onChange={update("closingTime")} /><p className="text-xs text-gray-400 mt-1">Gate closing time (e.g. 10:00 PM)</p></div>
             </>)}
 
             {/* ── Step 6: Photos ── */}

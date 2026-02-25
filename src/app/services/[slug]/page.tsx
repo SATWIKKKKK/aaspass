@@ -81,18 +81,81 @@ export default function PropertyPage() {
 
   const { base, gst, total } = calculateGST(property.price, property.gstRate);
 
+  const loadRazorpayScript = (): Promise<boolean> => {
+    return new Promise((resolve) => {
+      if (document.getElementById("razorpay-checkout-js")) { resolve(true); return; }
+      const script = document.createElement("script");
+      script.id = "razorpay-checkout-js";
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
   const handleBookNow = async () => {
     if (!session) { router.push("/login"); return; }
     if (!checkIn || !checkOut) { toast.error("Please select check-in and check-out dates"); return; }
     setBooking(true);
     try {
-      const res = await fetch("/api/bookings", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ propertyId: property.id, checkIn, checkOut }) });
-      const data = await res.json();
-      if (res.ok) { toast.success("Booking confirmed!"); router.push("/dashboard"); }
-      else toast.error(data.error || "Booking failed");
-    } catch { toast.error("Booking failed"); }
-    finally { setBooking(false); }
+      // Load Razorpay script
+      const loaded = await loadRazorpayScript();
+      if (!loaded) { toast.error("Failed to load payment gateway"); setBooking(false); return; }
+
+      // Create Razorpay order
+      const orderRes = await fetch("/api/payment/create-booking-order", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ propertyId: property.id, checkIn, checkOut }),
+      });
+      const orderData = await orderRes.json();
+      if (!orderRes.ok) { toast.error(orderData.error || "Failed to create payment order"); setBooking(false); return; }
+
+      // Open Razorpay checkout
+      const options = {
+        key: orderData.keyId,
+        amount: orderData.amount,
+        currency: orderData.currency,
+        name: "AasPass",
+        description: `Booking for ${orderData.propertyName}`,
+        order_id: orderData.orderId,
+        handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
+          try {
+            const verifyRes = await fetch("/api/payment/verify-booking", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                propertyId: property.id, checkIn, checkOut,
+              }),
+            });
+            const verifyData = await verifyRes.json();
+            if (verifyRes.ok && verifyData.success) {
+              toast.success("Booking confirmed! Payment successful.");
+              router.push("/dashboard");
+            } else {
+              toast.error(verifyData.error || "Payment verification failed");
+            }
+          } catch { toast.error("Payment verification failed"); }
+          finally { setBooking(false); }
+        },
+        prefill: {
+          name: session.user?.name || "",
+          email: session.user?.email || "",
+        },
+        theme: { color: "#6366f1" },
+        modal: {
+          ondismiss: () => { setBooking(false); },
+        },
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.on("payment.failed", (response: any) => {
+        toast.error(response.error?.description || "Payment failed");
+        setBooking(false);
+      });
+      rzp.open();
+    } catch { toast.error("Booking failed"); setBooking(false); }
   };
 
   const handleAddToCart = async () => {
@@ -133,7 +196,7 @@ export default function PropertyPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      <Navbar variant={session ? ((session.user as any)?.role === "OWNER" ? "admin" : "student") : "public"} />
+      <Navbar variant={session ? ((session.user as any)?.role === "OWNER" ? "minimal-admin" : "minimal-student") : "public"} showNavLinks={false} />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
         <Link href="/services" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-primary">
           <ChevronLeft className="h-4 w-4" /> Back to Services

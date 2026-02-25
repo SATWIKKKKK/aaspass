@@ -128,6 +128,16 @@ export const authConfig: NextAuthConfig = {
       }
       return session;
     },
+    async redirect({ url, baseUrl }) {
+      // After sign-in, always route through the auth/redirect page for role-based routing
+      if (url.startsWith(baseUrl) || url.startsWith("/")) {
+        // If the url is the base URL or root, redirect through role-based router
+        if (url === baseUrl || url === baseUrl + "/" || url === "/" || url.includes("/api/auth")) {
+          return `${baseUrl}/auth/redirect`;
+        }
+      }
+      return url.startsWith(baseUrl) ? url : baseUrl;
+    },
   },
   pages: {
     signIn: "/login",

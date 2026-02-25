@@ -102,6 +102,7 @@ export async function POST(req: NextRequest) {
       latitude, longitude, nearbyLandmark, distanceMarket, distanceInstitute,
       isAC, hasWifi, forGender, occupancy, foodIncluded, laundryIncluded,
       foodRating, hasMedical, nearbyMess, nearbyLaundry, cancellationPolicy, rules, images,
+      capacity, availableRooms, closingTime,
     } = body;
 
     const slug = name
@@ -123,6 +124,9 @@ export async function POST(req: NextRequest) {
         foodRating: foodRating ? parseFloat(foodRating) : null,
         hasMedical: Boolean(hasMedical), nearbyMess, nearbyLaundry,
         cancellationPolicy, rules,
+        capacity: capacity ? parseInt(capacity) : null,
+        availableRooms: availableRooms ? parseInt(availableRooms) : null,
+        closingTime: closingTime || null,
         status: "VERIFIED",
         ownerId: session.user.id!,
         images: images?.length
