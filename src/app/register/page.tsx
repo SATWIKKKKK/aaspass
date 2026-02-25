@@ -107,7 +107,7 @@ function RegisterFormInner() {
 
   const handleGoogle = async () => {
     setGoogleLoading(true);
-    try { await signIn("google", { callbackUrl: "/auth/redirect" }); }
+    try { await signIn("google", { callbackUrl: `/auth/redirect?pendingRole=${form.role}` }); }
     catch { toast.error("Google sign-up failed"); setGoogleLoading(false); }
   };
 

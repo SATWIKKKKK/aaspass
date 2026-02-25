@@ -90,7 +90,11 @@ export const authConfig: NextAuthConfig = {
       }
       return true;
     },
-    async jwt({ token, user, account }) {
+    async jwt({ token, user, account, trigger, session }) {
+      // Handle client-side session update (e.g. role change after Google OAuth registration)
+      if (trigger === "update" && session?.role) {
+        token.role = session.role;
+      }
       if (user) {
         token.id = (user as any).id || user.id;
         token.role = (user as any).role || "STUDENT";
