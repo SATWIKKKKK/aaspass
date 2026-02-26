@@ -1,5 +1,7 @@
 "use client";
 
+/// <reference types="@types/google.maps" />
+
 import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -13,6 +15,7 @@ import { Navbar } from "@/components/navbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn, getDailyRate } from "@/lib/utils";
+import toast from "react-hot-toast";
 
 /* ── Types ──────────────────────────────────────────────────────────────── */
 interface NearbyProperty {
@@ -67,6 +70,7 @@ function MapSearchInner() {
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
+  const searchPendingRef = useRef(false);
 
   /* state */
   const [locationName, setLocationName] = useState(searchParams.get("location") || "");
@@ -91,13 +95,23 @@ function MapSearchInner() {
 
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 
+  /* ── Sync input field value with locationName state ──────────────── */
+  useEffect(() => {
+    if (inputRef.current && locationName) {
+      inputRef.current.value = locationName;
+    }
+  }, [locationName]);
+
   /* ── Load Google Maps via @googlemaps/js-api-loader ─────────────── */
   useEffect(() => {
     if (!apiKey) return;
     setOptions({ key: apiKey, v: "weekly", libraries: ["places"] });
-    importLibrary("maps").then(() => {
-      setMapReady(true);
-    });
+    importLibrary("maps")
+      .then(() => setMapReady(true))
+      .catch((err) => {
+        console.error("Failed to load Google Maps:", err);
+        toast.error("Failed to load Google Maps. Check API key and billing.");
+      });
   }, [apiKey]);
 
   /* ── Initialize Map ────────────────────────────────────────────── */
@@ -117,6 +131,7 @@ function MapSearchInner() {
       fullscreenControl: true,
       zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_BOTTOM },
       fullscreenControlOptions: { position: google.maps.ControlPosition.RIGHT_BOTTOM },
+      draggableCursor: "crosshair",
       styles: [
         { featureType: "poi.business", stylers: [{ visibility: "off" }] },
         { featureType: "poi.government", stylers: [{ visibility: "off" }] },
@@ -125,18 +140,42 @@ function MapSearchInner() {
 
     infoWindowRef.current = new google.maps.InfoWindow();
 
-    /* click on map → set center */
+    /* click on map → set center, validate India, reverse geocode, auto-search */
     mapObjRef.current.addListener("click", (e: google.maps.MapMouseEvent) => {
       if (!e.latLng) return;
       const cLat = e.latLng.lat();
       const cLng = e.latLng.lng();
-      setLat(cLat);
-      setLng(cLng);
-      /* reverse geocode */
+
       new google.maps.Geocoder().geocode(
         { location: { lat: cLat, lng: cLng } },
         (results: google.maps.GeocoderResult[] | null, status: google.maps.GeocoderStatus) => {
-          if (status === "OK" && results?.[0]) setLocationName(results[0].formatted_address);
+          if (status === "OK" && results?.[0]) {
+            // Check if location is within India
+            const isInIndia = results[0].address_components?.some(
+              (component: google.maps.GeocoderAddressComponent) =>
+                component.types.includes("country") && component.short_name === "IN"
+            );
+            if (!isInIndia) {
+              toast.error("Please select a location within India");
+              return;
+            }
+
+            const areaName = results[0].formatted_address;
+            setLocationName(areaName);
+            if (inputRef.current) inputRef.current.value = areaName;
+
+            toast(`Searching near ${areaName.split(",")[0]}...`, {
+              icon: "📍",
+              duration: 2000,
+              style: { fontSize: "13px" },
+            });
+          }
+
+          // Update coordinates and trigger auto-search
+          setLat(cLat);
+          setLng(cLng);
+          placeCenterMarker(cLat, cLng);
+          searchPendingRef.current = true;
         }
       );
     });
@@ -145,6 +184,7 @@ function MapSearchInner() {
     if (lat !== null && lng !== null) {
       placeCenterMarker(initLat, initLng);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapReady]); // map init depends on mapReady
 
   /* ── Setup autocomplete on the location input ──────────────────── */
@@ -170,16 +210,28 @@ function MapSearchInner() {
           mapObjRef.current.setZoom(14);
         }
         placeCenterMarker(pLat, pLng);
+        // Auto-trigger search after place selection
+        searchPendingRef.current = true;
       }
     });
   }, [mapReady]); // autocomplete init depends on mapReady
+
+  /* ── Auto-search when lat/lng change (from click or autocomplete) ─ */
+  useEffect(() => {
+    if (mapReady && lat !== null && lng !== null && searchPendingRef.current) {
+      searchPendingRef.current = false;
+      doSearch();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lat, lng, mapReady]);
 
   /* ── Auto-search once map is ready if lat/lng from query params ── */
   useEffect(() => {
     if (mapReady && lat !== null && lng !== null && !searched) {
       doSearch();
     }
-  }, [mapReady]); // auto-search on first load with params
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapReady]);
 
   /* ── Helper: place / update center marker ──────────────────────── */
   function placeCenterMarker(cLat: number, cLng: number) {
@@ -190,14 +242,15 @@ function MapSearchInner() {
       map: mapObjRef.current,
       icon: {
         path: google.maps.SymbolPath.CIRCLE,
-        scale: 12,
+        scale: 14,
         fillColor: "#4F46E5",
-        fillOpacity: 1,
+        fillOpacity: 0.9,
         strokeColor: "#ffffff",
         strokeWeight: 3,
       },
       title: "Searching here",
       zIndex: 2000,
+      animation: google.maps.Animation.DROP,
     });
   }
 
@@ -393,7 +446,11 @@ function MapSearchInner() {
 
   /* ── Current Location ──────────────────────────────────────────── */
   function useMyLocation() {
-    if (!navigator.geolocation) return;
+    if (!navigator.geolocation) {
+      toast.error("Geolocation is not supported by your browser");
+      return;
+    }
+    toast.loading("Getting your location...", { id: "geo" });
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const pLat = pos.coords.latitude;
@@ -401,13 +458,18 @@ function MapSearchInner() {
         setLat(pLat);
         setLng(pLng);
         setLocationName("My Current Location");
+        if (inputRef.current) inputRef.current.value = "My Current Location";
         if (mapObjRef.current) {
           mapObjRef.current.panTo({ lat: pLat, lng: pLng });
           mapObjRef.current.setZoom(14);
         }
         placeCenterMarker(pLat, pLng);
+        searchPendingRef.current = true;
+        toast.success("Location found!", { id: "geo" });
       },
-      () => { /* denied */ },
+      () => {
+        toast.error("Location access denied", { id: "geo" });
+      },
     );
   }
 
@@ -419,11 +481,11 @@ function MapSearchInner() {
 
   /* ════════════════════════════════════════════════════════════════ */
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="h-screen flex flex-col overflow-hidden">
       <Navbar variant="student" />
 
       {/* ═══ TOP CONTROLS ═══ */}
-      <div className="bg-white border-b border-gray-200 px-4 py-3 z-30 relative">
+      <div className="bg-white border-b border-gray-200 px-4 py-3 z-30 relative shrink-0">
         <div className="max-w-7xl mx-auto">
           {/* Row 1: Back link + Location input */}
           <div className="flex items-center gap-3 mb-3">
@@ -474,7 +536,7 @@ function MapSearchInner() {
       </div>
 
       {/* ═══ Mobile toggle ═══ */}
-      <div className="sm:hidden bg-white border-b border-gray-200 flex">
+      <div className="sm:hidden bg-white border-b border-gray-200 flex shrink-0">
         <button onClick={() => setMobileView("list")} className={cn("flex-1 py-2.5 text-sm font-medium flex items-center justify-center gap-1.5 transition-colors", mobileView === "list" ? "text-primary border-b-2 border-primary" : "text-gray-500")}>
           <List className="h-4 w-4" /> List ({allResults.length})
         </button>
@@ -484,10 +546,10 @@ function MapSearchInner() {
       </div>
 
       {/* ═══ SPLIT LAYOUT ═══ */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden min-h-0">
         {/* ── LEFT PANEL: results ── */}
         <div className={cn(
-          "bg-white border-r border-gray-200 overflow-y-auto w-full sm:w-95 shrink-0 transition-all",
+          "bg-white border-r border-gray-200 overflow-y-auto w-full sm:w-[24rem] shrink-0 transition-all",
           mobileView === "map" && "hidden sm:block"
         )}>
           <div className="p-4" ref={sidebarRef}>
@@ -602,20 +664,21 @@ function MapSearchInner() {
         {/* ── RIGHT PANEL: Map ── */}
         <div className={cn("flex-1 relative", mobileView === "list" && "hidden sm:block")}>
           {!apiKey ? (
-            <div className="h-full flex flex-col items-center justify-center bg-gray-100 min-h-[60vh]">
+            <div className="h-full flex flex-col items-center justify-center bg-gray-100">
               <MapPin className="h-12 w-12 text-gray-300 mb-3" />
               <p className="text-sm text-gray-500 font-medium">Google Maps API key not configured</p>
-              <p className="text-xs text-gray-400 mt-1">Add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to your .env.local</p>
+              <p className="text-xs text-gray-400 mt-1">Add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to environment variables</p>
+              <p className="text-xs text-gray-400 mt-0.5">For production: add it in your hosting platform (Vercel/Railway/Render)</p>
             </div>
           ) : !mapReady ? (
-            <div className="h-full flex items-center justify-center bg-gray-50 min-h-[60vh]">
+            <div className="h-full flex items-center justify-center bg-gray-50">
               <div className="text-center">
                 <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-3" />
                 <p className="text-sm text-gray-500">Loading map...</p>
               </div>
             </div>
           ) : (
-            <div ref={mapRef} className="w-full h-full min-h-[60vh]" />
+            <div ref={mapRef} className="w-full h-full" style={{ minHeight: "400px" }} />
           )}
 
           {/* Current location FAB on map */}

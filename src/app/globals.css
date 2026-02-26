@@ -75,3 +75,14 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
+
+/* Google Maps crosshair cursor for clickable map */
+.gm-style {
+  cursor: crosshair !important;
+}
+.gm-style .gm-style-iw {
+  cursor: default !important;
+}
+.gm-style [role="button"] {
+  cursor: pointer !important;
+}

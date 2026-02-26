@@ -28,6 +28,7 @@ export async function GET(req: NextRequest) {
     const latDelta = radius / 111000;
     const lngDelta = radius / (111000 * Math.cos((lat * Math.PI) / 180));
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {
       status: "VERIFIED",
       latitude: { not: null, gte: lat - latDelta, lte: lat + latDelta },
@@ -42,8 +43,11 @@ export async function GET(req: NextRequest) {
 
     const properties = await prisma.property.findMany({
       where,
-      include: {
-        images: { take: 1, orderBy: { order: "asc" } },
+      select: {
+        id: true, name: true, slug: true, serviceType: true, price: true,
+        city: true, address: true, latitude: true, longitude: true,
+        avgRating: true, totalReviews: true,
+        images: { take: 1, orderBy: { order: "asc" }, select: { url: true } },
       },
       take: 50,
     });
@@ -58,8 +62,15 @@ export async function GET(req: NextRequest) {
       .sort((a, b) => a.distance - b.distance);
 
     return NextResponse.json({ properties: results });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("GET /api/properties/nearby error:", error);
-    return NextResponse.json({ error: "Failed to fetch nearby properties" }, { status: 500 });
+    const errMsg = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json(
+      {
+        error: "Failed to fetch nearby properties",
+        details: process.env.NODE_ENV === "development" ? errMsg : undefined,
+      },
+      { status: 500 }
+    );
   }
 }
