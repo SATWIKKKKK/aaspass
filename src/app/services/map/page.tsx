@@ -1,395 +1,632 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import Link from "next/link";
-import { MapPin, Search, Navigation, Loader2, Building2, Star, ChevronLeft, X, SlidersHorizontal } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import {
+  MapPin, Search, Navigation, Loader2, Building2, Star, ChevronLeft,
+  X, List, MapIcon, Crosshair,
+} from "lucide-react";
+import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
 import { RouteGuard } from "@/components/route-guard";
 import { Navbar } from "@/components/navbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn, getDailyRate } from "@/lib/utils";
 
+/* ── Types ──────────────────────────────────────────────────────────────── */
 interface NearbyProperty {
   id: string; name: string; slug: string; serviceType: string; price: number;
   city: string; address: string; avgRating: number; totalReviews: number;
   latitude: number; longitude: number; distance: number;
   images: { url: string }[];
 }
+interface GooglePlace {
+  placeId: string; name: string; address: string;
+  lat: number; lng: number; rating: number; totalRatings: number;
+  photoUrl: string | null; distance: number;
+}
 
+/* ── Constants ──────────────────────────────────────────────────────────── */
 const RADIUS_OPTIONS = [
-  { label: "500 m", value: "500" },
-  { label: "1 km", value: "1000" },
-  { label: "2 km", value: "2000" },
-  { label: "5 km", value: "5000" },
-  { label: "10 km", value: "10000" },
+  { label: "500 m", meters: 500 },
+  { label: "1 km", meters: 1000 },
+  { label: "2 km", meters: 2000 },
+  { label: "5 km", meters: 5000 },
+];
+const SERVICE_CHIPS = [
+  { label: "All", types: "" },
+  { label: "Hostel / PG", types: "HOSTEL,PG" },
+  { label: "Mess", types: "MESS" },
+  { label: "Library", types: "LIBRARY" },
+  { label: "Gym", types: "GYM" },
+  { label: "Laundry", types: "LAUNDRY" },
 ];
 
-const SERVICE_FILTERS = [
-  { label: "All", value: "" },
-  { label: "Hostel / PG", value: "HOSTEL,PG" },
-  { label: "Mess", value: "MESS" },
-  { label: "Library", value: "LIBRARY" },
-  { label: "Gym", value: "GYM" },
-  { label: "Laundry", value: "LAUNDRY" },
-];
+/* ── Haversine (client-side distance for Google Places results) ─────── */
+function haversineM(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+}
 
+/* ════════════════════════════════════════════════════════════════════════ */
 function MapSearchInner() {
+  const searchParams = useSearchParams();
+
+  /* refs */
   const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<any>(null);
-  const markersRef = useRef<any[]>([]);
-  const searchCircleRef = useRef<any>(null);
-  const autocompleteInputRef = useRef<HTMLInputElement>(null);
+  const mapObjRef = useRef<google.maps.Map | null>(null);
+  const markersRef = useRef<(google.maps.Marker & { _propId?: string })[]>([]);
+  const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
+  const circleRef = useRef<google.maps.Circle | null>(null);
+  const centerMarkerRef = useRef<google.maps.Marker | null>(null);
+  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const sidebarRef = useRef<HTMLDivElement>(null);
 
-  const [location, setLocation] = useState("");
-  const [lat, setLat] = useState<number | null>(null);
-  const [lng, setLng] = useState<number | null>(null);
-  const [radius, setRadius] = useState("2000");
+  /* state */
+  const [locationName, setLocationName] = useState(searchParams.get("location") || "");
+  const [lat, setLat] = useState<number | null>(() => {
+    const v = parseFloat(searchParams.get("lat") || "");
+    return isNaN(v) ? null : v;
+  });
+  const [lng, setLng] = useState<number | null>(() => {
+    const v = parseFloat(searchParams.get("lng") || "");
+    return isNaN(v) ? null : v;
+  });
+  const [radius, setRadius] = useState(2000);
   const [serviceFilter, setServiceFilter] = useState("");
-  const [properties, setProperties] = useState<NearbyProperty[]>([]);
+  const [dbResults, setDbResults] = useState<NearbyProperty[]>([]);
+  const [googleResults, setGoogleResults] = useState<GooglePlace[]>([]);
   const [loading, setLoading] = useState(false);
-  const [mapLoaded, setMapLoaded] = useState(false);
-  const [selectedProperty, setSelectedProperty] = useState<string | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mapReady, setMapReady] = useState(false);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [mobileView, setMobileView] = useState<"list" | "map">("map");
+  const [searched, setSearched] = useState(false);
 
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 
-  // Load Google Maps
+  /* ── Load Google Maps via @googlemaps/js-api-loader ─────────────── */
   useEffect(() => {
     if (!apiKey) return;
-    if ((window as any).google?.maps) { setMapLoaded(true); return; }
-
-    const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => setMapLoaded(true);
-    document.head.appendChild(script);
+    setOptions({ key: apiKey, v: "weekly", libraries: ["places"] });
+    importLibrary("maps").then(() => {
+      setMapReady(true);
+    });
   }, [apiKey]);
 
-  // Initialize map
+  /* ── Initialize Map ────────────────────────────────────────────── */
   useEffect(() => {
-    if (!mapLoaded || !mapRef.current || mapInstanceRef.current) return;
-    const google = (window as any).google;
+    if (!mapReady || !mapRef.current || mapObjRef.current) return;
 
-    mapInstanceRef.current = new google.maps.Map(mapRef.current, {
-      center: { lat: 20.2961, lng: 85.8245 }, // Default: Bhubaneswar
-      zoom: 12,
-      disableDefaultUI: false,
+    const initLat = lat ?? 20.2961;
+    const initLng = lng ?? 85.8245;
+
+    mapObjRef.current = new google.maps.Map(mapRef.current, {
+      center: { lat: initLat, lng: initLng },
+      zoom: lat !== null ? 13 : 5,
+      gestureHandling: "greedy",
       zoomControl: true,
       mapTypeControl: false,
       streetViewControl: false,
       fullscreenControl: true,
+      zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_BOTTOM },
+      fullscreenControlOptions: { position: google.maps.ControlPosition.RIGHT_BOTTOM },
       styles: [
-        { featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] },
+        { featureType: "poi.business", stylers: [{ visibility: "off" }] },
+        { featureType: "poi.government", stylers: [{ visibility: "off" }] },
       ],
     });
 
-    // Click on map to set location
-    mapInstanceRef.current.addListener("click", (e: any) => {
-      const clickLat = e.latLng.lat();
-      const clickLng = e.latLng.lng();
-      setLat(clickLat);
-      setLng(clickLng);
-      // Reverse geocode for display
-      const geocoder = new google.maps.Geocoder();
-      geocoder.geocode({ location: { lat: clickLat, lng: clickLng } }, (results: any, status: string) => {
-        if (status === "OK" && results?.[0]) {
-          setLocation(results[0].formatted_address);
-        }
-      });
-    });
-  }, [mapLoaded]);
+    infoWindowRef.current = new google.maps.InfoWindow();
 
-  // Setup autocomplete
+    /* click on map → set center */
+    mapObjRef.current.addListener("click", (e: google.maps.MapMouseEvent) => {
+      if (!e.latLng) return;
+      const cLat = e.latLng.lat();
+      const cLng = e.latLng.lng();
+      setLat(cLat);
+      setLng(cLng);
+      /* reverse geocode */
+      new google.maps.Geocoder().geocode(
+        { location: { lat: cLat, lng: cLng } },
+        (results: google.maps.GeocoderResult[] | null, status: google.maps.GeocoderStatus) => {
+          if (status === "OK" && results?.[0]) setLocationName(results[0].formatted_address);
+        }
+      );
+    });
+
+    /* If we have lat/lng from query params, place the center marker */
+    if (lat !== null && lng !== null) {
+      placeCenterMarker(initLat, initLng);
+    }
+  }, [mapReady]); // map init depends on mapReady
+
+  /* ── Setup autocomplete on the location input ──────────────────── */
   useEffect(() => {
-    if (!mapLoaded || !autocompleteInputRef.current) return;
-    const google = (window as any).google;
+    if (!mapReady || !inputRef.current || autocompleteRef.current) return;
 
-    const autocomplete = new google.maps.places.Autocomplete(autocompleteInputRef.current, {
+    autocompleteRef.current = new google.maps.places.Autocomplete(inputRef.current, {
       componentRestrictions: { country: "in" },
-      fields: ["formatted_address", "geometry"],
+      types: ["geocode", "establishment"],
+      fields: ["formatted_address", "geometry", "name", "place_id"],
     });
 
-    autocomplete.addListener("place_changed", () => {
-      const place = autocomplete.getPlace();
+    autocompleteRef.current.addListener("place_changed", () => {
+      const place = autocompleteRef.current!.getPlace();
       if (place.geometry?.location) {
-        const plat = place.geometry.location.lat();
-        const plng = place.geometry.location.lng();
-        setLat(plat);
-        setLng(plng);
-        setLocation(place.formatted_address || "");
-        if (mapInstanceRef.current) {
-          mapInstanceRef.current.panTo({ lat: plat, lng: plng });
-          mapInstanceRef.current.setZoom(14);
+        const pLat = place.geometry.location.lat();
+        const pLng = place.geometry.location.lng();
+        setLat(pLat);
+        setLng(pLng);
+        setLocationName(place.formatted_address || place.name || "");
+        if (mapObjRef.current) {
+          mapObjRef.current.panTo({ lat: pLat, lng: pLng });
+          mapObjRef.current.setZoom(14);
         }
+        placeCenterMarker(pLat, pLng);
       }
     });
-  }, [mapLoaded]);
+  }, [mapReady]); // autocomplete init depends on mapReady
 
-  // Search nearby properties
-  const searchNearby = useCallback(async () => {
-    if (lat === null || lng === null) return;
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({ lat: String(lat), lng: String(lng), radius });
-      if (serviceFilter) params.set("serviceType", serviceFilter);
-      const res = await fetch(`/api/properties/nearby?${params}`);
-      const data = await res.json();
-      setProperties(data.properties || []);
-      setSidebarOpen(true);
-    } catch {
-      setProperties([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [lat, lng, radius, serviceFilter]);
-
-  // Update map markers when properties change
+  /* ── Auto-search once map is ready if lat/lng from query params ── */
   useEffect(() => {
-    if (!mapInstanceRef.current || !mapLoaded) return;
-    const google = (window as any).google;
+    if (mapReady && lat !== null && lng !== null && !searched) {
+      doSearch();
+    }
+  }, [mapReady]); // auto-search on first load with params
 
-    // Clear old markers
+  /* ── Helper: place / update center marker ──────────────────────── */
+  function placeCenterMarker(cLat: number, cLng: number) {
+    if (centerMarkerRef.current) centerMarkerRef.current.setMap(null);
+    if (!mapObjRef.current) return;
+    centerMarkerRef.current = new google.maps.Marker({
+      position: { lat: cLat, lng: cLng },
+      map: mapObjRef.current,
+      icon: {
+        path: google.maps.SymbolPath.CIRCLE,
+        scale: 12,
+        fillColor: "#4F46E5",
+        fillOpacity: 1,
+        strokeColor: "#ffffff",
+        strokeWeight: 3,
+      },
+      title: "Searching here",
+      zIndex: 2000,
+    });
+  }
+
+  /* ── Clear all markers from the map ────────────────────────────── */
+  function clearMarkers() {
     markersRef.current.forEach((m) => m.setMap(null));
     markersRef.current = [];
+    if (circleRef.current) { circleRef.current.setMap(null); circleRef.current = null; }
+    infoWindowRef.current?.close();
+  }
 
-    // Clear old circle
-    if (searchCircleRef.current) searchCircleRef.current.setMap(null);
+  /* ── SEARCH ────────────────────────────────────────────────────── */
+  const doSearch = useCallback(async () => {
+    if (lat === null || lng === null || !mapObjRef.current) return;
+    setLoading(true);
+    setSearched(true);
+    clearMarkers();
+    placeCenterMarker(lat, lng);
 
-    if (lat !== null && lng !== null) {
-      // Draw search radius circle
-      searchCircleRef.current = new google.maps.Circle({
-        strokeColor: "#6366f1",
-        strokeOpacity: 0.3,
-        strokeWeight: 2,
-        fillColor: "#6366f1",
-        fillOpacity: 0.08,
-        map: mapInstanceRef.current,
-        center: { lat, lng },
-        radius: parseInt(radius),
-      });
+    /* draw radius circle */
+    circleRef.current = new google.maps.Circle({
+      map: mapObjRef.current,
+      center: { lat, lng },
+      radius,
+      fillColor: "#4F46E5",
+      fillOpacity: 0.06,
+      strokeColor: "#4F46E5",
+      strokeOpacity: 0.35,
+      strokeWeight: 2,
+      clickable: false,
+    });
+    mapObjRef.current.fitBounds(circleRef.current.getBounds()!);
 
-      // Center pin
-      const centerMarker = new google.maps.Marker({
-        position: { lat, lng },
-        map: mapInstanceRef.current,
+    /* 1) Search OUR database */
+    const dbPromise = (async () => {
+      try {
+        const params = new URLSearchParams({ lat: String(lat), lng: String(lng), radius: String(radius) });
+        if (serviceFilter) params.set("serviceType", serviceFilter);
+        const res = await fetch(`/api/properties/nearby?${params}`);
+        const data = await res.json();
+        return (data.properties || []) as NearbyProperty[];
+      } catch { return [] as NearbyProperty[]; }
+    })();
+
+    /* 2) Google Places Nearby Search */
+    const googlePromise = new Promise<GooglePlace[]>((resolve) => {
+      if (!serviceFilter || serviceFilter.includes("HOSTEL") || serviceFilter.includes("PG") || serviceFilter === "") {
+        const svc = new google.maps.places.PlacesService(mapObjRef.current!);
+        svc.nearbySearch(
+          { location: { lat, lng }, radius, keyword: "hostel PG paying guest accommodation", type: "lodging" },
+          (results: google.maps.places.PlaceResult[] | null, status: google.maps.places.PlacesServiceStatus) => {
+            if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+              const places: GooglePlace[] = results.slice(0, 20).map((r: google.maps.places.PlaceResult) => ({
+                placeId: r.place_id || "",
+                name: r.name || "Unknown",
+                address: r.vicinity || "",
+                lat: r.geometry?.location?.lat() || 0,
+                lng: r.geometry?.location?.lng() || 0,
+                rating: r.rating || 0,
+                totalRatings: r.user_ratings_total || 0,
+                photoUrl: r.photos?.[0]?.getUrl({ maxWidth: 200, maxHeight: 150 }) || null,
+                distance: haversineM(lat!, lng!, r.geometry?.location?.lat() || 0, r.geometry?.location?.lng() || 0),
+              }));
+              resolve(places);
+            } else { resolve([]); }
+          },
+        );
+      } else { resolve([]); }
+    });
+
+    const [dbRes, googleRes] = await Promise.all([dbPromise, googlePromise]);
+    setDbResults(dbRes);
+    setGoogleResults(googleRes);
+
+    /* Place markers — DB results get branded purple pins, Google results get red */
+    const map = mapObjRef.current!;
+
+    dbRes.forEach((p) => {
+      const marker = new google.maps.Marker({
+        position: { lat: p.latitude, lng: p.longitude },
+        map,
+        title: p.name,
         icon: {
-          path: google.maps.SymbolPath.CIRCLE,
-          scale: 10,
+          path: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z",
           fillColor: "#6366f1",
           fillOpacity: 1,
           strokeColor: "#ffffff",
-          strokeWeight: 3,
+          strokeWeight: 2,
+          scale: 1.8,
+          anchor: new google.maps.Point(12, 22),
         },
-        title: "Search center",
+        animation: google.maps.Animation.DROP,
         zIndex: 1000,
       });
-      markersRef.current.push(centerMarker);
 
-      // Fit bounds to circle
-      mapInstanceRef.current.fitBounds(searchCircleRef.current.getBounds());
-    }
-
-    // Property markers
-    properties.forEach((p) => {
-      const marker = new google.maps.Marker({
-        position: { lat: p.latitude, lng: p.longitude },
-        map: mapInstanceRef.current,
-        title: p.name,
-        animation: google.maps.Animation.DROP,
-      });
-
-      const infoWindow = new google.maps.InfoWindow({
-        content: `
-          <div style="min-width: 200px; font-family: sans-serif;">
-            <h3 style="margin: 0 0 4px; font-size: 14px; font-weight: 600;">${p.name}</h3>
-            <p style="margin: 0 0 4px; font-size: 12px; color: #666;">${p.address}</p>
-            <div style="display: flex; align-items: center; gap: 8px; font-size: 12px;">
-              <span style="font-weight: 600; color: #6366f1;">₹${getDailyRate(p.price)}/day</span>
-              <span style="color: #999;">•</span>
-              <span>${p.avgRating.toFixed(1)} ⭐ (${p.totalReviews})</span>
-              <span style="color: #999;">•</span>
-              <span>${p.distance}m away</span>
-            </div>
-            <a href="/services/${p.slug}" style="display: inline-block; margin-top: 8px; font-size: 12px; color: #6366f1; text-decoration: none;">View Details →</a>
-          </div>
-        `,
-      });
+      const imgHtml = p.images?.[0]?.url
+        ? `<img src="${p.images[0].url}" style="width:100%;height:100px;object-fit:cover;border-radius:8px 8px 0 0;"/>`
+        : `<div style="width:100%;height:60px;background:#f3f4f6;border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:center;color:#d1d5db;font-size:24px;">🏠</div>`;
 
       marker.addListener("click", () => {
-        infoWindow.open(mapInstanceRef.current, marker);
-        setSelectedProperty(p.id);
+        infoWindowRef.current?.setContent(`
+          <div style="max-width:240px;font-family:system-ui,sans-serif;margin:-8px -8px 0;">
+            ${imgHtml}
+            <div style="padding:10px 12px 12px;">
+              <div style="display:flex;align-items:center;gap:4px;margin-bottom:2px;">
+                <span style="background:#6366f1;color:white;font-size:9px;padding:1px 6px;border-radius:4px;font-weight:600;">AasPass</span>
+                <span style="font-size:10px;color:#999;margin-left:auto;">${p.serviceType}</span>
+              </div>
+              <h3 style="margin:4px 0;font-size:14px;font-weight:700;">${p.name}</h3>
+              <p style="margin:0 0 6px;font-size:11px;color:#666;">${p.address}, ${p.city}</p>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                <span style="font-weight:700;color:#6366f1;font-size:15px;">₹${getDailyRate(p.price)}<span style="font-weight:400;font-size:11px;color:#999;">/day</span></span>
+                <span style="font-size:11px;color:#666;">${p.avgRating.toFixed(1)} ⭐ (${p.totalReviews})</span>
+              </div>
+              <div style="display:flex;gap:6px;">
+                <span style="font-size:10px;color:#888;">📍 ${formatDist(p.distance)} away</span>
+              </div>
+              <a href="/services/${p.slug}" style="display:block;margin-top:10px;padding:8px 0;background:#6366f1;color:white;border-radius:8px;text-align:center;text-decoration:none;font-size:13px;font-weight:600;">View Details & Book</a>
+            </div>
+          </div>
+        `);
+        infoWindowRef.current?.open(map, marker);
+        setSelectedId(p.id);
       });
 
-      markersRef.current.push(marker);
+      const extMarker = marker as google.maps.Marker & { _propId?: string };
+      extMarker._propId = p.id;
+      markersRef.current.push(extMarker);
     });
-  }, [properties, lat, lng, radius, mapLoaded]);
 
-  // Use current location
-  const useMyLocation = () => {
+    googleRes.forEach((p) => {
+      const marker = new google.maps.Marker({
+        position: { lat: p.lat, lng: p.lng },
+        map,
+        title: p.name,
+        animation: google.maps.Animation.DROP,
+        zIndex: 500,
+      });
+
+      const photoHtml = p.photoUrl
+        ? `<img src="${p.photoUrl}" style="width:100%;height:90px;object-fit:cover;border-radius:8px 8px 0 0;"/>`
+        : "";
+
+      marker.addListener("click", () => {
+        infoWindowRef.current?.setContent(`
+          <div style="max-width:220px;font-family:system-ui,sans-serif;margin:-8px -8px 0;">
+            ${photoHtml}
+            <div style="padding:10px 12px 12px;">
+              <div style="display:flex;align-items:center;gap:4px;margin-bottom:2px;">
+                <span style="background:#ef4444;color:white;font-size:9px;padding:1px 6px;border-radius:4px;font-weight:600;">Google</span>
+              </div>
+              <h3 style="margin:4px 0;font-size:14px;font-weight:700;">${p.name}</h3>
+              <p style="margin:0 0 6px;font-size:11px;color:#666;">${p.address}</p>
+              <div style="display:flex;align-items:center;justify-content:space-between;">
+                <span style="font-size:11px;color:#666;">${p.rating.toFixed(1)} ⭐ (${p.totalRatings})</span>
+                <span style="font-size:10px;color:#888;">📍 ${formatDist(p.distance)}</span>
+              </div>
+            </div>
+          </div>
+        `);
+        infoWindowRef.current?.open(map, marker);
+        setSelectedId(`g_${p.placeId}`);
+      });
+
+      const extGMarker = marker as google.maps.Marker & { _propId?: string };
+      extGMarker._propId = `g_${p.placeId}`;
+      markersRef.current.push(extGMarker);
+    });
+
+    setLoading(false);
+    setMobileView("map");
+  }, [lat, lng, radius, serviceFilter]); // search deps
+
+  /* ── Hover highlight: bounce the marker ────────────────────────── */
+  useEffect(() => {
+    markersRef.current.forEach((m) => {
+      if (m._propId === hoveredId) m.setAnimation(google.maps.Animation.BOUNCE);
+      else m.setAnimation(null);
+    });
+  }, [hoveredId, mapReady]);
+
+  /* ── Click on sidebar card → pan map to marker ─────────────────── */
+  function focusMarker(id: string) {
+    setSelectedId(id);
+    const marker = markersRef.current.find((m) => m._propId === id);
+    if (marker && mapObjRef.current) {
+      mapObjRef.current.panTo(marker.getPosition()!);
+      mapObjRef.current.setZoom(16);
+      google.maps.event.trigger(marker, "click");
+    }
+    setMobileView("map");
+  }
+
+  /* ── Current Location ──────────────────────────────────────────── */
+  function useMyLocation() {
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        const plat = pos.coords.latitude;
-        const plng = pos.coords.longitude;
-        setLat(plat);
-        setLng(plng);
-        setLocation("My Location");
-        if (mapInstanceRef.current) {
-          mapInstanceRef.current.panTo({ lat: plat, lng: plng });
-          mapInstanceRef.current.setZoom(14);
+        const pLat = pos.coords.latitude;
+        const pLng = pos.coords.longitude;
+        setLat(pLat);
+        setLng(pLng);
+        setLocationName("My Current Location");
+        if (mapObjRef.current) {
+          mapObjRef.current.panTo({ lat: pLat, lng: pLng });
+          mapObjRef.current.setZoom(14);
         }
+        placeCenterMarker(pLat, pLng);
       },
-      () => { /* permission denied – silently ignore */ }
+      () => { /* denied */ },
     );
-  };
+  }
 
-  const formatDistance = (m: number) => m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${m} m`;
+  /* ── Helpers ───────────────────────────────────────────────────── */
+  const allResults = [
+    ...dbResults.map((p) => ({ type: "db" as const, id: p.id, name: p.name, slug: p.slug, serviceType: p.serviceType, price: p.price, address: `${p.address}, ${p.city}`, rating: p.avgRating, totalRatings: p.totalReviews, distance: p.distance, imageUrl: p.images?.[0]?.url || null })),
+    ...googleResults.map((p) => ({ type: "google" as const, id: `g_${p.placeId}`, name: p.name, slug: null, serviceType: "Lodging", price: null, address: p.address, rating: p.rating, totalRatings: p.totalRatings, distance: p.distance, imageUrl: p.photoUrl })),
+  ].sort((a, b) => a.distance - b.distance);
 
+  /* ════════════════════════════════════════════════════════════════ */
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <Navbar variant="student" />
 
-      {/* Top controls bar */}
-      <div className="bg-white border-b border-gray-200 px-4 py-3 z-30">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-center gap-3">
-          <Link href="/services" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-primary shrink-0">
-            <ChevronLeft className="h-4 w-4" /> Back to Services
-          </Link>
-
-          <div className="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full">
-            <div className="relative flex-1">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+      {/* ═══ TOP CONTROLS ═══ */}
+      <div className="bg-white border-b border-gray-200 px-4 py-3 z-30 relative">
+        <div className="max-w-7xl mx-auto">
+          {/* Row 1: Back link + Location input */}
+          <div className="flex items-center gap-3 mb-3">
+            <Link href="/services" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-primary shrink-0">
+              <ChevronLeft className="h-4 w-4" /> Back
+            </Link>
+            <div className="relative flex-1 max-w-lg">
+              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 z-10" />
               <input
-                ref={autocompleteInputRef}
+                ref={inputRef}
                 type="text"
-                placeholder="Search location..."
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                className="w-full pl-9 pr-10 h-10 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                placeholder="Search a city, area, or landmark in India..."
+                defaultValue={locationName}
+                className="w-full pl-9 pr-10 h-10 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
               />
-              {location && (
-                <button onClick={() => { setLocation(""); setLat(null); setLng(null); setProperties([]); }} className="absolute right-3 top-1/2 -translate-y-1/2">
+              {locationName && (
+                <button onClick={() => { setLocationName(""); setLat(null); setLng(null); setDbResults([]); setGoogleResults([]); setSearched(false); if (inputRef.current) inputRef.current.value = ""; }} className="absolute right-3 top-1/2 -translate-y-1/2 z-10">
                   <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
                 </button>
               )}
             </div>
-
-            <button onClick={useMyLocation} className="h-10 px-3 border border-gray-200 rounded-lg flex items-center gap-2 text-sm text-gray-600 hover:bg-gray-50 shrink-0" title="Use my location">
-              <Navigation className="h-4 w-4" /> <span className="hidden sm:inline">My Location</span>
+            <button onClick={useMyLocation} className="h-10 w-10 border border-gray-200 rounded-lg flex items-center justify-center hover:bg-gray-50 shrink-0" title="Use current location">
+              <Crosshair className="h-4 w-4 text-gray-500" />
             </button>
+          </div>
 
-            <Select value={radius} onValueChange={setRadius}>
-              <SelectTrigger className="h-10 w-28 text-sm shrink-0"><SelectValue /></SelectTrigger>
-              <SelectContent>{RADIUS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
-            </Select>
-
-            <Select value={serviceFilter} onValueChange={setServiceFilter}>
-              <SelectTrigger className="h-10 w-36 text-sm shrink-0"><SelectValue placeholder="All Services" /></SelectTrigger>
-              <SelectContent>{SERVICE_FILTERS.map((f) => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}</SelectContent>
-            </Select>
-
-            <Button onClick={searchNearby} disabled={lat === null || loading} className="h-10 px-5 shrink-0">
-              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Search className="h-4 w-4 mr-1" />}
-              Search
+          {/* Row 2: Radius pills + Service chips + Search button */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium text-gray-500 mr-1">Radius:</span>
+            {RADIUS_OPTIONS.map((o) => (
+              <button key={o.meters} onClick={() => setRadius(o.meters)} className={cn("h-8 px-3 rounded-full text-xs font-medium border transition-all", radius === o.meters ? "bg-primary text-white border-primary" : "bg-white text-gray-600 border-gray-200 hover:border-primary/40")}>
+                {o.label}
+              </button>
+            ))}
+            <div className="h-6 w-px bg-gray-200 mx-1 hidden sm:block" />
+            <span className="text-xs font-medium text-gray-500 mr-1 hidden sm:inline">Type:</span>
+            {SERVICE_CHIPS.map((c) => (
+              <button key={c.types} onClick={() => setServiceFilter(c.types)} className={cn("h-8 px-3 rounded-full text-xs font-medium border transition-all", serviceFilter === c.types ? "bg-indigo-50 text-primary border-primary/40" : "bg-white text-gray-600 border-gray-200 hover:border-gray-300")}>
+                {c.label}
+              </button>
+            ))}
+            <Button onClick={doSearch} disabled={lat === null || loading} size="sm" className="h-8 px-4 rounded-full ml-auto">
+              {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Search className="h-3.5 w-3.5 mr-1" />}
+              Search on Map
             </Button>
           </div>
         </div>
       </div>
 
-      {/* Map + results */}
-      <div className="flex-1 flex relative">
-        {/* Sidebar results */}
+      {/* ═══ Mobile toggle ═══ */}
+      <div className="sm:hidden bg-white border-b border-gray-200 flex">
+        <button onClick={() => setMobileView("list")} className={cn("flex-1 py-2.5 text-sm font-medium flex items-center justify-center gap-1.5 transition-colors", mobileView === "list" ? "text-primary border-b-2 border-primary" : "text-gray-500")}>
+          <List className="h-4 w-4" /> List ({allResults.length})
+        </button>
+        <button onClick={() => setMobileView("map")} className={cn("flex-1 py-2.5 text-sm font-medium flex items-center justify-center gap-1.5 transition-colors", mobileView === "map" ? "text-primary border-b-2 border-primary" : "text-gray-500")}>
+          <MapIcon className="h-4 w-4" /> Map
+        </button>
+      </div>
+
+      {/* ═══ SPLIT LAYOUT ═══ */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* ── LEFT PANEL: results ── */}
         <div className={cn(
-          "absolute sm:relative z-20 bg-white border-r border-gray-200 transition-all duration-300 h-full overflow-y-auto",
-          sidebarOpen ? "w-full sm:w-[360px]" : "w-0 overflow-hidden"
+          "bg-white border-r border-gray-200 overflow-y-auto w-full sm:w-95 shrink-0 transition-all",
+          mobileView === "map" && "hidden sm:block"
         )}>
-          <div className="p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="font-semibold text-gray-900">
-                {properties.length > 0 ? `${properties.length} found nearby` : "Search for services"}
-              </h2>
-              <button onClick={() => setSidebarOpen(false)} className="sm:hidden h-8 w-8 flex items-center justify-center">
-                <X className="h-4 w-4" />
-              </button>
+          <div className="p-4" ref={sidebarRef}>
+            {/* heading */}
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="font-semibold text-gray-900 text-sm">
+                  {loading ? "Searching..." : searched ? `${allResults.length} results` : "Nearby Services"}
+                </h2>
+                {searched && !loading && (
+                  <p className="text-[11px] text-gray-400 mt-0.5">
+                    {dbResults.length} on AasPass • {googleResults.length} from Google
+                  </p>
+                )}
+              </div>
             </div>
 
-            {properties.length === 0 && !loading && (
-              <div className="text-center py-12">
-                <MapPin className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-                <p className="text-sm text-gray-500">
-                  {lat !== null ? "No services found in this area. Try a larger radius." : "Enter a location or click on the map to search nearby services."}
-                </p>
-              </div>
-            )}
-
+            {/* loading skeleton */}
             {loading && (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              <div className="space-y-3">
+                {[1,2,3].map((i) => (
+                  <div key={i} className="animate-pulse flex gap-3 p-3 rounded-xl border border-gray-100">
+                    <div className="w-16 h-16 bg-gray-200 rounded-lg shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-3.5 bg-gray-200 rounded w-3/4" />
+                      <div className="h-3 bg-gray-100 rounded w-1/2" />
+                      <div className="h-3 bg-gray-100 rounded w-1/3" />
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
 
-            <div className="space-y-3">
-              {properties.map((p) => (
-                <Link key={p.id} href={`/services/${p.slug}`}>
-                  <Card className={cn(
-                    "hover:shadow-md transition-all cursor-pointer",
-                    selectedProperty === p.id && "ring-2 ring-primary"
-                  )}>
-                    <CardContent className="p-3">
-                      <div className="flex gap-3">
-                        <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 shrink-0">
-                          {p.images?.[0]?.url ? (
-                            <img src={p.images[0].url} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <Building2 className="h-6 w-6 text-gray-300" />
-                            </div>
-                          )}
+            {/* empty */}
+            {!loading && searched && allResults.length === 0 && (
+              <div className="text-center py-16">
+                <MapPin className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+                <p className="text-sm font-medium text-gray-900 mb-1">No hostels found in this area</p>
+                <p className="text-xs text-gray-400">Try increasing the radius or searching a different location.</p>
+              </div>
+            )}
+
+            {/* initial state */}
+            {!loading && !searched && (
+              <div className="text-center py-16">
+                <Search className="h-10 w-10 text-gray-200 mx-auto mb-3" />
+                <p className="text-sm text-gray-500">Enter a location and click <strong>Search on Map</strong></p>
+                <p className="text-xs text-gray-400 mt-1">or click anywhere on the map to set a center point.</p>
+              </div>
+            )}
+
+            {/* results list */}
+            {!loading && (
+              <div className="space-y-2">
+                {allResults.map((r) => (
+                  <div
+                    key={r.id}
+                    onMouseEnter={() => setHoveredId(r.id)}
+                    onMouseLeave={() => setHoveredId(null)}
+                    onClick={() => focusMarker(r.id)}
+                    className={cn(
+                      "flex gap-3 p-3 rounded-xl border cursor-pointer transition-all",
+                      selectedId === r.id ? "border-primary/40 bg-primary/5 shadow-sm" : "border-gray-100 hover:border-gray-200 hover:shadow-sm"
+                    )}
+                  >
+                    {/* thumbnail */}
+                    <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 shrink-0">
+                      {r.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={r.imageUrl} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Building2 className="h-6 w-6 text-gray-300" />
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-sm text-gray-900 truncate">{p.name}</h3>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <Badge variant="outline" className="text-[10px] px-1.5 py-0">{p.serviceType}</Badge>
-                            <span className="text-[10px] text-gray-400">{formatDistance(p.distance)}</span>
-                          </div>
-                          <div className="flex items-center justify-between mt-1.5">
-                            <span className="text-sm font-bold text-primary">₹{getDailyRate(p.price)}<span className="text-xs font-normal text-gray-400">/day</span></span>
-                            <span className="flex items-center gap-0.5 text-xs text-gray-500">
-                              <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                              {p.avgRating.toFixed(1)} ({p.totalReviews})
-                            </span>
-                          </div>
-                        </div>
+                      )}
+                    </div>
+                    {/* details */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start gap-1.5">
+                        <h3 className="font-semibold text-sm text-gray-900 truncate flex-1">{r.name}</h3>
+                        <Badge variant={r.type === "db" ? "default" : "secondary"} className={cn("text-[9px] px-1.5 py-0 shrink-0", r.type === "db" ? "bg-primary/90" : "bg-gray-200 text-gray-600")}>
+                          {r.type === "db" ? "AasPass" : "Google"}
+                        </Badge>
                       </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
-            </div>
+                      <p className="text-[11px] text-gray-400 truncate mt-0.5">{r.address}</p>
+                      <div className="flex items-center justify-between mt-1.5">
+                        <div className="flex items-center gap-2">
+                          {r.price !== null && (
+                            <span className="text-sm font-bold text-primary">₹{getDailyRate(r.price)}<span className="text-[10px] font-normal text-gray-400">/day</span></span>
+                          )}
+                          <span className="text-[10px] text-gray-400">📍 {formatDist(r.distance)}</span>
+                        </div>
+                        <span className="flex items-center gap-0.5 text-[11px] text-gray-500">
+                          <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                          {r.rating.toFixed(1)}
+                          <span className="text-gray-300">({r.totalRatings})</span>
+                        </span>
+                      </div>
+                      {r.slug && (
+                        <Link href={`/services/${r.slug}`} onClick={(e) => e.stopPropagation()} className="text-[11px] text-primary font-medium hover:underline mt-1 inline-block">
+                          View Details →
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Map */}
-        <div className="flex-1 relative">
-          {!sidebarOpen && properties.length > 0 && (
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="absolute top-4 left-4 z-10 bg-white rounded-lg shadow-lg px-3 py-2 flex items-center gap-2 text-sm font-medium border border-gray-200 hover:bg-gray-50"
-            >
-              <SlidersHorizontal className="h-4 w-4" /> {properties.length} results
-            </button>
-          )}
-
+        {/* ── RIGHT PANEL: Map ── */}
+        <div className={cn("flex-1 relative", mobileView === "list" && "hidden sm:block")}>
           {!apiKey ? (
-            <div className="h-full flex flex-col items-center justify-center bg-gray-100">
+            <div className="h-full flex flex-col items-center justify-center bg-gray-100 min-h-[60vh]">
               <MapPin className="h-12 w-12 text-gray-300 mb-3" />
-              <p className="text-gray-500">Google Maps API key not configured</p>
+              <p className="text-sm text-gray-500 font-medium">Google Maps API key not configured</p>
+              <p className="text-xs text-gray-400 mt-1">Add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to your .env.local</p>
+            </div>
+          ) : !mapReady ? (
+            <div className="h-full flex items-center justify-center bg-gray-50 min-h-[60vh]">
+              <div className="text-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-3" />
+                <p className="text-sm text-gray-500">Loading map...</p>
+              </div>
             </div>
           ) : (
             <div ref={mapRef} className="w-full h-full min-h-[60vh]" />
+          )}
+
+          {/* Current location FAB on map */}
+          {mapReady && (
+            <button
+              onClick={useMyLocation}
+              className="absolute bottom-24 right-3 z-10 h-10 w-10 bg-white rounded-full shadow-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors"
+              title="Use my current location"
+            >
+              <Navigation className="h-4 w-4 text-gray-600" />
+            </button>
           )}
         </div>
       </div>
@@ -397,10 +634,16 @@ function MapSearchInner() {
   );
 }
 
+function formatDist(m: number) {
+  return m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${m} m`;
+}
+
 export default function MapSearchPage() {
   return (
     <RouteGuard allowedRole="STUDENT">
-      <MapSearchInner />
+      <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+        <MapSearchInner />
+      </Suspense>
     </RouteGuard>
   );
 }

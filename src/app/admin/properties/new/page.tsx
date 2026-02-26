@@ -8,7 +8,7 @@ import toast from "react-hot-toast";
 import {
   Building2, ChevronLeft, ChevronRight, Upload, MapPin, Wifi, Wind,
   Utensils, Shirt, ShieldCheck, Users, Check, Loader2, Plus, X,
-  ArrowUp, ArrowDown, ImageIcon, Star as StarIcon,
+  ArrowUp, ArrowDown, ImageIcon, Star as StarIcon, LocateFixed,
 } from "lucide-react";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
@@ -37,6 +37,7 @@ export default function NewPropertyPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
+  const [geocoding, setGeocoding] = useState(false);
   const [images, setImages] = useState<ImageEntry[]>([]);
   const [form, setForm] = useState({
     name: "", serviceType: "HOSTEL" as ServiceTypeValue, description: "",
@@ -178,6 +179,34 @@ export default function NewPropertyPage() {
                 <div><Label>Latitude</Label><Input type="number" step="any" placeholder="20.2961" value={form.latitude} onChange={update("latitude")} /></div>
                 <div><Label>Longitude</Label><Input type="number" step="any" placeholder="85.8245" value={form.longitude} onChange={update("longitude")} /></div>
               </div>
+              <Button type="button" variant="outline" size="sm" disabled={geocoding || (!form.address && !form.city)} onClick={() => {
+                const addr = [form.address, form.city, form.state, form.pincode].filter(Boolean).join(", ");
+                if (!addr) { toast.error("Enter an address first"); return; }
+                setGeocoding(true);
+                const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+                if (!apiKey || !(window as any).google?.maps) {
+                  // Fallback: load script then geocode
+                  const script = document.createElement("script");
+                  script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+                  script.onload = () => doGeocode(addr);
+                  script.onerror = () => { toast.error("Failed to load Google Maps"); setGeocoding(false); };
+                  document.head.appendChild(script);
+                } else { doGeocode(addr); }
+                function doGeocode(address: string) {
+                  const g = (window as any).google;
+                  new g.maps.Geocoder().geocode({ address }, (results: any, status: string) => {
+                    setGeocoding(false);
+                    if (status === "OK" && results?.[0]?.geometry?.location) {
+                      const loc = results[0].geometry.location;
+                      setForm((p) => ({ ...p, latitude: loc.lat().toFixed(6), longitude: loc.lng().toFixed(6) }));
+                      toast.success("Coordinates detected from address!");
+                    } else { toast.error("Could not geocode this address. Try pinning on the map instead."); }
+                  });
+                }
+              }}>
+                {geocoding ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <LocateFixed className="h-3.5 w-3.5 mr-1" />}
+                Auto-detect coordinates from address
+              </Button>
               <div>
                 <Label className="mb-2 block">Pin Location on Map <span className="text-xs text-gray-400">(click to set coordinates)</span></Label>
                 <GoogleMap
