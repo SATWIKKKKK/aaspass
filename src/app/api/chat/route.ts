@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { checkPremiumAccess } from "@/lib/premium";
 
 // DB-aware AI chat that reads actual properties and answers intelligently
 // Uses Groq (free Llama API) if GROQ_API_KEY is set, otherwise uses smart DB-based responses
@@ -166,6 +167,19 @@ export async function POST(req: NextRequest) {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    // 🔒 HARD GATE — check premium status from DB on every request
+    const { allowed, reason } = await checkPremiumAccess(session.user.id!);
+    if (!allowed) {
+      return NextResponse.json(
+        {
+          error: "Premium required",
+          reason,
+          upgradeUrl: "/dashboard",
+        },
+        { status: 403 }
+      );
+    }
 
     const { message } = await req.json();
     if (!message) return NextResponse.json({ error: "Message is required" }, { status: 400 });

@@ -7,12 +7,13 @@ import Link from "next/link";
 import {
   Bot, Send, User, Crown, Sparkles, Loader2, Plus, MessageSquare,
   Search, MapPin, Star, Wifi, UtensilsCrossed, Wind, ChevronRight,
-  RotateCcw, Copy, Check, ArrowDown, Home,
+  RotateCcw, Copy, Check, ArrowDown, Home, Lock, Zap, Shield,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatPrice } from "@/lib/utils";
+import { PremiumModal } from "@/components/premium-modal";
 
 // ==================== TYPES ====================
 
@@ -110,6 +111,10 @@ export default function ChatPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   
+  // Premium access state — verified from backend, NOT from session
+  const [accessStatus, setAccessStatus] = useState<"checking" | "allowed" | "blocked">("checking");
+  const [premiumOpen, setPremiumOpen] = useState(false);
+
   // Chat state
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -123,6 +128,21 @@ export default function ChatPage() {
   // Sidebar state
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // 🔒 Verify premium access from backend on every page load
+  useEffect(() => {
+    if (status === "loading" || !session) return;
+    const verify = async () => {
+      try {
+        const res = await fetch("/api/check-premium");
+        const data = await res.json();
+        setAccessStatus(data.allowed ? "allowed" : "blocked");
+      } catch {
+        setAccessStatus("blocked");
+      }
+    };
+    verify();
+  }, [session, status]);
 
   // Auto-scroll
   useEffect(() => {
@@ -149,7 +169,7 @@ export default function ChatPage() {
     }
   }, [input]);
 
-  if (status === "loading") {
+  if (status === "loading" || accessStatus === "checking") {
     return (
       <div className="h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -162,6 +182,95 @@ export default function ChatPage() {
     );
   }
   if (!session) redirect("/login");
+
+  // 🔒 Premium Gate Screen — non-premium users are hard-blocked
+  if (accessStatus === "blocked") {
+    return (
+      <>
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-purple-50 p-4">
+          <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center">
+            <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center mx-auto mb-4">
+              <Lock className="h-8 w-8 text-amber-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Premium Feature</h2>
+            <p className="text-gray-500 mb-6">
+              AI Chat is exclusively available to premium members. Upgrade to
+              unlock instant AI-powered recommendations, 24/7 support, and much
+              more.
+            </p>
+
+            {/* What they&apos;re missing */}
+            <div className="text-left space-y-2 mb-6 bg-gray-50 rounded-xl p-4">
+              <p className="text-xs text-gray-400 uppercase font-semibold mb-2">
+                What you&apos;ll unlock:
+              </p>
+              {[
+                { icon: MessageSquare, text: "AI Chat — get instant answers" },
+                { icon: Home, text: "Find perfect PG in seconds" },
+                { icon: Zap, text: "24/7 intelligent support" },
+                { icon: MapPin, text: "Smart location recommendations" },
+              ].map((item, i) => (
+                <div key={i} className="flex items-center gap-2 text-sm text-gray-700">
+                  <item.icon className="h-4 w-4 text-indigo-500 shrink-0" />
+                  <span>{item.text}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Pricing preview */}
+            <div className="grid grid-cols-3 gap-2 mb-6">
+              {[
+                { plan: "Monthly", price: "₹99", period: "/mo" },
+                {
+                  plan: "Quarterly",
+                  price: "₹249",
+                  period: "/3mo",
+                  badge: "Popular",
+                },
+                {
+                  plan: "Yearly",
+                  price: "₹799",
+                  period: "/yr",
+                  badge: "Best Value",
+                },
+              ].map((p) => (
+                <div
+                  key={p.plan}
+                  className="border-2 border-indigo-100 rounded-xl p-3 relative"
+                >
+                  {p.badge && (
+                    <span className="absolute -top-2 left-1/2 -translate-x-1/2 bg-indigo-600 text-white text-[9px] px-2 py-0.5 rounded-full whitespace-nowrap">
+                      {p.badge}
+                    </span>
+                  )}
+                  <p className="text-xs text-gray-500">{p.plan}</p>
+                  <p className="font-bold text-gray-900">{p.price}</p>
+                  <p className="text-xs text-gray-400">{p.period}</p>
+                </div>
+              ))}
+            </div>
+
+            <Button
+              size="lg"
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white h-12 mb-3"
+              onClick={() => setPremiumOpen(true)}
+            >
+              <Crown className="h-4 w-4 mr-2" />
+              Upgrade to Premium
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full text-gray-400 hover:text-gray-600"
+              onClick={() => router.back()}
+            >
+              ← Go Back
+            </Button>
+          </div>
+        </div>
+        <PremiumModal open={premiumOpen} onClose={() => setPremiumOpen(false)} />
+      </>
+    );
+  }
 
   const scrollToBottom = () => messagesEnd.current?.scrollIntoView({ behavior: "smooth" });
 

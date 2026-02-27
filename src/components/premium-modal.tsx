@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatPrice } from "@/lib/utils";
+import { PremiumSuccessPopup } from "@/components/premium-success-popup";
 
 const PLANS = [
   { id: "monthly",   name: "Monthly",   price: 99,  period: "month",    popular: false },
@@ -55,9 +56,23 @@ export function PremiumModal({ open, onClose }: PremiumModalProps) {
   const router = useRouter();
   const [selectedPlan, setSelectedPlan] = useState("quarterly");
   const [processing, setProcessing] = useState(false);
+  const [successData, setSuccessData] = useState<{ premiumExpiry: string } | null>(null);
   const isPremium = (session?.user as { isPremium?: boolean })?.isPremium;
 
-  if (!open) return null;
+  if (!open && !successData) return null;
+
+  // Show success popup over everything
+  if (successData) {
+    return (
+      <PremiumSuccessPopup
+        premiumExpiry={successData.premiumExpiry}
+        onClose={() => {
+          setSuccessData(null);
+          onClose();
+        }}
+      />
+    );
+  }
 
   const handleUpgrade = async () => {
     if (!session?.user) { router.push("/login"); onClose(); return; }
@@ -113,10 +128,11 @@ export function PremiumModal({ open, onClose }: PremiumModalProps) {
               }),
             });
             if (verifyRes.ok) {
+              const verifyData = await verifyRes.json();
               await updateSession({ isPremium: true });
-              toast.success("Welcome to AasPass Premium! 🎉");
               router.refresh();
-              onClose();
+              // Show the success popup with confetti
+              setSuccessData({ premiumExpiry: verifyData.premiumExpiry });
             } else {
               const data = await verifyRes.json();
               toast.error(data.error || "Payment verification failed");

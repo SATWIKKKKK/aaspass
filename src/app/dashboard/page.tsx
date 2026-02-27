@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { PremiumModal } from "@/components/premium-modal";
+import { ExpiryWarningBanner } from "@/components/expiry-warning-banner";
 import { RouteGuard } from "@/components/route-guard";
 import { cn, formatDate, formatPrice } from "@/lib/utils";
 
@@ -282,6 +283,9 @@ function StudentDashboardInner() {
 
       {/* --- MAIN CONTENT --- */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Expiry warning for premium users nearing end */}
+        {isPremium && <div className="mb-4"><ExpiryWarningBanner /></div>}
+
         {/* Greeting */}
         <div className="mb-8">
           <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Hello {userName} </h2>

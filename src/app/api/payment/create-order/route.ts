@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 const PLANS: Record<string, { amount: number; durationDays: number; label: string }> = {
   monthly:   { amount: 9900,  durationDays: 30,  label: "AasPass Premium – Monthly"   },
@@ -32,7 +33,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
   }
 
-  const userId = (session.user as any).id ?? "unknown";
+  const userId = session.user.id ?? "unknown";
+
+  // Check if user already has an active subscription
+  const existingUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { isPremium: true, premiumExpiry: true },
+  });
+
+  if (
+    existingUser?.isPremium &&
+    existingUser.premiumExpiry &&
+    new Date(existingUser.premiumExpiry) > new Date()
+  ) {
+    return NextResponse.json(
+      { error: "You already have an active premium subscription" },
+      { status: 400 }
+    );
+  }
 
   try {
     const razorpay = await getRazorpay();

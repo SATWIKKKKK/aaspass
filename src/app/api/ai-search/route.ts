@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { checkPremiumAccess } from "@/lib/premium";
 
 // ==================== QUERY UNDERSTANDING MODULE ====================
 
@@ -370,16 +371,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Please sign in to use AI search" }, { status: 401 });
     }
 
-    // Premium access control
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id! },
-      select: { isPremium: true, role: true },
-    });
-    if (!user?.isPremium && user?.role !== "ADMIN") {
-      return NextResponse.json(
-        { error: "AI Search is a premium feature. Upgrade to access." },
-        { status: 403 }
-      );
+    // 🔒 HARD GATE — verify premium from DB including expiry check
+    const premiumCheck = await checkPremiumAccess(session.user.id!);
+    if (!premiumCheck.allowed) {
+      // Allow admins through even without premium
+      const user = await prisma.user.findUnique({
+        where: { id: session.user.id! },
+        select: { role: true },
+      });
+      if (user?.role !== "ADMIN") {
+        return NextResponse.json(
+          { error: "AI Search is a premium feature. Upgrade to access.", reason: premiumCheck.reason },
+          { status: 403 }
+        );
+      }
     }
 
     const { query } = await req.json();

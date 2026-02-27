@@ -38,9 +38,13 @@ model User {
   role            Role      @default(STUDENT)
   gender          Gender?
   aadharNo        String?
-  isPremium       Boolean   @default(false)
-  premiumExpiry   DateTime?
-  superCoins      Int       @default(0)
+  isPremium          Boolean   @default(false)
+  premiumExpiry      DateTime?
+  subscriptionPlan   String?   // 'monthly' | 'quarterly' | 'yearly'
+  subscriptionStart  DateTime?
+  razorpayPaymentId  String?
+  razorpayOrderId    String?
+  superCoins         Int       @default(0)
   isBlocked       Boolean   @default(false)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -58,6 +62,7 @@ model User {
   coupons         UserCoupon[]
   cart            CartItem[]
   announcements   Announcement[]
+  paymentLogs     PaymentLog[]
 
   @@map("users")
 }
@@ -350,6 +355,24 @@ model ChatMessage {
 
   @@index([userId])
   @@map("chat_messages")
+}
+
+// ==================== PAYMENT LOGS ====================
+
+model PaymentLog {
+  id                String   @id @default(cuid())
+  userId            String
+  razorpayOrderId   String
+  razorpayPaymentId String
+  amount            Int      // in paise
+  plan              String   // 'monthly' | 'quarterly' | 'yearly'
+  status            String   // 'success' | 'failed'
+  createdAt         DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("payment_logs")
 }
 
 // ==================== COUPONS & REWARDS ====================

@@ -95,6 +95,10 @@ export const authConfig: NextAuthConfig = {
       if (trigger === "update" && session?.role) {
         token.role = session.role;
       }
+      // Handle premium upgrade via client-side session update
+      if (trigger === "update" && session?.isPremium !== undefined) {
+        token.isPremium = session.isPremium;
+      }
       if (user) {
         token.id = (user as any).id || user.id;
         token.role = (user as any).role || "STUDENT";
@@ -112,11 +116,16 @@ export const authConfig: NextAuthConfig = {
         try {
           const dbUser = await prisma.user.findUnique({
             where: { email: token.email as string },
+            select: { id: true, role: true, isPremium: true, premiumExpiry: true },
           });
           if (dbUser) {
             token.id = dbUser.id;
             token.role = dbUser.role;
-            token.isPremium = dbUser.isPremium;
+            // Check expiry — never trust isPremium without checking premiumExpiry
+            token.isPremium =
+              dbUser.isPremium &&
+              !!dbUser.premiumExpiry &&
+              new Date(dbUser.premiumExpiry) > new Date();
           }
         } catch {
           // Ignore DB errors in JWT callback
