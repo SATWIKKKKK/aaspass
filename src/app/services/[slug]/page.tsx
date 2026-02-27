@@ -21,6 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn, formatPrice, calculateGST, calculateDynamicPrice, getDailyRate, formatDate, serviceTypeLabel } from "@/lib/utils";
+import { useSearch } from "@/context/search-context";
 
 interface PropertyData {
   id: string; name: string; slug: string; serviceType: string; description: string;
@@ -42,10 +43,11 @@ export default function PropertyPage() {
   const router = useRouter();
   const sp = useSearchParams();
   const { data: session } = useSession();
+  const { search } = useSearch();
   const [property, setProperty] = useState<PropertyData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [checkIn, setCheckIn] = useState(sp.get("from") || "");
-  const [checkOut, setCheckOut] = useState(sp.get("to") || "");
+  const [checkIn, setCheckIn] = useState(sp.get("from") || search.checkIn || "");
+  const [checkOut, setCheckOut] = useState(sp.get("to") || search.checkOut || "");
   const [hasBooking, setHasBooking] = useState(false);
   const [newReview, setNewReview] = useState("");
   const [newRating, setNewRating] = useState(0);

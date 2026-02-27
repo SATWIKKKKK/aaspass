@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PremiumModal } from "@/components/premium-modal";
 import { cn, formatPrice, SERVICE_TYPES, SERVICE_CATEGORIES, serviceTypeLabel, getDailyRate, calculateDynamicPrice } from "@/lib/utils";
+import { useSearch } from "@/context/search-context";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 type SessionUser = { id?: string; name?: string | null; email?: string | null; image?: string | null; role?: string; isPremium?: boolean };
@@ -201,13 +202,14 @@ function ServicesContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { data: session } = useSession();
+  const { search, updateSearch } = useSearch();
   const heroRef = useRef<HTMLDivElement>(null);
   const [heroVisible, setHeroVisible] = useState(true);
   const [premiumOpen, setPremiumOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
 
-  // Combo bar state — seeded from URL params (from /home search)
+  // Combo bar state — seeded from URL params first, fallback to search context
   const [selectedService, setSelectedService] = useState(searchParams.get("type") || "");
   const [dbTypes, setDbTypes] = useState(searchParams.get("dbTypes") || "");
   const [accommodationSubFilter, setAccommodationSubFilter] = useState<"" | "HOSTEL" | "PG">("");
@@ -216,6 +218,17 @@ function ServicesContent() {
   const [guests, setGuests] = useState(parseInt(searchParams.get("guests") || "1"));
   const [checkIn, setCheckIn] = useState(searchParams.get("from") || "");
   const [checkOut, setCheckOut] = useState(searchParams.get("to") || "");
+
+  // Hydrate from search context when URL params are empty
+  useEffect(() => {
+    if (!searchParams.get("type") && search.serviceType) setSelectedService(search.serviceType);
+    if (!searchParams.get("q") && search.location) setLocation(search.location);
+    if (!searchParams.get("rooms") && search.rooms > 1) setRooms(search.rooms);
+    if (!searchParams.get("guests") && search.guests > 1) setGuests(search.guests);
+    if (!searchParams.get("from") && search.checkIn) setCheckIn(search.checkIn);
+    if (!searchParams.get("to") && search.checkOut) setCheckOut(search.checkOut);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Filters
   const [minPrice, setMinPrice] = useState("");
@@ -286,6 +299,9 @@ function ServicesContent() {
   });
 
   const handleSearch = () => {
+    // Sync to persistent search context
+    updateSearch({ serviceType: selectedService, location, rooms, guests, checkIn, checkOut });
+
     const params = new URLSearchParams();
     if (selectedService) {
       params.set("type", selectedService);
@@ -372,9 +388,9 @@ function ServicesContent() {
             <div className="h-8 w-px bg-gray-200 shrink-0" />
             <Counter label="Guests" value={guests} onChange={setGuests} />
             <div className="h-8 w-px bg-gray-200 shrink-0" />
-            <div className="relative shrink-0 w-60 border-2 border-gray-200 rounded-full">
+            <div className="relative shrink-0 w-60">
               <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input placeholder="City or area" value={location} onChange={(e) => setLocation(e.target.value)} className="pl-9 h-9 text-sm border-0 bg-transparent focus:ring-0 w-full" />
+              <Input placeholder="City or area" value={location} onChange={(e) => setLocation(e.target.value)} className="pl-9 h-9 text-sm border-0 bg-transparent focus:ring-0 w-full rounded-full" />
             </div>
             <Link href={`/services/map${location ? `?location=${encodeURIComponent(location)}` : ""}`} className="h-9 w-9 rounded-full border-2 border-gray-200 flex items-center justify-center hover:bg-primary/10 hover:border-primary/30 transition-colors shrink-0" title="Search on Map"><Map className="h-4 w-4 text-gray-500" /></Link>
             <div className="h-8 w-px bg-gray-200 shrink-0" />
@@ -447,7 +463,7 @@ function ServicesContent() {
             <div className="h-8 w-px bg-gray-200 shrink-0" />
             <Counter label="Guests" value={guests} onChange={setGuests} />
             <div className="h-8 w-px bg-gray-200 shrink-0" />
-            <div className="relative shrink-0 w-60 border-2 border-gray-200 rounded-full"><MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /><Input placeholder="City or area" value={location} onChange={(e) => setLocation(e.target.value)} className="pl-9 h-9 text-sm border-0 bg-transparent focus:ring-0 w-full" /></div>
+            <div className="relative shrink-0 w-60"><MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /><Input placeholder="City or area" value={location} onChange={(e) => setLocation(e.target.value)} className="pl-9 h-9 text-sm border-0 bg-transparent focus:ring-0 w-full rounded-full" /></div>
             <Link href={`/services/map${location ? `?location=${encodeURIComponent(location)}` : ""}`} className="h-9 w-9 rounded-full border-2 border-gray-200 flex items-center justify-center hover:bg-primary/10 hover:border-primary/30 transition-colors shrink-0" title="Search on Map"><Map className="h-4 w-4 text-gray-500" /></Link>
             <div className="h-8 w-px bg-gray-200 shrink-0" />
             <div className="mr-8"><DateRangePicker checkIn={checkIn} checkOut={checkOut} onCheckIn={setCheckIn} onCheckOut={setCheckOut} /></div>
@@ -647,10 +663,10 @@ function ServicesContent() {
                           );
                         })()}
 
-                        <div className="mt-3 space-y-2">
-                          <Link href={`/services/${property.slug}${checkIn || checkOut ? `?from=${checkIn}&to=${checkOut}` : ''}`}><Button size="sm" variant="outline" className="w-full text-xs">View More</Button></Link>
-                          <Link href={`/services/${property.slug}${checkIn || checkOut ? `?from=${checkIn}&to=${checkOut}` : ''}`}><Button size="sm" className="w-full text-xs">Book Now</Button></Link>
-                          <Button size="sm" variant="outline" className="w-full text-xs" disabled={addingToCart === property.id} onClick={() => addToCart(property)}>
+                        <div className="mt-3 space-y-2 lg:space-y-3">
+                          <Link href={`/services/${property.slug}${checkIn || checkOut ? `?from=${checkIn}&to=${checkOut}` : ''}`}><Button size="sm" variant="outline" className="w-full text-xs lg:text-sm lg:h-9">View More</Button></Link>
+                          <Link href={`/services/${property.slug}${checkIn || checkOut ? `?from=${checkIn}&to=${checkOut}` : ''}`}><Button size="sm" className="w-full text-xs lg:text-sm lg:h-9">Book Now</Button></Link>
+                          <Button size="sm" variant="outline" className="w-full text-xs lg:text-sm lg:h-9" disabled={addingToCart === property.id} onClick={() => addToCart(property)}>
                             {addingToCart === property.id ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <ShoppingCart className="h-3.5 w-3.5 mr-1" />} Cart
                           </Button>
                         </div>

@@ -29,6 +29,7 @@ import {
   User,
   LayoutDashboard,
   ChevronUp,
+  Map,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +40,7 @@ import { Navbar } from "@/components/navbar";
 import { PremiumModal } from "@/components/premium-modal";
 import { Footer } from "@/components/footer";
 import { cn } from "@/lib/utils";
+import { useSearch } from "@/context/search-context";
 
 // Typed session user extension
 type SessionUser = { id?: string; name?: string | null; email?: string | null; image?: string | null; role?: string; isPremium?: boolean; };
@@ -235,14 +237,24 @@ function ProfileDropdown({ session, isPremium, profileOpen, setProfileOpen, setP
 export default function HomePage() {
   const { data: session } = useSession();
   const router = useRouter();
+  const { search, updateSearch } = useSearch();
   const [heroVisible, setHeroVisible] = useState(true);
   const heroRef = useRef<HTMLDivElement>(null);
-  const [selectedService, setSelectedService] = useState("");
-  const [location, setLocation] = useState("");
-  const [rooms, setRooms] = useState(1);
-  const [guests, setGuests] = useState(1);
-  const [checkIn, setCheckIn] = useState("");
-  const [checkOut, setCheckOut] = useState("");
+
+  // Derive local aliases from persistent search state
+  const selectedService = search.serviceType;
+  const setSelectedService = (v: string) => updateSearch({ serviceType: v });
+  const location = search.location;
+  const setLocation = (v: string) => updateSearch({ location: v });
+  const rooms = search.rooms;
+  const setRooms = (v: number) => updateSearch({ rooms: v });
+  const guests = search.guests;
+  const setGuests = (v: number) => updateSearch({ guests: v });
+  const checkIn = search.checkIn;
+  const setCheckIn = (v: string) => updateSearch({ checkIn: v });
+  const checkOut = search.checkOut;
+  const setCheckOut = (v: string) => updateSearch({ checkOut: v });
+
   const [premiumOpen, setPremiumOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
@@ -266,12 +278,13 @@ export default function HomePage() {
   const handleSearch = () => {
     const params = new URLSearchParams();
     if (selectedService) {
-      // Map UI category to DB service types
       const cat = serviceCategories.find((c) => c.value === selectedService);
       params.set("type", selectedService);
       if (cat) params.set("dbTypes", cat.dbTypes);
     }
     if (location) params.set("q", location);
+    if (search.locationLat) params.set("lat", String(search.locationLat));
+    if (search.locationLng) params.set("lng", String(search.locationLng));
     if (checkIn) params.set("from", checkIn);
     if (checkOut) params.set("to", checkOut);
     if (rooms > 1) params.set("rooms", String(rooms));
@@ -352,15 +365,20 @@ export default function HomePage() {
             <div className="h-8 w-px bg-gray-200 shrink-0" />
 
             {/* Location */}
-            <div className="relative shrink-0 w-60 border-2 border-gray-200 rounded-full">
+            <div className="relative shrink-0 w-60">
               <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
                 placeholder="City or area"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                className="pl-9 h-9 text-sm border-0 bg-transparent focus:ring-0 w-full"
+                className="pl-9 h-9 text-sm border-0 bg-transparent focus:ring-0 w-full rounded-full"
               />
             </div>
+
+            {/* Map button */}
+            <Link href={`/services/map${location ? `?location=${encodeURIComponent(location)}` : ""}`} className="h-9 w-9 rounded-full border-2 border-gray-200 flex items-center justify-center hover:bg-primary/10 hover:border-primary/30 transition-colors shrink-0" title="Search on Map">
+              <Map className="h-4 w-4 text-gray-500" />
+            </Link>
 
             <div className="h-8 w-px bg-gray-200 shrink-0" />
 
@@ -544,15 +562,20 @@ export default function HomePage() {
             <div className="h-8 w-px bg-gray-200 shrink-0" />
 
             {/* Location */}
-            <div className="relative shrink-0 w-60  border-2 border-gray-200 rounded-full">
+            <div className="relative shrink-0 w-60">
               <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
                 placeholder="City or area"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                className="pl-9 h-9 text-sm border-0 bg-transparent focus:ring-0 w-full"
+                className="pl-9 h-9 text-sm border-0 bg-transparent focus:ring-0 w-full rounded-full"
               />
             </div>
+
+            {/* Map button */}
+            <Link href={`/services/map${location ? `?location=${encodeURIComponent(location)}` : ""}`} className="h-9 w-9 rounded-full border-2 border-gray-200 flex items-center justify-center hover:bg-primary/10 hover:border-primary/30 transition-colors shrink-0" title="Search on Map">
+              <Map className="h-4 w-4 text-gray-500" />
+            </Link>
 
             <div className="h-8 w-px bg-gray-200 shrink-0" />
 

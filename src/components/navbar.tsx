@@ -74,7 +74,7 @@ export function Navbar({ variant = "public", showSearch = true, autoHide = false
   }, [searchQuery, router]);
 
   const navLinks = isOwner ? [] : variant === "student" ? [
-    { href: "/home", label: "Home", icon: Home },
+    { href: "/dashboard", label: "Home", icon: Home },
     { href: "/services", label: "Services", icon: BookOpen },
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/chat", label: "AI Chat", icon: MessageSquare },

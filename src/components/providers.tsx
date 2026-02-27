@@ -3,10 +3,12 @@
 import { SessionProvider } from "next-auth/react";
 import { Toaster } from "react-hot-toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { SearchProvider } from "@/context/search-context";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider>
+      <SearchProvider>
       <TooltipProvider>
         {children}
         <Toaster
@@ -27,6 +29,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
           }}
         />
       </TooltipProvider>
+      </SearchProvider>
     </SessionProvider>
   );
 }

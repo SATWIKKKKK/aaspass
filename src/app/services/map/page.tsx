@@ -4,10 +4,10 @@
 
 import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   MapPin, Search, Navigation, Loader2, Building2, Star, ChevronLeft,
-  X, List, MapIcon, Crosshair,
+  X, List, MapIcon, Crosshair, CheckCircle2,
 } from "lucide-react";
 import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
 import { Navbar } from "@/components/navbar";
@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn, getDailyRate } from "@/lib/utils";
 import toast from "react-hot-toast";
+import { useSearch } from "@/context/search-context";
 
 /* ── Types ──────────────────────────────────────────────────────────────── */
 interface NearbyProperty {
@@ -58,6 +59,8 @@ function haversineM(lat1: number, lon1: number, lat2: number, lon2: number) {
 /* ════════════════════════════════════════════════════════════════════════ */
 function MapSearchInner() {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const { updateSearch } = useSearch();
 
   /* refs */
   const mapRef = useRef<HTMLDivElement>(null);
@@ -688,6 +691,24 @@ function MapSearchInner() {
               title="Use my current location"
             >
               <Navigation className="h-4 w-4 text-gray-600" />
+            </button>
+          )}
+
+          {/* Confirm Location button — save to search context and go back to home */}
+          {mapReady && lat !== null && lng !== null && locationName && (
+            <button
+              onClick={() => {
+                updateSearch({
+                  location: locationName.split(",")[0],
+                  locationLat: lat,
+                  locationLng: lng,
+                });
+                router.push("/home");
+              }}
+              className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-full shadow-xl hover:bg-primary/90 transition-all font-medium text-sm"
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              Confirm Location
             </button>
           )}
         </div>
