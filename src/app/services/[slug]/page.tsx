@@ -8,7 +8,7 @@ import toast from "react-hot-toast";
 import {
   MapPin, Star, Wifi, Wind, Utensils, Shirt, ShieldCheck, Users, Phone, MessageSquare,
   Share2, Heart, ChevronLeft, ShoppingCart, Building2, Navigation,
-  CheckCircle2, AlertCircle, Loader2,
+  CheckCircle2, AlertCircle, Loader2, Copy, BadgeCheck, ExternalLink,
 } from "lucide-react";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
@@ -54,6 +54,42 @@ export default function PropertyPage() {
   const [submittingReview, setSubmittingReview] = useState(false);
   const [booking, setBooking] = useState(false);
   const [addingToCart, setAddingToCart] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [showShareMenu, setShowShareMenu] = useState(false);
+
+  // Load wishlist from localStorage
+  useEffect(() => {
+    try {
+      const wishlist = JSON.parse(localStorage.getItem("aaspass_wishlist") || "[]");
+      if (wishlist.includes(params.slug)) setSaved(true);
+    } catch {}
+  }, [params.slug]);
+
+  const toggleSave = () => {
+    try {
+      const wishlist: string[] = JSON.parse(localStorage.getItem("aaspass_wishlist") || "[]");
+      const slug = params.slug as string;
+      if (wishlist.includes(slug)) {
+        localStorage.setItem("aaspass_wishlist", JSON.stringify(wishlist.filter((s) => s !== slug)));
+        setSaved(false);
+        toast.success("Removed from wishlist");
+      } else {
+        wishlist.unshift(slug);
+        localStorage.setItem("aaspass_wishlist", JSON.stringify(wishlist.slice(0, 50)));
+        setSaved(true);
+        toast.success("Saved to wishlist");
+      }
+    } catch {}
+  };
+
+  const handleShare = async (method: "copy" | "whatsapp" | "native") => {
+    const url = window.location.href;
+    const text = `Check out ${property?.name} on AasPass - ${url}`;
+    if (method === "copy") { await navigator.clipboard.writeText(url); toast.success("Link copied!"); }
+    else if (method === "whatsapp") window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+    else if (navigator.share) await navigator.share({ title: property?.name, text, url });
+    setShowShareMenu(false);
+  };
 
   useEffect(() => {
     async function load() {
@@ -62,6 +98,13 @@ export default function PropertyPage() {
         if (res.ok) {
           const data = await res.json();
           setProperty(data.property);
+          // Track recently viewed
+          try {
+            const rv: string[] = JSON.parse(localStorage.getItem("aaspass_recently_viewed") || "[]");
+            const slug = params.slug as string;
+            const updated = [slug, ...rv.filter((s) => s !== slug)].slice(0, 20);
+            localStorage.setItem("aaspass_recently_viewed", JSON.stringify(updated));
+          } catch {}
           // Check if current user has a confirmed booking for this property
           if (session) {
             try {
@@ -237,16 +280,35 @@ export default function PropertyPage() {
           {/* Left Content */}
           <div className="lg:col-span-2 space-y-8">
             <div>
-              <div className="flex items-center gap-3 flex-wrap">
-                <h1 className="text-3xl font-bold text-gray-900">{property.name}</h1>
-                <Badge variant="outline">
-                  {serviceTypeLabel(property.serviceType)}
-                </Badge>
-                {property.forGender && (
-                  <Badge variant={property.forGender === "MALE" ? "default" : "secondary"}>
-                    <Users className="h-3 w-3 mr-1" /> {property.forGender === "MALE" ? "Boys" : "Girls"} Only
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <h1 className="text-3xl font-bold text-gray-900">{property.name}</h1>
+                  <Badge variant="outline">
+                    {serviceTypeLabel(property.serviceType)}
                   </Badge>
-                )}
+                  {property.forGender && (
+                    <Badge variant={property.forGender === "MALE" ? "default" : "secondary"}>
+                      <Users className="h-3 w-3 mr-1" /> {property.forGender === "MALE" ? "Boys" : "Girls"} Only
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <div className="relative">
+                    <button onClick={() => setShowShareMenu(!showShareMenu)} className="p-2 rounded-full hover:bg-gray-100 transition" title="Share">
+                      <Share2 className="h-5 w-5 text-gray-600" />
+                    </button>
+                    {showShareMenu && (
+                      <div className="absolute right-0 top-10 bg-white border border-gray-200 rounded-xl shadow-xl py-2 w-48 z-50">
+                        <button onClick={() => handleShare("copy")} className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"><Copy className="h-4 w-4 text-gray-400" /> Copy Link</button>
+                        <button onClick={() => handleShare("whatsapp")} className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"><MessageSquare className="h-4 w-4 text-green-500" /> WhatsApp</button>
+                        <button onClick={() => handleShare("native")} className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"><ExternalLink className="h-4 w-4 text-gray-400" /> More...</button>
+                      </div>
+                    )}
+                  </div>
+                  <button onClick={toggleSave} className="p-2 rounded-full hover:bg-gray-100 transition" title={saved ? "Remove from wishlist" : "Save"}>
+                    <Heart className={cn("h-5 w-5 transition", saved ? "fill-red-500 text-red-500" : "text-gray-600")} />
+                  </button>
+                </div>
               </div>
               <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
                 <span className="flex items-center gap-1"><MapPin className="h-4 w-4" /> {property.address}, {property.city}</span>
@@ -316,6 +378,7 @@ export default function PropertyPage() {
                       <div className="flex items-center gap-2">
                         <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary">{review.user.name[0]}</div>
                         <span className="font-medium text-gray-900">{review.user.name}</span>
+                        <span className="flex items-center gap-0.5 text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full"><BadgeCheck className="h-3 w-3" /> Verified Stay</span>
                       </div>
                       <div className="flex items-center gap-1">{Array.from({ length: 5 }).map((_, i) => (<Star key={i} className={cn("h-3.5 w-3.5", i < review.rating ? "fill-yellow-400 text-yellow-400" : "text-gray-200")} />))}</div>
                     </div>
@@ -345,7 +408,7 @@ export default function PropertyPage() {
               <Card className="shadow-lg"><CardContent className="p-6 space-y-4">
                 <div><p className="text-sm text-gray-500 line-through">{formatPrice(Math.round(property.price * 1.2))}</p><div className="flex items-baseline gap-1"><span className="text-3xl font-bold text-gray-900">{formatPrice(property.price)}</span><span className="text-sm text-gray-500">/month</span></div><p className="text-xs text-gray-400 mt-0.5">{formatPrice(perDay)}/day</p></div>
                 <Separator />
-                <div className="space-y-3"><div><Label className="text-xs">Check-in Date</Label><Input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} /></div><div><Label className="text-xs">Check-out Date</Label><Input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} /></div></div>
+                <div className="space-y-3"><div><Label className="text-xs">Check-in Date</Label><Input type="date" value={checkIn} min={new Date().toISOString().split("T")[0]} onChange={(e) => { setCheckIn(e.target.value); if (checkOut && e.target.value && e.target.value >= checkOut) setCheckOut(""); }} /></div><div><Label className="text-xs">Check-out Date</Label><Input type="date" value={checkOut} min={checkIn ? new Date(new Date(checkIn).getTime() + 86400000).toISOString().split("T")[0] : new Date().toISOString().split("T")[0]} onChange={(e) => setCheckOut(e.target.value)} /></div></div>
                 <Separator />
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between"><span className="text-gray-500">{formatPrice(pricing.perDay)}/day × {pricing.days} day{pricing.days !== 1 ? "s" : ""}</span><span>{formatPrice(pricing.base)}</span></div>

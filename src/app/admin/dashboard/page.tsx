@@ -9,7 +9,7 @@ import {
   Plus, Crown, ChevronDown, ChevronLeft, ChevronRight, Loader2,
   Settings, LogOut, LayoutDashboard, Building2, Pencil, BarChart3,
   Megaphone, Send, MapPin, Star, X, Eye, TrendingUp, ArrowRight,
-  Ticket, Users, DollarSign, User,
+  Ticket, Users, DollarSign, User, Calendar, CheckCircle, XCircle, Phone, Mail,
 } from "lucide-react";
 import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
@@ -38,6 +38,23 @@ interface OwnerStats {
   totalComplaints: number; openComplaints: number;
   totalAnnouncements: number;
   monthlyRevenue: { month: string; revenue: number; bookings: number }[];
+}
+
+interface OwnerBooking {
+  id: string;
+  bookingNo: string;
+  status: string;
+  paymentStatus: string;
+  checkIn: string;
+  checkOut: string;
+  totalDays: number;
+  totalPrice: number;
+  gstAmount: number;
+  grandTotal: number;
+  razorpayPaymentId: string | null;
+  createdAt: string;
+  property: { name: string; slug: string; serviceType: string; images: { url: string }[] };
+  student: { name: string; email: string; phone: string | null };
 }
 
 /* ───── Image Carousel ───── */
@@ -134,10 +151,12 @@ function AdminDashboardInner() {
   const router = useRouter();
   const [properties, setProperties] = useState<PropertyData[]>([]);
   const [stats, setStats] = useState<OwnerStats | null>(null);
+  const [ownerBookings, setOwnerBookings] = useState<OwnerBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [profileOpen, setProfileOpen] = useState(false);
   const [premiumOpen, setPremiumOpen] = useState(false);
   const [announceProp, setAnnounceProp] = useState<PropertyData | null>(null);
+  const [updatingBooking, setUpdatingBooking] = useState<string | null>(null);
 
   const isPremium = (session?.user as any)?.isPremium;
   const userName = session?.user?.name ? session.user.name.split(" ")[0] : "Owner";
@@ -149,9 +168,11 @@ function AdminDashboardInner() {
     Promise.all([
       fetch("/api/properties?owner=me").then((r) => r.json()),
       fetch("/api/owner/stats").then((r) => r.json()),
-    ]).then(([propData, statsData]) => {
+      fetch("/api/bookings").then((r) => r.json()),
+    ]).then(([propData, statsData, bookingsData]) => {
       setProperties(propData.properties || []);
       if (!statsData.error) setStats(statsData);
+      setOwnerBookings(bookingsData.bookings || []);
     }).catch(() => toast.error("Failed to load data"))
       .finally(() => setLoading(false));
   }, [status]);
@@ -166,6 +187,29 @@ function AdminDashboardInner() {
     return <div className="min-h-screen bg-white flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
   const displayProperties = properties.slice(0, 2);
+
+  const handleBookingAction = async (bookingId: string, action: "COMPLETED" | "CANCELLED") => {
+    const label = action === "COMPLETED" ? "mark as completed" : "cancel";
+    if (!confirm(`Are you sure you want to ${label} this booking?`)) return;
+    setUpdatingBooking(bookingId);
+    try {
+      const res = await fetch(`/api/bookings/${bookingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: action }),
+      });
+      if (res.ok) {
+        setOwnerBookings((prev) =>
+          prev.map((b) => (b.id === bookingId ? { ...b, status: action, paymentStatus: action === "CANCELLED" ? "refund_pending" : b.paymentStatus } : b))
+        );
+        toast.success(action === "COMPLETED" ? "Booking marked as completed" : "Booking cancelled");
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Failed to update booking");
+      }
+    } catch { toast.error("Something went wrong"); }
+    finally { setUpdatingBooking(null); }
+  };
 
   return (
     <div className="min-h-screen bg-white">
@@ -289,6 +333,126 @@ function AdminDashboardInner() {
               </div>
             )}
           </div>
+        </section>
+
+        {/* ═══ RECENT BOOKINGS ═══ */}
+        <section className="mb-12">
+          <h3 className="text-xl font-bold text-gray-900 mb-6">Recent Bookings</h3>
+
+          {ownerBookings.length === 0 ? (
+            <Card className="border-2 border-dashed border-gray-200">
+              <CardContent className="p-8 flex flex-col items-center justify-center text-center">
+                <Calendar className="h-12 w-12 text-gray-300 mb-4" />
+                <h4 className="text-lg font-semibold text-gray-900">No bookings yet</h4>
+                <p className="text-sm text-gray-500 mt-1">When students book your properties, they&apos;ll appear here.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {ownerBookings.slice(0, 6).map((booking) => {
+                const isManageable = ["CONFIRMED", "ACTIVE"].includes(booking.status);
+                return (
+                  <Card key={booking.id} className="overflow-hidden hover:shadow-md transition-shadow">
+                    <CardContent className="p-4 sm:p-5">
+                      <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+                        {/* Left: Guest + Property Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start gap-3 mb-3">
+                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                              <User className="h-5 w-5 text-primary" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-semibold text-gray-900 truncate">{booking.student?.name || "Student"}</p>
+                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 mt-0.5">
+                                {booking.student?.email && (
+                                  <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{booking.student.email}</span>
+                                )}
+                                {booking.student?.phone && (
+                                  <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{booking.student.phone}</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="bg-gray-50 rounded-lg px-3 py-2 space-y-1.5 text-sm">
+                            <div className="flex items-center justify-between">
+                              <span className="text-gray-500">Property</span>
+                              <span className="font-medium text-gray-900 truncate ml-2">{booking.property.name}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-gray-500">Booking ID</span>
+                              <span className="font-mono text-xs text-gray-700">{booking.bookingNo || "—"}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-gray-500">Dates</span>
+                              <span className="text-gray-700 text-xs">
+                                {new Date(booking.checkIn).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                                {" → "}
+                                {new Date(booking.checkOut).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                                {booking.totalDays > 0 && ` (${booking.totalDays}d)`}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-gray-500">Amount</span>
+                              <span className="font-semibold text-green-700">{formatPrice(booking.grandTotal)}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Right: Status + Actions */}
+                        <div className="flex flex-row sm:flex-col items-center sm:items-end gap-3 shrink-0">
+                          <Badge
+                            variant={
+                              ["ACTIVE", "CONFIRMED"].includes(booking.status)
+                                ? "success"
+                                : booking.status === "COMPLETED"
+                                ? "secondary"
+                                : "destructive"
+                            }
+                            className="text-xs"
+                          >
+                            {booking.status}
+                          </Badge>
+
+                          {isManageable && (
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-xs h-8 text-green-700 border-green-200 hover:bg-green-50"
+                                onClick={() => handleBookingAction(booking.id, "COMPLETED")}
+                                disabled={updatingBooking === booking.id}
+                              >
+                                {updatingBooking === booking.id ? (
+                                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                ) : (
+                                  <CheckCircle className="h-3 w-3 mr-1" />
+                                )}
+                                Complete
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-xs h-8 text-red-600 border-red-200 hover:bg-red-50"
+                                onClick={() => handleBookingAction(booking.id, "CANCELLED")}
+                                disabled={updatingBooking === booking.id}
+                              >
+                                <XCircle className="h-3 w-3 mr-1" />
+                                Cancel
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+              {ownerBookings.length > 6 && (
+                <p className="text-sm text-gray-500 text-center">Showing 6 of {ownerBookings.length} bookings</p>
+              )}
+            </div>
+          )}
         </section>
 
         {/* ═══ BUSINESS STATS ═══ */}

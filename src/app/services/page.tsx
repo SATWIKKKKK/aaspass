@@ -47,6 +47,7 @@ const services = serviceCategories;
 
 // ── Date helper ──────────────────────────────────────────────────────────────
 function fmtDate(iso: string) { if (!iso) return null; const [y, m, d] = iso.split("-"); return `${d}/${m}/${y}`; }
+const todayStr = () => new Date().toISOString().split("T")[0];
 
 // ── DateRangePicker (same as /home) ──────────────────────────────────────────
 function DateRangePicker({ checkIn, checkOut, onCheckIn, onCheckOut, compact = false }: {
@@ -57,19 +58,23 @@ function DateRangePicker({ checkIn, checkOut, onCheckIn, onCheckOut, compact = f
   const trigger = (ref: React.RefObject<HTMLInputElement | null>) => { try { ref.current?.showPicker(); } catch { ref.current?.focus(); } };
   const label = compact ? "text-[9px]" : "text-[10px]";
   const val = compact ? "text-[10px]" : "text-xs";
+  const today = todayStr();
+  const minCheckOut = checkIn
+    ? new Date(new Date(checkIn).getTime() + 86400000).toISOString().split("T")[0]
+    : today;
   return (
     <div className="flex items-center gap-4 shrink-0">
       <Calendar className={cn(compact ? "h-3.5 w-3.5" : "h-4 w-4", "text-gray-500 shrink-0")} />
       <div className="inline-flex flex-col items-center cursor-pointer select-none group md:ml-1" onClick={() => trigger(inRef)}>
         <span className={cn(label, "font-medium text-gray-600 uppercase tracking-wide")}>From</span>
         <span className={cn(val, "font-semibold pb-0.5 min-w-17.5 text-center transition-colors whitespace-nowrap", checkIn ? "text-gray-800 border-primary" : "text-gray-400 border-gray-300 group-hover:border-primary/50")}>{fmtDate(checkIn) ?? "__/__/____"}</span>
-        <input ref={inRef} type="date" value={checkIn} onChange={(e) => onCheckIn(e.target.value)} className="absolute opacity-0 w-0 h-0 pointer-events-none" tabIndex={-1} />
+        <input ref={inRef} type="date" value={checkIn} min={today} onChange={(e) => { onCheckIn(e.target.value); if (checkOut && e.target.value && e.target.value >= checkOut) onCheckOut(""); }} className="absolute opacity-0 w-0 h-0 pointer-events-none" tabIndex={-1} />
       </div>
       <span className="text-gray-400 text-sm font-light mx-0.5">→</span>
       <div className="inline-flex flex-col items-center cursor-pointer select-none group" onClick={() => trigger(outRef)}>
         <span className={cn(label, "font-medium text-gray-600 uppercase tracking-wide")}>To</span>
         <span className={cn(val, "font-semibold pb-0.5 min-w-17.5 text-center transition-colors whitespace-nowrap", checkOut ? "text-gray-800 border-primary" : "text-gray-400 border-gray-300 group-hover:border-primary/50")}>{fmtDate(checkOut) ?? "__/__/____"}</span>
-        <input ref={outRef} type="date" value={checkOut} onChange={(e) => onCheckOut(e.target.value)} className="absolute opacity-0 w-0 h-0 pointer-events-none" tabIndex={-1} />
+        <input ref={outRef} type="date" value={checkOut} min={minCheckOut} onChange={(e) => onCheckOut(e.target.value)} className="absolute opacity-0 w-0 h-0 pointer-events-none" tabIndex={-1} />
       </div>
     </div>
   );
@@ -388,13 +393,13 @@ function ServicesContent() {
             <div className="h-8 w-px bg-gray-200 shrink-0" />
             <Counter label="Guests" value={guests} onChange={setGuests} />
             <div className="h-8 w-px bg-gray-200 shrink-0" />
-            <div className="relative shrink-0 w-60">
+            <div className="relative flex-1 min-w-0">
               <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input placeholder="City or area" value={location} onChange={(e) => setLocation(e.target.value)} className="pl-9 h-9 text-sm border-0 bg-transparent focus:ring-0 w-full rounded-full" />
             </div>
             <Link href={`/services/map${location ? `?location=${encodeURIComponent(location)}` : ""}`} className="h-9 w-9 rounded-full border-2 border-gray-200 flex items-center justify-center hover:bg-primary/10 hover:border-primary/30 transition-colors shrink-0" title="Search on Map"><Map className="h-4 w-4 text-gray-500" /></Link>
             <div className="h-8 w-px bg-gray-200 shrink-0" />
-            <div className="mr-8"><DateRangePicker checkIn={checkIn} checkOut={checkOut} onCheckIn={setCheckIn} onCheckOut={setCheckOut} /></div>
+            <div className="shrink-0"><DateRangePicker checkIn={checkIn} checkOut={checkOut} onCheckIn={setCheckIn} onCheckOut={setCheckOut} /></div>
             <Button onClick={handleSearch} size="sm" className="h-10 px-5 rounded-full shrink-0"><Search className="h-4 w-4 mr-1.5" /> Search</Button>
           </div>
           {session && <ProfileDropdown session={session} isPremium={isPremium} profileOpen={profileOpen} setProfileOpen={setProfileOpen} setPremiumOpen={setPremiumOpen} />}
@@ -463,10 +468,10 @@ function ServicesContent() {
             <div className="h-8 w-px bg-gray-200 shrink-0" />
             <Counter label="Guests" value={guests} onChange={setGuests} />
             <div className="h-8 w-px bg-gray-200 shrink-0" />
-            <div className="relative shrink-0 w-60"><MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /><Input placeholder="City or area" value={location} onChange={(e) => setLocation(e.target.value)} className="pl-9 h-9 text-sm border-0 bg-transparent focus:ring-0 w-full rounded-full" /></div>
+            <div className="relative flex-1 min-w-0"><MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /><Input placeholder="City or area" value={location} onChange={(e) => setLocation(e.target.value)} className="pl-9 h-9 text-sm border-0 bg-transparent focus:ring-0 w-full rounded-full" /></div>
             <Link href={`/services/map${location ? `?location=${encodeURIComponent(location)}` : ""}`} className="h-9 w-9 rounded-full border-2 border-gray-200 flex items-center justify-center hover:bg-primary/10 hover:border-primary/30 transition-colors shrink-0" title="Search on Map"><Map className="h-4 w-4 text-gray-500" /></Link>
             <div className="h-8 w-px bg-gray-200 shrink-0" />
-            <div className="mr-8"><DateRangePicker checkIn={checkIn} checkOut={checkOut} onCheckIn={setCheckIn} onCheckOut={setCheckOut} /></div>
+            <div className="shrink-0"><DateRangePicker checkIn={checkIn} checkOut={checkOut} onCheckIn={setCheckIn} onCheckOut={setCheckOut} /></div>
             <Button onClick={handleSearch} size="sm" className="h-10 px-5 rounded-full shrink-0"><Search className="h-4 w-4 mr-1.5" /> Search</Button>
           </div>
           {/* Tablet combo bar */}

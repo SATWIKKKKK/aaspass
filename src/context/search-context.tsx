@@ -21,9 +21,21 @@ export function SearchProvider({ children }: { children: ReactNode }) {
   const [search, setSearch] = useState<SearchState>(DEFAULT_SEARCH_STATE);
   const [hydrated, setHydrated] = useState(false);
 
-  // Hydrate from localStorage on mount (client-only)
+  // Hydrate from localStorage on mount (client-only) + auto-reset stale dates
   useEffect(() => {
     const saved = getSearchState();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    // Auto-clear past dates from localStorage
+    if (saved.checkIn && new Date(saved.checkIn) < today) {
+      saved.checkIn = "";
+      saved.checkOut = "";
+      saveSearchState(saved);
+    }
+    if (saved.checkOut && new Date(saved.checkOut) < today) {
+      saved.checkOut = "";
+      saveSearchState(saved);
+    }
     setSearch(saved);
     setHydrated(true);
   }, []);

@@ -73,6 +73,9 @@ function fmtDate(iso: string) {
   return `${d}/${m}/${y}`;
 }
 
+// Today's date string for min attribute (blocks past dates)
+const todayStr = () => new Date().toISOString().split("T")[0];
+
 // DateRangePicker — hidden native inputs triggered on click
 function DateRangePicker({
   checkIn, checkOut, onCheckIn, onCheckOut, compact = false,
@@ -95,6 +98,12 @@ function DateRangePicker({
   const label = compact ? "text-[9px]" : "text-[10px]";
   const val   = compact ? "text-[10px]" : "text-xs";
 
+  // Minimum dates: check-in ≥ today, check-out ≥ check-in + 1 day
+  const today = todayStr();
+  const minCheckOut = checkIn
+    ? new Date(new Date(checkIn).getTime() + 86400000).toISOString().split("T")[0]
+    : today;
+
   return (
     <div className="flex items-center gap-4 shrink-0">
       <Calendar className={cn(compact ? "h-3.5 w-3.5" : "h-4 w-4", "text-gray-500 shrink-0")} />
@@ -112,7 +121,12 @@ function DateRangePicker({
           ref={inRef}
           type="date"
           value={checkIn}
-          onChange={(e) => onCheckIn(e.target.value)}
+          min={today}
+          onChange={(e) => {
+            onCheckIn(e.target.value);
+            // Auto-clear check-out if it's before new check-in
+            if (checkOut && e.target.value && e.target.value >= checkOut) onCheckOut("");
+          }}
           className="absolute opacity-0 w-0 h-0 pointer-events-none"
           tabIndex={-1}
         />
@@ -133,6 +147,7 @@ function DateRangePicker({
           ref={outRef}
           type="date"
           value={checkOut}
+          min={minCheckOut}
           onChange={(e) => onCheckOut(e.target.value)}
           className="absolute opacity-0 w-0 h-0 pointer-events-none"
           tabIndex={-1}
@@ -325,7 +340,7 @@ export default function HomePage() {
         heroVisible ? "-translate-y-full opacity-0 pointer-events-none" : "translate-y-0 opacity-100"
       )}>
         {/* ── Desktop: single row with logo ── */}
-          <div className="hidden lg:flex items-center gap-3 px-6 py-2.5 lg:max-w-6xl xl:max-w-1xl mx-auto">
+          <div className="hidden lg:flex items-center gap-3 px-6 py-2.5 max-w-7xl mx-auto">
           {/* Logo (appears when sticky) */}
           <Link href="/home" className="flex items-center gap-2 shrink-0 group">
             <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform">
@@ -365,7 +380,7 @@ export default function HomePage() {
             <div className="h-8 w-px bg-gray-200 shrink-0" />
 
             {/* Location */}
-            <div className="relative shrink-0 w-60">
+            <div className="relative flex-1 min-w-0">
               <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
                 placeholder="City or area"
@@ -383,7 +398,7 @@ export default function HomePage() {
             <div className="h-8 w-px bg-gray-200 shrink-0" />
 
             {/* Dates */}
-            <div className="mr-8">
+            <div className="shrink-0">
               <DateRangePicker checkIn={checkIn} checkOut={checkOut} onCheckIn={setCheckIn} onCheckOut={setCheckOut} />
             </div>
 
@@ -562,7 +577,7 @@ export default function HomePage() {
             <div className="h-8 w-px bg-gray-200 shrink-0" />
 
             {/* Location */}
-            <div className="relative shrink-0 w-60">
+            <div className="relative flex-1 min-w-0">
               <MapPin className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
                 placeholder="City or area"
@@ -580,14 +595,12 @@ export default function HomePage() {
             <div className="h-8 w-px bg-gray-200 shrink-0" />
 
             {/* Dates */}
-            <div className="mr-8">
+            <div className="shrink-0">
               <DateRangePicker checkIn={checkIn} checkOut={checkOut} onCheckIn={setCheckIn} onCheckOut={setCheckOut} />
             </div>
-            
 
-
-                        {/* Search button */}
-            <Button onClick={handleSearch} size="sm" className="  h-10 px-5 rounded-full shrink-0">
+            {/* Search button */}
+            <Button onClick={handleSearch} size="sm" className="h-10 px-5 rounded-full shrink-0">
               <Search className="h-4 w-4 mr-1.5" /> Search
             </Button>
           </div>

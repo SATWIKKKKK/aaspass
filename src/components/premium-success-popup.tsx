@@ -59,23 +59,27 @@ export function PremiumSuccessPopup({ premiumExpiry, onClose }: PremiumSuccessPo
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl max-w-md w-full p-8 text-center shadow-2xl animate-in fade-in zoom-in-95 duration-300">
-        {/* Trophy with glow */}
+        {/* Crown with glow */}
         <div className="relative mx-auto mb-4">
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="h-20 w-20 rounded-full bg-amber-100 animate-pulse" />
           </div>
-          <div className="relative text-7xl animate-bounce">🏆</div>
+          <div className="relative text-7xl animate-bounce">👑</div>
+          <div className="absolute -top-1 -right-4 w-6 h-6 bg-yellow-400 rounded-full animate-ping" />
         </div>
 
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
+        <h1 className="text-3xl font-black text-gray-900 mb-1">
           You&apos;re Premium Now!
         </h1>
-        <p className="text-gray-500 mb-6">
-          Welcome to the premium family. Full access unlocked.
+        <p className="text-indigo-600 font-semibold text-lg mb-4">
+          Welcome to AasPass Premium
+        </p>
+        <p className="text-gray-500 text-sm mb-6">
+          You now have full access to the AasPass AI Chat Assistant and all exclusive premium features.
         </p>
 
         {/* Features list */}
-        <div className="text-left space-y-3 mb-6 bg-indigo-50 rounded-xl p-4">
+        <div className="text-left space-y-2.5 mb-6 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl p-4">
           {FEATURES.map((f, i) => (
             <div key={i} className="flex items-center gap-3">
               <div className="h-8 w-8 rounded-lg bg-white flex items-center justify-center shrink-0 shadow-sm">
@@ -96,24 +100,24 @@ export function PremiumSuccessPopup({ premiumExpiry, onClose }: PremiumSuccessPo
         {/* CTA Buttons */}
         <Button
           size="lg"
-          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white h-12 mb-3"
+          className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:opacity-90 text-white h-12 mb-3 shadow-lg shadow-indigo-200"
           onClick={() => {
             onClose();
             router.push("/chat");
           }}
         >
           <MessageSquare className="h-4 w-4 mr-2" />
-          Start Using AI Chat
+          Open AI Chat Assistant
         </Button>
         <Button
           variant="ghost"
-          className="w-full text-gray-500 hover:text-gray-700"
+          className="w-full text-gray-400 hover:text-gray-600"
           onClick={() => {
             onClose();
             router.push("/dashboard");
           }}
         >
-          Go to Dashboard
+          Explore Dashboard
         </Button>
       </div>
     </div>

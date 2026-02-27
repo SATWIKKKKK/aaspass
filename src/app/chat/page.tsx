@@ -55,17 +55,17 @@ interface Conversation {
 // ==================== SUGGESTIONS ====================
 
 const SEARCH_SUGGESTIONS = [
-  { icon: Search, text: "Find accommodation near KIIT under ₹8000", color: "text-blue-500" },
-  { icon: MapPin, text: "Girls PG in Kota with food and WiFi", color: "text-green-500" },
-  { icon: Star, text: "Top-rated libraries near Salt Lake, Kolkata", color: "text-yellow-500" },
-  { icon: Home, text: "Affordable mess services near KIIT Bhubaneswar", color: "text-purple-500" },
+  { icon: Search, text: "Find hostels near IIT Bombay under ₹8000", color: "text-blue-500" },
+  { icon: MapPin, text: "Best mess/tiffin services in Kota", color: "text-green-500" },
+  { icon: Star, text: "Cheap gyms near KIIT Bhubaneswar", color: "text-yellow-500" },
+  { icon: Home, text: "Libraries with WiFi in Salt Lake, Kolkata", color: "text-purple-500" },
 ];
 
 const CHAT_SUGGESTIONS = [
-  { icon: MessageSquare, text: "What should I look for in a hostel?", color: "text-blue-500" },
-  { icon: MapPin, text: "How do I compare PG vs hostel options?", color: "text-green-500" },
-  { icon: Star, text: "Tips for finding budget-friendly accommodation", color: "text-yellow-500" },
-  { icon: Home, text: "What amenities are essential for students?", color: "text-purple-500" },
+  { icon: MessageSquare, text: "Compare PG vs hostel — which is better?", color: "text-blue-500" },
+  { icon: MapPin, text: "Budget-friendly laundry options in Pune", color: "text-green-500" },
+  { icon: Star, text: "Tips for finding safe girls PG in Delhi", color: "text-yellow-500" },
+  { icon: Home, text: "What amenities should I look for in a hostel?", color: "text-purple-500" },
 ];
 
 // ==================== PROPERTY CARD ====================

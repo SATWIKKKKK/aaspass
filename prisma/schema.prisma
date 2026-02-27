@@ -237,12 +237,19 @@ model Booking {
   status        BookingStatus @default(PENDING)
   checkIn       DateTime
   checkOut      DateTime
+  totalDays     Int           @default(1)
   totalPrice    Float
   gstAmount     Float
   grandTotal    Float
   isPrebooking  Boolean       @default(false)
   lateFeeWaiver Int           @default(0)
   notes         String?       @db.Text
+
+  // Razorpay payment details
+  razorpayOrderId   String?
+  razorpayPaymentId String?   @unique
+  razorpaySignature String?
+  paymentStatus     String    @default("pending") // pending | paid | refunded | failed
 
   student       User          @relation("StudentBookings", fields: [studentId], references: [id])
   property      Property      @relation(fields: [propertyId], references: [id])
@@ -315,6 +322,7 @@ model Notification {
   isRead    Boolean  @default(false)
   userId    String
   link      String?
+  type      String?  // new_booking | booking_confirmed | booking_cancelled | payment_received | announcement
 
   user      User     @relation(fields: [userId], references: [id])
 

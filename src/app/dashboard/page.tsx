@@ -7,7 +7,7 @@ import toast from "react-hot-toast";
 import {
   Plus, Calendar, Crown, Coins, RefreshCw, XCircle,
   MessageSquare, Share2, ChevronDown, Loader2, Settings, LogOut,
-  Bookmark, LayoutDashboard, Ticket, Award, Search, User, Building2,
+  Bookmark, LayoutDashboard, Ticket, Award, Search, User, Building2, Clock, MapPin, Star,
 } from "lucide-react";
 import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
@@ -26,7 +26,11 @@ interface BookingData {
   checkIn: string;
   checkOut: string;
   totalPrice: number;
+  gstAmount: number;
   grandTotal: number;
+  totalDays: number;
+  razorpayPaymentId: string | null;
+  paymentStatus: string;
   createdAt: string;
   property: {
     name: string;
@@ -83,8 +87,35 @@ function BookingCard({
             >
               {booking.status}
             </Badge>
+            {booking.paymentStatus === "paid" && (
+              <Badge className="bg-green-100 text-green-700 text-[10px]">Paid</Badge>
+            )}
           </div>
         </div>
+
+        {/* Booking Reference + Amount */}
+        {(booking.bookingNo || booking.grandTotal > 0) && (
+          <div className="bg-gray-50 rounded-lg px-3 py-2 mb-3 space-y-1 text-sm">
+            {booking.bookingNo && (
+              <div className="flex items-center justify-between">
+                <span className="text-gray-500">Booking ID</span>
+                <span className="font-mono text-xs text-gray-700">{booking.bookingNo}</span>
+              </div>
+            )}
+            {booking.grandTotal > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-gray-500">Amount Paid</span>
+                <span className="font-semibold text-green-700">{formatPrice(booking.grandTotal)}</span>
+              </div>
+            )}
+            {booking.totalDays > 0 && (
+              <div className="flex items-center justify-between">
+                <span className="text-gray-500">Duration</span>
+                <span className="text-gray-700 text-xs">{booking.totalDays} day{booking.totalDays !== 1 ? "s" : ""}</span>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Dates */}
         <div className="space-y-1.5 text-sm text-gray-600 mb-4">
@@ -145,6 +176,7 @@ function StudentDashboardInner() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [premiumOpen, setPremiumOpen] = useState(false);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [recentlyViewed, setRecentlyViewed] = useState<any[]>([]);
 
   const isPremium = (session?.user as any)?.isPremium;
 
@@ -169,6 +201,16 @@ function StudentDashboardInner() {
     if (profileOpen) document.addEventListener("click", handler);
     return () => document.removeEventListener("click", handler);
   }, [profileOpen]);
+
+  // Load recently viewed from localStorage
+  useEffect(() => {
+    try {
+      const slugs: string[] = JSON.parse(localStorage.getItem("aaspass_recently_viewed") || "[]").slice(0, 6);
+      if (slugs.length === 0) return;
+      Promise.all(slugs.map((slug) => fetch(`/api/properties/${slug}`).then((r) => r.ok ? r.json() : null).catch(() => null)))
+        .then((results) => setRecentlyViewed(results.filter(Boolean).map((r: any) => r.property).filter(Boolean)));
+    } catch {}
+  }, []);
 
   const handleCancel = async (bookingId: string) => {
     if (!confirm("Are you sure you want to cancel this booking?")) return;
@@ -433,6 +475,36 @@ function StudentDashboardInner() {
             </Card>
           </div>
         </section>
+
+        {/* --- RECENTLY VIEWED --- */}
+        {recentlyViewed.length > 0 && (
+          <section className="mb-12">
+            <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2"><Clock className="h-5 w-5 text-gray-400" /> Recently Viewed</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {recentlyViewed.map((p: any) => (
+                <Link key={p.id} href={`/services/${p.slug}`}>
+                  <Card className="overflow-hidden hover:shadow-lg transition-shadow group cursor-pointer">
+                    <div className="h-36 bg-gray-100 overflow-hidden">
+                      {p.images?.[0]?.url ? (
+                        <img src={p.images[0].url} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center"><Building2 className="h-8 w-8 text-gray-300" /></div>
+                      )}
+                    </div>
+                    <CardContent className="p-4">
+                      <p className="font-semibold text-gray-900 truncate">{p.name}</p>
+                      <p className="text-xs text-gray-400 flex items-center gap-1 mt-1"><MapPin className="h-3 w-3" /> {p.city}</p>
+                      <div className="flex items-center justify-between mt-2">
+                        <span className="font-bold text-primary">{formatPrice(p.price)}/mo</span>
+                        <span className="flex items-center gap-1 text-xs text-gray-500"><Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />{p.avgRating?.toFixed(1)}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
 
       <Footer />

@@ -19,24 +19,71 @@ export async function PATCH(
     if (!booking) return NextResponse.json({ error: "Booking not found" }, { status: 404 });
 
     const role = (session.user as any)?.role;
+
+    // Students can only manage their own bookings
     if (role === "STUDENT" && booking.studentId !== session.user.id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Only allow cancellation of active/pending bookings
+    // Owners can only manage bookings for their own properties
+    if (role === "OWNER") {
+      const property = await prisma.property.findUnique({
+        where: { id: booking.propertyId },
+        select: { ownerId: true },
+      });
+      if (!property || property.ownerId !== session.user.id) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    }
+
+    // Validate status transitions
     if (body.status === "CANCELLED") {
       if (!["PENDING", "CONFIRMED", "ACTIVE"].includes(booking.status)) {
         return NextResponse.json({ error: "Cannot cancel this booking" }, { status: 400 });
       }
     }
 
+    if (body.status === "COMPLETED") {
+      if (role !== "OWNER") {
+        return NextResponse.json({ error: "Only owners can mark bookings as completed" }, { status: 403 });
+      }
+      if (!["CONFIRMED", "ACTIVE"].includes(booking.status)) {
+        return NextResponse.json({ error: "Cannot complete this booking" }, { status: 400 });
+      }
+    }
+
+    // Build update data
+    const updateData: Record<string, unknown> = { status: body.status };
+    if (body.status === "CANCELLED" || body.status === "COMPLETED") {
+      updateData.paymentStatus =
+        body.status === "CANCELLED" ? "refund_pending" : "paid";
+    }
+
     const updated = await prisma.booking.update({
       where: { id },
-      data: { status: body.status },
+      data: updateData,
       include: {
         property: { select: { name: true, slug: true, serviceType: true, images: { take: 1 } } },
+        student: { select: { name: true, email: true } },
       },
     });
+
+    // Notify the other party
+    const notifyUserId =
+      role === "OWNER" ? booking.studentId : (await prisma.property.findUnique({ where: { id: booking.propertyId }, select: { ownerId: true } }))?.ownerId;
+
+    if (notifyUserId) {
+      const statusLabel = body.status === "CANCELLED" ? "cancelled" : "marked as completed";
+      await prisma.notification.create({
+        data: {
+          userId: notifyUserId,
+          type: body.status === "CANCELLED" ? "booking_cancelled" : "booking_completed",
+          title: body.status === "CANCELLED" ? "Booking Cancelled" : "Booking Completed",
+          message: `Booking for ${updated.property.name} has been ${statusLabel} by the ${role === "OWNER" ? "property owner" : "student"}.`,
+          link: role === "OWNER" ? "/dashboard" : "/admin/dashboard",
+        },
+      });
+    }
 
     return NextResponse.json({ booking: updated });
   } catch (error) {
