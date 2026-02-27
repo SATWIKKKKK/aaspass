@@ -6,8 +6,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import {
   Search, ShoppingCart, Bell, X, Crown, User, Settings,
-  LogOut, ChevronDown, Home, LayoutDashboard, BookOpen, MessageSquare,
-  Building2, Plus, Bot, ArrowLeft, Sparkles, ChevronRight,
+  LogOut, ChevronDown, LayoutDashboard,
+  Building2, Bot, ArrowLeft, Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -116,25 +116,19 @@ export function Navbar({ variant = "public", showSearch = true, autoHide = false
 
   const logoHref = isOwner ? "/admin/dashboard" : "/home";
 
-  // Profile dropdown items
-  const studentDropdownItems = [
-    { icon: User, label: "Personal Details", href: "/settings/profile" },
-    { icon: LayoutDashboard, label: "My Dashboard", href: "/dashboard" },
-    { icon: BookOpen, label: "Browse Services", href: "/services" },
-    { icon: ShoppingCart, label: "Cart", href: "/cart" },
-    { icon: Settings, label: "Settings", href: "/settings/edit" },
-    { icon: MessageSquare, label: "Contact Support", href: "/contact" },
-  ];
-
-  const ownerDropdownItems = [
+  // Profile dropdown items — exact same as /home page
+  const dropdownItems: any[] = isOwner ? [
     { icon: User, label: "Personal Details", href: "/settings/profile" },
     { icon: LayoutDashboard, label: "Dashboard", href: "/admin/dashboard" },
     { icon: Building2, label: "My Properties", href: "/admin/properties" },
-    { icon: Plus, label: "Add Property", href: "/admin/properties/new" },
+    { icon: Settings, label: "Settings", href: "/settings/edit" },
+  ] : [
+    { icon: User, label: "Personal Details", href: "/settings/profile" },
+    { icon: LayoutDashboard, label: "My Dashboard", href: "/dashboard" },
+    { icon: Search, label: "Browse Services", href: "/services" },
+    ...(!isPremium ? [{ icon: Crown, label: "Upgrade to Premium", action: () => { if (onPremiumClick) { onPremiumClick(); setProfileOpen(false); } } }] : []),
     { icon: Settings, label: "Settings", href: "/settings/edit" },
   ];
-
-  const dropdownItems = isOwner ? ownerDropdownItems : studentDropdownItems;
   const isHidden = autoHide && !showSearch;
 
   // Search dropdown component (shared between desktop/mobile)
@@ -278,116 +272,47 @@ export function Navbar({ variant = "public", showSearch = true, autoHide = false
                 </button>
               )}
 
-              {/* Profile dropdown */}
+              {/* Profile dropdown — matches /home exactly */}
               {session ? (
-                <div className="relative profile-dropdown">
+                <div className="relative profile-dropdown" onClick={(e) => e.stopPropagation()}>
                   <button
                     onClick={() => setProfileOpen(!profileOpen)}
-                    className="flex items-center gap-1.5 hover:bg-gray-100 rounded-xl p-1.5 transition"
+                    className="flex items-center gap-1.5 h-10 px-3 rounded-full border border-gray-200 bg-white hover:bg-gray-50 transition-colors shadow-sm"
                   >
-                    {/* Avatar with crown badge */}
-                    <div className="relative">
-                      <div className="h-7 w-7 bg-primary/10 rounded-full flex items-center justify-center">
-                        <span className="text-xs font-bold text-primary">{session.user?.name?.[0]?.toUpperCase() || "U"}</span>
-                      </div>
-                      {isPremium && (
-                        <div className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-yellow-400 rounded-full flex items-center justify-center shadow-sm border-2 border-white">
-                          <Crown className="h-2.5 w-2.5 text-white" />
-                        </div>
-                      )}
+                    <div className="h-7 w-7 bg-primary/10 rounded-full flex items-center justify-center">
+                      <span className="text-sm font-bold text-primary">{session.user?.name?.[0]?.toUpperCase() || "U"}</span>
                     </div>
-                    <ChevronDown className="w-3 h-3 text-gray-400 hidden md:block" />
+                    {isPremium && <Crown className="h-3.5 w-3.5 text-amber-500" />}
+                    <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
                   </button>
 
                   {profileOpen && (
-                    <>
-                      {/* Mobile backdrop */}
-                      <div className="fixed inset-0 bg-black/40 z-40 sm:hidden" onClick={() => setProfileOpen(false)} />
-
-                      <div className={cn(
-                        "bg-white shadow-2xl border border-gray-100 overflow-hidden z-50",
-                        // Mobile: bottom sheet
-                        "fixed bottom-0 left-0 right-0 rounded-t-3xl",
-                        // Desktop: dropdown
-                        "sm:absolute sm:bottom-auto sm:left-auto sm:right-0 sm:top-12 sm:rounded-2xl sm:w-72"
-                      )}>
-                        {/* Drag handle — mobile */}
-                        <div className="flex justify-center pt-3 pb-1 sm:hidden">
-                          <div className="w-10 h-1 bg-gray-200 rounded-full" />
+                    <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-xl shadow-xl py-2 z-50">
+                      <div className="px-4 py-3 border-b border-gray-100">
+                        <p className="text-sm font-semibold text-gray-900">{session.user?.name}</p>
+                        <p className="text-xs text-gray-500">{session.user?.email}</p>
+                        <div className="flex items-center gap-1.5 mt-1.5">
+                          <Badge variant="outline" className="text-[10px] text-gray-600 border-gray-200">{isOwner ? "Owner" : "Student"}</Badge>
+                          {isPremium && <Badge className="bg-amber-100 text-amber-700 text-[10px]"><Crown className="h-2.5 w-2.5 mr-0.5" />Premium</Badge>}
                         </div>
-
-                        {/* User info */}
-                        <div className="px-5 py-4 border-b border-gray-100">
-                          <div className="flex items-center gap-3">
-                            <div className="relative shrink-0">
-                              <div className="h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center">
-                                <span className="text-sm font-bold text-primary">{session.user?.name?.[0]?.toUpperCase() || "U"}</span>
-                              </div>
-                              {isPremium && (
-                                <div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-yellow-400 rounded-full flex items-center justify-center shadow-sm border-2 border-white">
-                                  <Crown className="h-3 w-3 text-white" />
-                                </div>
-                              )}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="font-bold text-gray-900 truncate">{session.user?.name}</p>
-                              <p className="text-xs text-gray-400 truncate">{session.user?.email}</p>
-                            </div>
-                            {isPremium && (
-                              <span className="shrink-0 bg-yellow-100 text-yellow-700 text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1">
-                                <Crown className="h-3 w-3" /> Premium
-                              </span>
-                            )}
-                          </div>
-                          {!isPremium && !isOwner && (
-                            <Badge variant="outline" className="text-[10px] text-gray-600 border-gray-200 mt-2">Student</Badge>
-                          )}
-                          {isOwner && (
-                            <Badge className="bg-blue-100 text-blue-700 text-[10px] mt-2"><Building2 className="h-3 w-3 mr-0.5" />Owner</Badge>
-                          )}
-                        </div>
-
-                        {/* Nav items */}
-                        <div className="py-2">
-                          {dropdownItems.map((item) => (
-                            <Link
-                              key={item.label}
-                              href={item.href}
-                              onClick={() => setProfileOpen(false)}
-                              className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition text-sm text-gray-700 font-medium"
-                            >
-                              <item.icon className="h-4 w-4 text-gray-400" />
-                              <span>{item.label}</span>
-                              <ChevronRight className="w-4 h-4 text-gray-300 ml-auto" />
-                            </Link>
-                          ))}
-                        </div>
-
-                        {/* Premium CTA */}
-                        {!isOwner && (
-                          <div className="px-5 py-3 border-t border-gray-100">
-                            <button
-                              onClick={() => {
-                                if (isPremium) router.push("/chat");
-                                else if (onPremiumClick) { onPremiumClick(); setProfileOpen(false); }
-                                else router.push("/chat");
-                              }}
-                              className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-xl text-sm font-bold hover:opacity-90 transition"
-                            >
-                              {isPremium ? "Open AI Chat Assistant" : "Upgrade to Premium"}
-                            </button>
-                          </div>
-                        )}
-
-                        {/* Sign out */}
-                        <button
-                          onClick={() => signOut({ callbackUrl: "/" })}
-                          className="w-full flex items-center justify-center gap-2 px-5 py-3.5 border-t border-gray-100 text-sm text-red-500 font-medium hover:bg-red-50 transition"
-                        >
-                          <LogOut className="w-4 h-4" /> Sign Out
+                      </div>
+                      {dropdownItems.map((item: any) =>
+                        item.href ? (
+                          <Link key={item.label} href={item.href} className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors" onClick={() => setProfileOpen(false)}>
+                            <item.icon className="h-4 w-4 text-gray-400" />{item.label}
+                          </Link>
+                        ) : (
+                          <button key={item.label} onClick={item.action} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-amber-600 hover:bg-amber-50 transition-colors">
+                            <item.icon className="h-4 w-4" />{item.label}
+                          </button>
+                        )
+                      )}
+                      <div className="border-t border-gray-100 mt-1 pt-1">
+                        <button onClick={() => signOut({ callbackUrl: "/home" })} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors">
+                          <LogOut className="h-4 w-4" />Sign Out
                         </button>
                       </div>
-                    </>
+                    </div>
                   )}
                 </div>
               ) : (
