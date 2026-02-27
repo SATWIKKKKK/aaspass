@@ -56,6 +56,46 @@ function haversineM(lat1: number, lon1: number, lat2: number, lon2: number) {
   return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 }
 
+/* ── Popular Indian Cities (fallback when Places API is unavailable) ── */
+const INDIAN_CITIES = [
+  { name: "Bhubaneswar, Odisha", lat: 20.2961, lng: 85.8245 },
+  { name: "Delhi, NCR", lat: 28.6139, lng: 77.2090 },
+  { name: "Mumbai, Maharashtra", lat: 19.0760, lng: 72.8777 },
+  { name: "Bangalore, Karnataka", lat: 12.9716, lng: 77.5946 },
+  { name: "Hyderabad, Telangana", lat: 17.3850, lng: 78.4867 },
+  { name: "Chennai, Tamil Nadu", lat: 13.0827, lng: 80.2707 },
+  { name: "Kolkata, West Bengal", lat: 22.5726, lng: 88.3639 },
+  { name: "Pune, Maharashtra", lat: 18.5204, lng: 73.8567 },
+  { name: "Ahmedabad, Gujarat", lat: 23.0225, lng: 72.5714 },
+  { name: "Jaipur, Rajasthan", lat: 26.9124, lng: 75.7873 },
+  { name: "Lucknow, Uttar Pradesh", lat: 26.8467, lng: 80.9462 },
+  { name: "Chandigarh", lat: 30.7333, lng: 76.7794 },
+  { name: "Indore, Madhya Pradesh", lat: 22.7196, lng: 75.8577 },
+  { name: "Nagpur, Maharashtra", lat: 21.1458, lng: 79.0882 },
+  { name: "Kota, Rajasthan", lat: 25.2138, lng: 75.8648 },
+  { name: "Varanasi, Uttar Pradesh", lat: 25.3176, lng: 82.9739 },
+  { name: "Patna, Bihar", lat: 25.6093, lng: 85.1376 },
+  { name: "Cuttack, Odisha", lat: 20.4625, lng: 85.8830 },
+  { name: "Rourkela, Odisha", lat: 22.2604, lng: 84.8536 },
+  { name: "Noida, Uttar Pradesh", lat: 28.5355, lng: 77.3910 },
+  { name: "Gurgaon, Haryana", lat: 28.4595, lng: 77.0266 },
+  { name: "Kanpur, Uttar Pradesh", lat: 26.4499, lng: 80.3319 },
+  { name: "Dehradun, Uttarakhand", lat: 30.3165, lng: 78.0322 },
+  { name: "Ranchi, Jharkhand", lat: 23.3441, lng: 85.3096 },
+  { name: "Guwahati, Assam", lat: 26.1445, lng: 91.7362 },
+  { name: "Bhopal, Madhya Pradesh", lat: 23.2599, lng: 77.4126 },
+  { name: "Coimbatore, Tamil Nadu", lat: 11.0168, lng: 76.9558 },
+  { name: "Thiruvananthapuram, Kerala", lat: 8.5241, lng: 76.9366 },
+  { name: "Kochi, Kerala", lat: 9.9312, lng: 76.2673 },
+  { name: "Visakhapatnam, Andhra Pradesh", lat: 17.6868, lng: 83.2185 },
+  { name: "Mangalore, Karnataka", lat: 12.9141, lng: 74.8560 },
+  { name: "Mysore, Karnataka", lat: 12.2958, lng: 76.6394 },
+  { name: "Surat, Gujarat", lat: 21.1702, lng: 72.8311 },
+  { name: "Vadodara, Gujarat", lat: 22.3072, lng: 73.1812 },
+  { name: "Amritsar, Punjab", lat: 31.6340, lng: 74.8723 },
+  { name: "Raipur, Chhattisgarh", lat: 21.2514, lng: 81.6296 },
+];
+
 /* ════════════════════════════════════════════════════════════════════════ */
 function MapSearchInner() {
   const searchParams = useSearchParams();
@@ -94,6 +134,9 @@ function MapSearchInner() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<"list" | "map">("map");
   const [searched, setSearched] = useState(false);
+  const [citySuggestions, setCitySuggestions] = useState<typeof INDIAN_CITIES>([]);
+  const [showCityDropdown, setShowCityDropdown] = useState(false);
+  const [googleAutocompleteActive, setGoogleAutocompleteActive] = useState(false);
 
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 
@@ -193,30 +236,64 @@ function MapSearchInner() {
   useEffect(() => {
     if (!mapReady || !inputRef.current || autocompleteRef.current) return;
 
-    autocompleteRef.current = new google.maps.places.Autocomplete(inputRef.current, {
-      componentRestrictions: { country: "in" },
-      types: ["geocode", "establishment"],
-      fields: ["formatted_address", "geometry", "name", "place_id"],
-    });
+    try {
+      autocompleteRef.current = new google.maps.places.Autocomplete(inputRef.current, {
+        componentRestrictions: { country: "in" },
+        types: ["geocode", "establishment"],
+        fields: ["formatted_address", "geometry", "name", "place_id"],
+      });
 
-    autocompleteRef.current.addListener("place_changed", () => {
-      const place = autocompleteRef.current!.getPlace();
-      if (place.geometry?.location) {
-        const pLat = place.geometry.location.lat();
-        const pLng = place.geometry.location.lng();
-        setLat(pLat);
-        setLng(pLng);
-        setLocationName(place.formatted_address || place.name || "");
-        if (mapObjRef.current) {
-          mapObjRef.current.panTo({ lat: pLat, lng: pLng });
-          mapObjRef.current.setZoom(14);
+      autocompleteRef.current.addListener("place_changed", () => {
+        const place = autocompleteRef.current!.getPlace();
+        if (place.geometry?.location) {
+          const pLat = place.geometry.location.lat();
+          const pLng = place.geometry.location.lng();
+          setLat(pLat);
+          setLng(pLng);
+          setLocationName(place.formatted_address || place.name || "");
+          setShowCityDropdown(false);
+          if (mapObjRef.current) {
+            mapObjRef.current.panTo({ lat: pLat, lng: pLng });
+            mapObjRef.current.setZoom(14);
+          }
+          placeCenterMarker(pLat, pLng);
+          searchPendingRef.current = true;
         }
-        placeCenterMarker(pLat, pLng);
-        // Auto-trigger search after place selection
-        searchPendingRef.current = true;
-      }
-    });
+      });
+      setGoogleAutocompleteActive(true);
+    } catch (err) {
+      console.warn("Google Places autocomplete not available, using city fallback:", err);
+      setGoogleAutocompleteActive(false);
+    }
   }, [mapReady]); // autocomplete init depends on mapReady
+
+  /* ── Fallback city filter (when Google Places API is unavailable) ─ */
+  const handleCityInput = useCallback((value: string) => {
+    setLocationName(value);
+    if (!value.trim() || googleAutocompleteActive) {
+      setCitySuggestions([]);
+      setShowCityDropdown(false);
+      return;
+    }
+    const q = value.toLowerCase();
+    const matches = INDIAN_CITIES.filter((c) => c.name.toLowerCase().includes(q)).slice(0, 8);
+    setCitySuggestions(matches);
+    setShowCityDropdown(matches.length > 0);
+  }, [googleAutocompleteActive]);
+
+  const selectCity = useCallback((city: typeof INDIAN_CITIES[0]) => {
+    setLocationName(city.name);
+    setLat(city.lat);
+    setLng(city.lng);
+    setShowCityDropdown(false);
+    if (inputRef.current) inputRef.current.value = city.name;
+    if (mapObjRef.current) {
+      mapObjRef.current.panTo({ lat: city.lat, lng: city.lng });
+      mapObjRef.current.setZoom(14);
+    }
+    placeCenterMarker(city.lat, city.lng);
+    searchPendingRef.current = true;
+  }, []);
 
   /* ── Auto-search when lat/lng change (from click or autocomplete) ─ */
   useEffect(() => {
@@ -297,29 +374,34 @@ function MapSearchInner() {
       } catch { return [] as NearbyProperty[]; }
     })();
 
-    /* 2) Google Places Nearby Search */
+    /* 2) Google Places Nearby Search (may fail if Places API not enabled) */
     const googlePromise = new Promise<GooglePlace[]>((resolve) => {
       if (!serviceFilter || serviceFilter.includes("HOSTEL") || serviceFilter.includes("PG") || serviceFilter === "") {
-        const svc = new google.maps.places.PlacesService(mapObjRef.current!);
-        svc.nearbySearch(
-          { location: { lat, lng }, radius, keyword: "hostel PG paying guest accommodation", type: "lodging" },
-          (results: google.maps.places.PlaceResult[] | null, status: google.maps.places.PlacesServiceStatus) => {
-            if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-              const places: GooglePlace[] = results.slice(0, 20).map((r: google.maps.places.PlaceResult) => ({
-                placeId: r.place_id || "",
-                name: r.name || "Unknown",
-                address: r.vicinity || "",
-                lat: r.geometry?.location?.lat() || 0,
-                lng: r.geometry?.location?.lng() || 0,
-                rating: r.rating || 0,
-                totalRatings: r.user_ratings_total || 0,
-                photoUrl: r.photos?.[0]?.getUrl({ maxWidth: 200, maxHeight: 150 }) || null,
-                distance: haversineM(lat!, lng!, r.geometry?.location?.lat() || 0, r.geometry?.location?.lng() || 0),
-              }));
-              resolve(places);
-            } else { resolve([]); }
-          },
-        );
+        try {
+          const svc = new google.maps.places.PlacesService(mapObjRef.current!);
+          svc.nearbySearch(
+            { location: { lat, lng }, radius, keyword: "hostel PG paying guest accommodation", type: "lodging" },
+            (results: google.maps.places.PlaceResult[] | null, status: google.maps.places.PlacesServiceStatus) => {
+              if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+                const places: GooglePlace[] = results.slice(0, 20).map((r: google.maps.places.PlaceResult) => ({
+                  placeId: r.place_id || "",
+                  name: r.name || "Unknown",
+                  address: r.vicinity || "",
+                  lat: r.geometry?.location?.lat() || 0,
+                  lng: r.geometry?.location?.lng() || 0,
+                  rating: r.rating || 0,
+                  totalRatings: r.user_ratings_total || 0,
+                  photoUrl: r.photos?.[0]?.getUrl({ maxWidth: 200, maxHeight: 150 }) || null,
+                  distance: haversineM(lat!, lng!, r.geometry?.location?.lat() || 0, r.geometry?.location?.lng() || 0),
+                }));
+                resolve(places);
+              } else { resolve([]); }
+            },
+          );
+        } catch {
+          console.warn("Google Places nearbySearch not available");
+          resolve([]);
+        }
       } else { resolve([]); }
     });
 
@@ -501,12 +583,31 @@ function MapSearchInner() {
                 type="text"
                 placeholder="Search a city, area, or landmark in India..."
                 defaultValue={locationName}
+                onInput={(e) => handleCityInput((e.target as HTMLInputElement).value)}
+                onFocus={() => { if (!googleAutocompleteActive && citySuggestions.length > 0) setShowCityDropdown(true); }}
+                onBlur={() => setTimeout(() => setShowCityDropdown(false), 200)}
                 className="w-full pl-9 pr-10 h-10 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
               />
               {locationName && (
-                <button onClick={() => { setLocationName(""); setLat(null); setLng(null); setDbResults([]); setGoogleResults([]); setSearched(false); if (inputRef.current) inputRef.current.value = ""; }} className="absolute right-3 top-1/2 -translate-y-1/2 z-10">
+                <button onClick={() => { setLocationName(""); setLat(null); setLng(null); setDbResults([]); setGoogleResults([]); setSearched(false); setCitySuggestions([]); setShowCityDropdown(false); if (inputRef.current) inputRef.current.value = ""; }} className="absolute right-3 top-1/2 -translate-y-1/2 z-10">
                   <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
                 </button>
+              )}
+              {/* Fallback city suggestions dropdown */}
+              {showCityDropdown && citySuggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto">
+                  {citySuggestions.map((city) => (
+                    <button
+                      key={city.name}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => selectCity(city)}
+                      className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-gray-700 hover:bg-primary/5 hover:text-primary transition-colors text-left"
+                    >
+                      <MapPin className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                      {city.name}
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
             <button onClick={useMyLocation} className="h-10 w-10 border border-gray-200 rounded-lg flex items-center justify-center hover:bg-gray-50 shrink-0" title="Use current location">

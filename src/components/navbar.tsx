@@ -74,7 +74,7 @@ export function Navbar({ variant = "public", showSearch = true, autoHide = false
   }, [searchQuery, router]);
 
   const navLinks = isOwner ? [] : variant === "student" ? [
-    { href: "/dashboard", label: "Home", icon: Home },
+    { href: "/home", label: "Home", icon: Home },
     { href: "/services", label: "Services", icon: BookOpen },
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/chat", label: "AI Chat", icon: MessageSquare },
@@ -126,7 +126,7 @@ export function Navbar({ variant = "public", showSearch = true, autoHide = false
                     <link.icon className="h-4 w-4" />{link.label}
                   </button>
                 ) : (
-                  <Link key={link.href} href={link.href} className={cn("flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors", pathname === link.href ? "bg-primary/10 text-primary" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900")}>
+                  <Link key={link.label} href={link.href} className={cn("flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors", pathname === link.href ? "bg-primary/10 text-primary" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900")}>
                     <link.icon className="h-4 w-4" />{link.label}
                   </Link>
                 )
@@ -205,7 +205,7 @@ export function Navbar({ variant = "public", showSearch = true, autoHide = false
         {mobileMenuOpen && showNavLinks && !isMinimal && (
           <div className="md:hidden border-t border-gray-100 py-3 space-y-1">
             {navLinks.map((link) => (
-              <Link key={link.href} href={link.href} className={cn("flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium", pathname === link.href ? "bg-primary/10 text-primary" : "text-gray-600")} onClick={() => setMobileMenuOpen(false)}>
+              <Link key={link.label} href={link.href} className={cn("flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium", pathname === link.href ? "bg-primary/10 text-primary" : "text-gray-600")} onClick={() => setMobileMenuOpen(false)}>
                 <link.icon className="h-4 w-4" />{link.label}
               </Link>
             ))}
