@@ -406,8 +406,8 @@ export default function ChatPage() {
           )}
         </div>
         <div className="p-4 border-t border-gray-700 space-y-2">
-          <Link href="/dashboard" className="flex items-center gap-2 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 text-sm transition-colors">
-            <Home className="h-4 w-4" /> Dashboard
+          <Link href="/home" className="flex items-center gap-2 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 text-sm transition-colors">
+            <Home className="h-4 w-4" /> Home
           </Link>
           <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-800">
             <div className="h-7 w-7 rounded-full bg-primary flex items-center justify-center text-xs font-bold">

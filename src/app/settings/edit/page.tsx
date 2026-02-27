@@ -57,7 +57,7 @@ export default function EditProfilePage() {
     <div className="min-h-screen bg-gray-50">
       <Navbar variant={(session?.user as any)?.role === "OWNER" ? "admin" : "student"} />
       <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Link href={(session?.user as any)?.role === "OWNER" ? "/admin/dashboard" : "/dashboard"} className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-primary mb-4"><ChevronLeft className="h-4 w-4" /> Back</Link>
+        <Link href={(session?.user as any)?.role === "OWNER" ? "/admin/dashboard" : "/home"} className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-primary mb-4"><ChevronLeft className="h-4 w-4" /> Back</Link>
         <h1 className="text-2xl font-bold text-gray-900 mb-6">Edit Profile</h1>
 
         <form onSubmit={handleSave} className="space-y-6">

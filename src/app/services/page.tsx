@@ -346,7 +346,7 @@ function ServicesContent() {
 
       {/* ═══ FLOATING HOME ICON (visible before scroll) ═══ */}
       {heroVisible && (
-        <Link href="/dashboard" className="fixed top-4 left-4 z-50 h-10 w-10 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-sm hover:bg-gray-50 hover:shadow-md transition-all" title="Dashboard">
+        <Link href="/home" className="fixed top-4 left-4 z-50 h-10 w-10 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-sm hover:bg-gray-50 hover:shadow-md transition-all" title="Home">
           <Home className="h-5 w-5 text-primary" />
         </Link>
       )}
@@ -372,7 +372,7 @@ function ServicesContent() {
       )}>
         {/* Desktop */}
         <div className="hidden lg:flex items-center gap-3 px-6 py-2.5 lg:max-w-6xl xl:max-w-7xl mx-auto">
-          <Link href="/dashboard" className="h-9 w-9 bg-primary/10 rounded-full flex items-center justify-center hover:bg-primary/20 transition-colors shrink-0" title="Dashboard"><Home className="h-4 w-4 text-primary" /></Link>
+          <Link href="/home" className="h-9 w-9 bg-primary/10 rounded-full flex items-center justify-center hover:bg-primary/20 transition-colors shrink-0" title="Home"><Home className="h-4 w-4 text-primary" /></Link>
           <Link href="/home" className="flex items-center gap-2 shrink-0 group">
             <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform"><span className="text-white font-bold text-sm">A</span></div>
             <span className="text-lg font-bold text-gray-900">Aas<span className="text-premium">Pass</span></span>
@@ -402,7 +402,7 @@ function ServicesContent() {
 
         {/* Tablet */}
         <div className="hidden sm:flex lg:hidden items-center justify-between px-4 py-2">
-          <Link href="/dashboard" className="h-9 w-9 bg-primary/10 rounded-full flex items-center justify-center hover:bg-primary/20 transition-colors shrink-0 mr-2" title="Dashboard"><Home className="h-4 w-4 text-primary" /></Link>
+          <Link href="/home" className="h-9 w-9 bg-primary/10 rounded-full flex items-center justify-center hover:bg-primary/20 transition-colors shrink-0 mr-2" title="Home"><Home className="h-4 w-4 text-primary" /></Link>
           <Link href="/home" className="flex items-center gap-2">
             <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center"><span className="text-white font-bold text-sm">A</span></div>
             <span className="text-lg font-bold text-gray-900">Aas<span className="text-premium">Pass</span></span>
@@ -419,7 +419,7 @@ function ServicesContent() {
 
         {/* Mobile */}
         <div className="flex sm:hidden items-center gap-2 px-3 py-2">
-          <Link href="/dashboard" className="shrink-0 h-8 w-8 bg-primary/10 rounded-full flex items-center justify-center" title="Dashboard"><Home className="h-3.5 w-3.5 text-primary" /></Link>
+          <Link href="/home" className="shrink-0 h-8 w-8 bg-primary/10 rounded-full flex items-center justify-center" title="Home"><Home className="h-3.5 w-3.5 text-primary" /></Link>
           <Link href="/home" className="shrink-0"><div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center"><span className="text-white font-bold text-sm">A</span></div></Link>
           <button onClick={() => setMobileFilterOpen(!mobileFilterOpen)} className="flex-1 flex items-center gap-2 border-2 border-gray-200 rounded-full px-3 py-2 text-left">
             <Search className="h-4 w-4 text-gray-400 shrink-0" />
