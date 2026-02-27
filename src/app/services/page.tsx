@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import toast from "react-hot-toast";
-import { RouteGuard } from "@/components/route-guard";
 import {
   Search, MapPin, Calendar, Users, Building2, BookOpen, Utensils, Dumbbell, Shirt,
   Crown, ChevronRight, ChevronDown, ChevronUp, ChevronLeft, MessageCircle,
@@ -672,10 +671,8 @@ function ServicesContent() {
 
 export default function ServicesPage() {
   return (
-    <RouteGuard allowedRole="STUDENT">
-      <Suspense fallback={<div className="min-h-screen bg-white flex items-center justify-center"><div className="animate-spin h-8 w-8 border-4 border-primary/30 border-t-primary rounded-full" /></div>}>
-        <ServicesContent />
-      </Suspense>
-    </RouteGuard>
+    <Suspense fallback={<div className="min-h-screen bg-white flex items-center justify-center"><div className="animate-spin h-8 w-8 border-4 border-primary/30 border-t-primary rounded-full" /></div>}>
+      <ServicesContent />
+    </Suspense>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
-import { redirect, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Bot, Send, User, Crown, Sparkles, Loader2, Plus, MessageSquare,
@@ -181,7 +181,39 @@ export default function ChatPage() {
       </div>
     );
   }
-  if (!session) redirect("/login");
+  // 🔒 Auth Gate — unauthenticated users see in-page sign-in prompt
+  if (!session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-purple-50 p-4">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center">
+          <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-primary/20 to-blue-100 flex items-center justify-center mx-auto mb-4">
+            <Bot className="h-8 w-8 text-primary" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Sign in to use AI Chat</h2>
+          <p className="text-gray-500 mb-6">
+            AasPass AI Chat is a premium feature. Sign in to your account first, then upgrade to premium to unlock instant AI-powered recommendations.
+          </p>
+          <div className="space-y-3">
+            <Link href="/login">
+              <Button className="w-full bg-gradient-to-r from-primary to-blue-600 text-white">
+                Sign In
+              </Button>
+            </Link>
+            <Link href="/register">
+              <Button variant="outline" className="w-full">
+                Create Account
+              </Button>
+            </Link>
+            <Link href="/home">
+              <Button variant="ghost" className="w-full text-gray-500">
+                <Home className="h-4 w-4 mr-2" /> Back to Home
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // 🔒 Premium Gate Screen — non-premium users are hard-blocked
   if (accessStatus === "blocked") {

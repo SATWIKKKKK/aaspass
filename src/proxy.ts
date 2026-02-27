@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-// /dashboard and /home are intentionally public — unauthenticated users can browse
-const protectedStudentRoutes = ["/cart", "/notifications", "/settings", "/chat"];
+// Everything is open access EXCEPT /admin (owner area) and /chat (premium AI feature)
+const protectedStudentRoutes = ["/chat"];
 const protectedOwnerRoutes = ["/admin"];
 const authRoutes = ["/login", "/register"];
 
@@ -37,9 +37,6 @@ export const config = {
   matcher: [
     "/dashboard/:path*",
     "/admin/:path*",
-    "/cart/:path*",
-    "/notifications/:path*",
-    "/settings/:path*",
     "/chat/:path*",
     "/login",
     "/register",

@@ -10,7 +10,6 @@ import {
   X, List, MapIcon, Crosshair,
 } from "lucide-react";
 import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
-import { RouteGuard } from "@/components/route-guard";
 import { Navbar } from "@/components/navbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -703,10 +702,8 @@ function formatDist(m: number) {
 
 export default function MapSearchPage() {
   return (
-    <RouteGuard allowedRole="STUDENT">
-      <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
-        <MapSearchInner />
-      </Suspense>
-    </RouteGuard>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+      <MapSearchInner />
+    </Suspense>
   );
 }
