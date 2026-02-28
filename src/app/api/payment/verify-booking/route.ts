@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
     propertyId,
     checkIn,
     checkOut,
+    planLabel,
   } = await req.json();
 
   if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
@@ -120,6 +121,7 @@ export async function POST(req: NextRequest) {
           gstAmount: gstCalc,
           grandTotal,
           status: "CONFIRMED",
+          planLabel: planLabel || null,
           razorpayOrderId: razorpay_order_id,
           razorpayPaymentId: razorpay_payment_id,
           razorpaySignature: razorpay_signature,
@@ -166,6 +168,16 @@ export async function POST(req: NextRequest) {
       bookingId: booking.id,
       bookingReference,
       paymentId: razorpay_payment_id,
+      propertyName: property.name,
+      ownerName: property.owner.name,
+      ownerPhone: property.owner.phone,
+      checkIn,
+      checkOut,
+      totalDays: days,
+      basePrice,
+      gstAmount: gstCalc,
+      grandTotal,
+      planLabel: planLabel || null,
     });
   } catch (err) {
     console.error("[verify-booking] Error:", err);

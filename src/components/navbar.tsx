@@ -104,14 +104,33 @@ export function Navbar({ variant = "public", showSearch = true, autoHide = false
     return () => clearTimeout(timer);
   }, [searchQuery, doSearch]);
 
+  // Service categories for smart search matching
+  const serviceMatchMap: { keywords: string[]; value: string; dbTypes: string }[] = [
+    { keywords: ["accommodation", "hostel", "pg", "paying guest"], value: "ACCOMMODATION", dbTypes: "HOSTEL,PG" },
+    { keywords: ["mess", "tiffin", "food"], value: "MESS", dbTypes: "MESS" },
+    { keywords: ["library", "study"], value: "LIBRARY", dbTypes: "LIBRARY" },
+    { keywords: ["laundry", "washing"], value: "LAUNDRY", dbTypes: "LAUNDRY" },
+    { keywords: ["gym", "fitness", "workout"], value: "GYM", dbTypes: "GYM" },
+  ];
+
   const handleSearchSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
-    if (searchQuery.trim()) {
-      router.push(`/services?q=${encodeURIComponent(searchQuery.trim())}`);
-      setSearchDropdownOpen(false);
-      setMobileSearchOpen(false);
-      setSearchQuery("");
+    const q = searchQuery.trim();
+    if (!q) return;
+
+    // Check if search matches a service category
+    const matched = serviceMatchMap.find((cat) =>
+      cat.keywords.some((kw) => kw.toLowerCase() === q.toLowerCase())
+    );
+
+    if (matched) {
+      router.push(`/services?type=${matched.value}&dbTypes=${encodeURIComponent(matched.dbTypes)}`);
+    } else {
+      router.push(`/services?q=${encodeURIComponent(q)}`);
     }
+    setSearchDropdownOpen(false);
+    setMobileSearchOpen(false);
+    setSearchQuery("");
   }, [searchQuery, router]);
 
   const logoHref = isOwner ? "/admin/dashboard" : "/home";

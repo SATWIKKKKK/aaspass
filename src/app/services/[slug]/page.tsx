@@ -23,6 +23,10 @@ import { Label } from "@/components/ui/label";
 import { cn, formatPrice, calculateGST, calculateDynamicPrice, getDailyRate, formatDate, serviceTypeLabel } from "@/lib/utils";
 import { useSearch } from "@/context/search-context";
 
+interface PricingPlan {
+  id: string; label: string; durationDays: number; price: number; isActive: boolean;
+}
+
 interface PropertyData {
   id: string; name: string; slug: string; serviceType: string; description: string;
   price: number; gstRate: number; address: string; city: string; state: string; pincode: string;
@@ -36,6 +40,13 @@ interface PropertyData {
   images: { url: string; isWideShot: boolean }[];
   owner: { name: string; phone: string | null };
   reviews: { id: string; rating: number; comment: string | null; createdAt: string; user: { name: string } }[];
+  pricingPlans?: PricingPlan[];
+}
+
+interface BookingConfirmation {
+  bookingReference: string; propertyName: string; ownerName: string; ownerPhone: string | null;
+  checkIn: string; checkOut: string; totalDays: number; basePrice: number; gstAmount: number;
+  grandTotal: number; planLabel: string | null; paymentId: string;
 }
 
 export default function PropertyPage() {
@@ -56,6 +67,9 @@ export default function PropertyPage() {
   const [addingToCart, setAddingToCart] = useState(false);
   const [saved, setSaved] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+  const [showPlanRestriction, setShowPlanRestriction] = useState(false);
+  const [bookingConfirmation, setBookingConfirmation] = useState<BookingConfirmation | null>(null);
 
   // Load wishlist from localStorage
   useEffect(() => {
@@ -141,7 +155,46 @@ export default function PropertyPage() {
 
   const handleBookNow = async () => {
     if (!session) { router.push("/login"); return; }
-    if (!checkIn || !checkOut) { toast.error("Please select check-in and check-out dates"); return; }
+    if (!property) return;
+
+    const hasPlans = property.pricingPlans && property.pricingPlans.length > 0;
+
+    // If plans exist, a plan must be selected
+    if (hasPlans && !selectedPlanId) {
+      toast.error("Please select a booking plan");
+      return;
+    }
+
+    // If plans exist, auto-set dates from plan
+    let bookCheckIn = checkIn;
+    let bookCheckOut = checkOut;
+
+    if (hasPlans && selectedPlanId) {
+      const plan = property.pricingPlans!.find((p) => p.id === selectedPlanId);
+      if (!plan) { toast.error("Invalid plan"); return; }
+
+      if (!bookCheckIn) {
+        bookCheckIn = new Date().toISOString().split("T")[0];
+      }
+      // Auto-calculate checkout from plan duration
+      const ciDate = new Date(bookCheckIn);
+      const coDate = new Date(ciDate.getTime() + plan.durationDays * 86400000);
+      bookCheckOut = coDate.toISOString().split("T")[0];
+      setCheckOut(bookCheckOut);
+
+      // Validate the date range matches the plan
+      const daysDiff = Math.ceil((coDate.getTime() - ciDate.getTime()) / 86400000);
+      if (daysDiff !== plan.durationDays) {
+        setShowPlanRestriction(true);
+        return;
+      }
+    } else if (!hasPlans) {
+      if (!bookCheckIn || !bookCheckOut) {
+        toast.error("Please select check-in and check-out dates");
+        return;
+      }
+    }
+
     setBooking(true);
     try {
       // Load Razorpay script
@@ -151,10 +204,25 @@ export default function PropertyPage() {
       // Create Razorpay order
       const orderRes = await fetch("/api/payment/create-booking-order", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ propertyId: property.id, checkIn, checkOut }),
+        body: JSON.stringify({
+          propertyId: property.id,
+          checkIn: bookCheckIn,
+          checkOut: bookCheckOut,
+          ...(selectedPlanId ? { planId: selectedPlanId } : {}),
+        }),
       });
       const orderData = await orderRes.json();
-      if (!orderRes.ok) { toast.error(orderData.error || "Failed to create payment order"); setBooking(false); return; }
+      if (!orderRes.ok) {
+        if (orderData.plans) {
+          // Server says plans are required
+          setShowPlanRestriction(true);
+        }
+        toast.error(orderData.error || "Failed to create payment order");
+        setBooking(false);
+        return;
+      }
+
+      const planLabel = orderData.planLabel || null;
 
       // Open Razorpay checkout
       const options = {
@@ -162,7 +230,7 @@ export default function PropertyPage() {
         amount: orderData.amount,
         currency: orderData.currency,
         name: "AasPass",
-        description: `Booking for ${orderData.propertyName}`,
+        description: `Booking for ${orderData.propertyName}${planLabel ? ` (${planLabel})` : ""}`,
         order_id: orderData.orderId,
         handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
           try {
@@ -172,13 +240,30 @@ export default function PropertyPage() {
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_signature: response.razorpay_signature,
-                propertyId: property.id, checkIn, checkOut,
+                propertyId: property.id,
+                checkIn: bookCheckIn,
+                checkOut: bookCheckOut,
+                planLabel,
               }),
             });
             const verifyData = await verifyRes.json();
             if (verifyRes.ok && verifyData.success) {
+              // Show booking confirmation popup
+              setBookingConfirmation({
+                bookingReference: verifyData.bookingReference,
+                propertyName: verifyData.propertyName || property.name,
+                ownerName: verifyData.ownerName || property.owner.name,
+                ownerPhone: verifyData.ownerPhone || property.owner.phone,
+                checkIn: bookCheckIn,
+                checkOut: bookCheckOut,
+                totalDays: verifyData.totalDays || orderData.days,
+                basePrice: verifyData.basePrice || orderData.basePrice,
+                gstAmount: verifyData.gstAmount || orderData.gst,
+                grandTotal: verifyData.grandTotal || orderData.totalAmount,
+                planLabel: verifyData.planLabel || planLabel,
+                paymentId: verifyData.paymentId || response.razorpay_payment_id,
+              });
               toast.success("Booking confirmed! Payment successful.");
-              router.push("/dashboard");
             } else {
               toast.error(verifyData.error || "Payment verification failed");
             }
@@ -406,16 +491,90 @@ export default function PropertyPage() {
           <div className="lg:col-span-1">
             <div className="sticky top-20 space-y-4">
               <Card className="shadow-lg"><CardContent className="p-6 space-y-4">
-                <div><p className="text-sm text-gray-500 line-through">{formatPrice(Math.round(property.price * 1.2))}</p><div className="flex items-baseline gap-1"><span className="text-3xl font-bold text-gray-900">{formatPrice(property.price)}</span><span className="text-sm text-gray-500">/month</span></div><p className="text-xs text-gray-400 mt-0.5">{formatPrice(perDay)}/day</p></div>
-                <Separator />
-                <div className="space-y-3"><div><Label className="text-xs">Check-in Date</Label><Input type="date" value={checkIn} min={new Date().toISOString().split("T")[0]} onChange={(e) => { setCheckIn(e.target.value); if (checkOut && e.target.value && e.target.value >= checkOut) setCheckOut(""); }} /></div><div><Label className="text-xs">Check-out Date</Label><Input type="date" value={checkOut} min={checkIn ? new Date(new Date(checkIn).getTime() + 86400000).toISOString().split("T")[0] : new Date().toISOString().split("T")[0]} onChange={(e) => setCheckOut(e.target.value)} /></div></div>
-                <Separator />
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between"><span className="text-gray-500">{formatPrice(pricing.perDay)}/day × {pricing.days} day{pricing.days !== 1 ? "s" : ""}</span><span>{formatPrice(pricing.base)}</span></div>
-                  <div className="flex justify-between"><span className="text-gray-500">GST ({property.gstRate}%)</span><span>{formatPrice(pricing.gst)}</span></div>
-                  <Separator />
-                  <div className="flex justify-between font-semibold text-base"><span>Total</span><span className="text-primary">{formatPrice(pricing.total)}</span></div>
-                </div>
+                {/* Pricing — show plans if available, else legacy */}
+                {property.pricingPlans && property.pricingPlans.length > 0 ? (
+                  <>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900 mb-1">Available Plans</p>
+                      <p className="text-xs text-gray-400">Select a plan to book this service</p>
+                    </div>
+                    <div className="space-y-2">
+                      {property.pricingPlans.map((plan) => (
+                        <button
+                          key={plan.id}
+                          onClick={() => {
+                            setSelectedPlanId(plan.id);
+                            // Auto-set checkout from plan duration
+                            const ci = checkIn || new Date().toISOString().split("T")[0];
+                            if (!checkIn) setCheckIn(ci);
+                            const coDate = new Date(new Date(ci).getTime() + plan.durationDays * 86400000);
+                            setCheckOut(coDate.toISOString().split("T")[0]);
+                          }}
+                          className={cn(
+                            "w-full p-3 rounded-xl border-2 text-left transition-all",
+                            selectedPlanId === plan.id
+                              ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                              : "border-gray-200 hover:border-gray-300"
+                          )}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-semibold text-gray-900">{plan.label}</p>
+                              <p className="text-xs text-gray-500">{plan.durationDays} days</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-bold text-lg text-gray-900">{formatPrice(plan.price)}</p>
+                              <p className="text-xs text-gray-400">{formatPrice(Math.round(plan.price / plan.durationDays))}/day</p>
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                    <div>
+                      <Label className="text-xs">Start Date</Label>
+                      <Input type="date" value={checkIn} min={new Date().toISOString().split("T")[0]} onChange={(e) => {
+                        setCheckIn(e.target.value);
+                        if (selectedPlanId && e.target.value) {
+                          const plan = property.pricingPlans!.find((p) => p.id === selectedPlanId);
+                          if (plan) {
+                            const coDate = new Date(new Date(e.target.value).getTime() + plan.durationDays * 86400000);
+                            setCheckOut(coDate.toISOString().split("T")[0]);
+                          }
+                        }
+                      }} />
+                      {selectedPlanId && checkOut && (
+                        <p className="text-xs text-gray-500 mt-1">Ends: {new Date(checkOut).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</p>
+                      )}
+                    </div>
+                    <Separator />
+                    {selectedPlanId && (() => {
+                      const plan = property.pricingPlans!.find((p) => p.id === selectedPlanId);
+                      if (!plan) return null;
+                      const gst = Math.round(plan.price * (property.gstRate / 100));
+                      return (
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between"><span className="text-gray-500">{plan.label} ({plan.durationDays} days)</span><span>{formatPrice(plan.price)}</span></div>
+                          <div className="flex justify-between"><span className="text-gray-500">GST ({property.gstRate}%)</span><span>{formatPrice(gst)}</span></div>
+                          <Separator />
+                          <div className="flex justify-between font-semibold text-base"><span>Total</span><span className="text-primary">{formatPrice(plan.price + gst)}</span></div>
+                        </div>
+                      );
+                    })()}
+                  </>
+                ) : (
+                  <>
+                    <div><p className="text-sm text-gray-500 line-through">{formatPrice(Math.round(property.price * 1.2))}</p><div className="flex items-baseline gap-1"><span className="text-3xl font-bold text-gray-900">{formatPrice(property.price)}</span><span className="text-sm text-gray-500">/month</span></div><p className="text-xs text-gray-400 mt-0.5">{formatPrice(perDay)}/day</p></div>
+                    <Separator />
+                    <div className="space-y-3"><div><Label className="text-xs">Check-in Date</Label><Input type="date" value={checkIn} min={new Date().toISOString().split("T")[0]} onChange={(e) => { setCheckIn(e.target.value); if (checkOut && e.target.value && e.target.value >= checkOut) setCheckOut(""); }} /></div><div><Label className="text-xs">Check-out Date</Label><Input type="date" value={checkOut} min={checkIn ? new Date(new Date(checkIn).getTime() + 86400000).toISOString().split("T")[0] : new Date().toISOString().split("T")[0]} onChange={(e) => setCheckOut(e.target.value)} /></div></div>
+                    <Separator />
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between"><span className="text-gray-500">{formatPrice(pricing.perDay)}/day × {pricing.days} day{pricing.days !== 1 ? "s" : ""}</span><span>{formatPrice(pricing.base)}</span></div>
+                      <div className="flex justify-between"><span className="text-gray-500">GST ({property.gstRate}%)</span><span>{formatPrice(pricing.gst)}</span></div>
+                      <Separator />
+                      <div className="flex justify-between font-semibold text-base"><span>Total</span><span className="text-primary">{formatPrice(pricing.total)}</span></div>
+                    </div>
+                  </>
+                )}
                 <Button className="w-full h-12 text-base" size="lg" onClick={handleBookNow} disabled={booking}>{booking ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Booking...</> : "Book Now"}</Button>
                 <Button variant="outline" className="w-full" onClick={handleAddToCart} disabled={addingToCart}>{addingToCart ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ShoppingCart className="h-4 w-4 mr-2" />} Add to Cart</Button>
               </CardContent></Card>
@@ -434,6 +593,75 @@ export default function PropertyPage() {
           </div>
         </div>
       </div>
+
+      {/* ═══ PLAN RESTRICTION POPUP ═══ */}
+      {showPlanRestriction && property.pricingPlans && property.pricingPlans.length > 0 && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowPlanRestriction(false)}>
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="text-center mb-4">
+              <div className="h-14 w-14 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <AlertCircle className="h-7 w-7 text-amber-600" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900">Booking Duration Restricted</h3>
+              <p className="text-sm text-gray-500 mt-1">This service is only available for the following plans set by the owner:</p>
+            </div>
+            <div className="space-y-2 mb-4">
+              {property.pricingPlans.map((plan) => (
+                <div key={plan.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <div><p className="font-medium text-gray-900">{plan.label}</p><p className="text-xs text-gray-500">{plan.durationDays} days</p></div>
+                  <p className="font-bold text-primary">{formatPrice(plan.price)}</p>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-gray-400 text-center mb-4">You cannot book for a custom number of days. Please select one of the plans above.</p>
+            <Button className="w-full" onClick={() => setShowPlanRestriction(false)}>Got It</Button>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ BOOKING CONFIRMATION POPUP ═══ */}
+      {bookingConfirmation && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="text-center mb-5">
+              <div className="h-16 w-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <CheckCircle2 className="h-8 w-8 text-green-600" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900">Booking Confirmed!</h3>
+              <p className="text-sm text-gray-500 mt-1">Your booking has been successfully placed</p>
+            </div>
+            <div className="space-y-3 text-sm">
+              <div className="bg-gray-50 rounded-xl p-4 space-y-2">
+                <div className="flex justify-between"><span className="text-gray-500">Booking ID</span><span className="font-mono font-semibold text-primary">{bookingConfirmation.bookingReference}</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">Service</span><span className="font-medium text-gray-900">{bookingConfirmation.propertyName}</span></div>
+                {bookingConfirmation.planLabel && (
+                  <div className="flex justify-between"><span className="text-gray-500">Plan</span><span className="font-medium text-gray-900">{bookingConfirmation.planLabel}</span></div>
+                )}
+                <div className="flex justify-between"><span className="text-gray-500">Duration</span><span className="font-medium">{bookingConfirmation.totalDays} days</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">Check-in</span><span className="font-medium">{new Date(bookingConfirmation.checkIn).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">Check-out</span><span className="font-medium">{new Date(bookingConfirmation.checkOut).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</span></div>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-4 space-y-2">
+                <div className="flex justify-between"><span className="text-gray-500">Base Price</span><span>{formatPrice(bookingConfirmation.basePrice)}</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">GST</span><span>{formatPrice(bookingConfirmation.gstAmount)}</span></div>
+                <Separator />
+                <div className="flex justify-between font-semibold text-base"><span>Amount Paid</span><span className="text-green-600">{formatPrice(bookingConfirmation.grandTotal)}</span></div>
+                <div className="flex justify-between text-xs"><span className="text-gray-400">Payment ID</span><span className="text-gray-500 font-mono">{bookingConfirmation.paymentId}</span></div>
+              </div>
+              <div className="bg-blue-50 rounded-xl p-4">
+                <p className="font-semibold text-gray-900 mb-1">Owner Contact</p>
+                <p className="text-gray-700">{bookingConfirmation.ownerName}</p>
+                {bookingConfirmation.ownerPhone && <p className="text-gray-500 text-xs">{bookingConfirmation.ownerPhone}</p>}
+              </div>
+            </div>
+            <div className="flex gap-3 mt-5">
+              <Button variant="outline" className="flex-1" onClick={() => { setBookingConfirmation(null); }}>Close</Button>
+              <Button className="flex-1" onClick={() => { setBookingConfirmation(null); router.push("/dashboard"); }}>Go to Dashboard</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Footer />
     </div>
   );

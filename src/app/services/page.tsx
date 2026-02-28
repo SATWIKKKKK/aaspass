@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect, useRef, Suspense, useCallback } from "react";
 import Link from "next/link";
@@ -21,7 +21,7 @@ import { PremiumModal } from "@/components/premium-modal";
 import { cn, formatPrice, SERVICE_TYPES, SERVICE_CATEGORIES, serviceTypeLabel, getDailyRate, calculateDynamicPrice } from "@/lib/utils";
 import { useSearch } from "@/context/search-context";
 
-// ── Types ────────────────────────────────────────────────────────────────────
+// -- Types --------------------------------------------------------------------
 type SessionUser = { id?: string; name?: string | null; email?: string | null; image?: string | null; role?: string; isPremium?: boolean };
 const u = (s: { user?: object | null } | null) => s?.user as SessionUser | undefined;
 
@@ -34,7 +34,7 @@ interface Property {
   images: { url: string; isWideShot: boolean }[];
 }
 
-// ── Service categories (priority order) ──────────────────────────────────────
+// -- Service categories (priority order) --------------------------------------
 const serviceCategories = [
   { label: "Accommodation", value: "ACCOMMODATION", icon: Building2, dbTypes: "HOSTEL,PG" },
   { label: "Mess/Tiffin", value: "MESS", icon: Utensils, dbTypes: "MESS" },
@@ -45,11 +45,11 @@ const serviceCategories = [
 // Legacy flat list for select dropdown
 const services = serviceCategories;
 
-// ── Date helper ──────────────────────────────────────────────────────────────
+// -- Date helper --------------------------------------------------------------
 function fmtDate(iso: string) { if (!iso) return null; const [y, m, d] = iso.split("-"); return `${d}/${m}/${y}`; }
 const todayStr = () => new Date().toISOString().split("T")[0];
 
-// ── DateRangePicker (same as /home) ──────────────────────────────────────────
+// -- DateRangePicker (same as /home) ------------------------------------------
 function DateRangePicker({ checkIn, checkOut, onCheckIn, onCheckOut, compact = false }: {
   checkIn: string; checkOut: string; onCheckIn: (v: string) => void; onCheckOut: (v: string) => void; compact?: boolean;
 }) {
@@ -70,7 +70,7 @@ function DateRangePicker({ checkIn, checkOut, onCheckIn, onCheckOut, compact = f
         <span className={cn(val, "font-semibold pb-0.5 min-w-17.5 text-center transition-colors whitespace-nowrap", checkIn ? "text-gray-800 border-primary" : "text-gray-400 border-gray-300 group-hover:border-primary/50")}>{fmtDate(checkIn) ?? "__/__/____"}</span>
         <input ref={inRef} type="date" value={checkIn} min={today} onChange={(e) => { onCheckIn(e.target.value); if (checkOut && e.target.value && e.target.value >= checkOut) onCheckOut(""); }} className="absolute opacity-0 w-0 h-0 pointer-events-none" tabIndex={-1} />
       </div>
-      <span className="text-gray-400 text-sm font-light mx-0.5">→</span>
+      <span className="text-gray-400 text-sm font-light mx-0.5">?</span>
       <div className="inline-flex flex-col items-center cursor-pointer select-none group" onClick={() => trigger(outRef)}>
         <span className={cn(label, "font-medium text-gray-600 uppercase tracking-wide")}>To</span>
         <span className={cn(val, "font-semibold pb-0.5 min-w-17.5 text-center transition-colors whitespace-nowrap", checkOut ? "text-gray-800 border-primary" : "text-gray-400 border-gray-300 group-hover:border-primary/50")}>{fmtDate(checkOut) ?? "__/__/____"}</span>
@@ -80,7 +80,7 @@ function DateRangePicker({ checkIn, checkOut, onCheckIn, onCheckOut, compact = f
   );
 }
 
-// ── Counter (same as /home) ──────────────────────────────────────────────────
+// -- Counter (same as /home) --------------------------------------------------
 function Counter({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
   return (
     <div className="flex flex-col items-center gap-0.5" style={{ minWidth: "70px" }}>
@@ -94,7 +94,7 @@ function Counter({ label, value, onChange }: { label: string; value: number; onC
   );
 }
 
-// ── Profile Dropdown (unified) ───────────────────────────────────────────────
+// -- Profile Dropdown (unified) -----------------------------------------------
 function ProfileDropdown({ session, isPremium, profileOpen, setProfileOpen, setPremiumOpen }: {
   session: { user?: { name?: string | null; email?: string | null } | null } | null;
   isPremium?: boolean; profileOpen: boolean; setProfileOpen: (o: boolean) => void; setPremiumOpen: (o: boolean) => void;
@@ -148,7 +148,7 @@ function ProfileDropdown({ session, isPremium, profileOpen, setProfileOpen, setP
   );
 }
 
-// ── Image Carousel (4 images) ────────────────────────────────────────────────
+// -- Image Carousel (4 images) ------------------------------------------------
 function ImageCarousel({ images, name }: { images: { url: string }[]; name: string }) {
   const [idx, setIdx] = useState(0);
   if (!images.length) return (
@@ -170,7 +170,7 @@ function ImageCarousel({ images, name }: { images: { url: string }[]; name: stri
   );
 }
 
-// ── Expandable Star Rating ───────────────────────────────────────────────────
+// -- Expandable Star Rating ---------------------------------------------------
 function StarRating({ rating, reviews }: { rating: number; reviews: number }) {
   const [expanded, setExpanded] = useState(false);
   return (
@@ -200,9 +200,9 @@ function StarRating({ rating, reviews }: { rating: number; reviews: number }) {
   );
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
-// ── MAIN COMPONENT ──────────────────────────────────────────────────────────
-// ══════════════════════════════════════════════════════════════════════════════
+// ------------------------------------------------------------------------------
+// -- MAIN COMPONENT ----------------------------------------------------------
+// ------------------------------------------------------------------------------
 function ServicesContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -214,11 +214,52 @@ function ServicesContent() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
 
-  // Combo bar state — seeded from URL params first, fallback to search context
+  // Combo bar state � seeded from URL params first, fallback to search context
   const [selectedService, setSelectedService] = useState(searchParams.get("type") || "");
   const [dbTypes, setDbTypes] = useState(searchParams.get("dbTypes") || "");
   const [accommodationSubFilter, setAccommodationSubFilter] = useState<"" | "HOSTEL" | "PG">("");
-  const [location, setLocation] = useState(searchParams.get("q") || "");
+
+  // When user changes service type via dropdown, sync dbTypes + reset sub-filter
+  const handleServiceChange = (value: string) => {
+    setSelectedService(value);
+    const cat = serviceCategories.find((c) => c.value === value);
+    setDbTypes(cat ? cat.dbTypes : value);
+    if (value !== "ACCOMMODATION") setAccommodationSubFilter("");
+  };
+  // Don't leak service-type keywords (mess, gym, etc.) into the location/city field
+  const serviceKeywords = ["accommodation", "hostel", "pg", "paying guest", "mess", "tiffin", "food", "library", "study", "laundry", "washing", "gym", "fitness", "workout"];
+  const qParam = searchParams.get("q") || "";
+  const isQServiceKeyword = serviceKeywords.some((kw) => kw.toLowerCase() === qParam.toLowerCase());
+
+  // If q matches a service keyword and no type is set, auto-set the service type
+  useEffect(() => {
+    if (isQServiceKeyword && !searchParams.get("type")) {
+      const matchMap: Record<string, { value: string; dbTypes: string }> = {
+        accommodation: { value: "ACCOMMODATION", dbTypes: "HOSTEL,PG" },
+        hostel: { value: "ACCOMMODATION", dbTypes: "HOSTEL,PG" },
+        pg: { value: "ACCOMMODATION", dbTypes: "HOSTEL,PG" },
+        "paying guest": { value: "ACCOMMODATION", dbTypes: "HOSTEL,PG" },
+        mess: { value: "MESS", dbTypes: "MESS" },
+        tiffin: { value: "MESS", dbTypes: "MESS" },
+        food: { value: "MESS", dbTypes: "MESS" },
+        library: { value: "LIBRARY", dbTypes: "LIBRARY" },
+        study: { value: "LIBRARY", dbTypes: "LIBRARY" },
+        laundry: { value: "LAUNDRY", dbTypes: "LAUNDRY" },
+        washing: { value: "LAUNDRY", dbTypes: "LAUNDRY" },
+        gym: { value: "GYM", dbTypes: "GYM" },
+        fitness: { value: "GYM", dbTypes: "GYM" },
+        workout: { value: "GYM", dbTypes: "GYM" },
+      };
+      const matched = matchMap[qParam.toLowerCase()];
+      if (matched) {
+        setSelectedService(matched.value);
+        setDbTypes(matched.dbTypes);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const [location, setLocation] = useState(isQServiceKeyword ? "" : qParam);
   const [rooms, setRooms] = useState(parseInt(searchParams.get("rooms") || "1"));
   const [guests, setGuests] = useState(parseInt(searchParams.get("guests") || "1"));
   const [checkIn, setCheckIn] = useState(searchParams.get("from") || "");
@@ -322,7 +363,7 @@ function ServicesContent() {
     fetchProperties();
   };
 
-  /** Resolve the display heading — show selected service category name or "Services" */
+  /** Resolve the display heading � show selected service category name or "Services" */
   const headingText = selectedService
     ? (serviceCategories.find((c) => c.value === selectedService)?.label || selectedService)
     : "Services";
@@ -349,14 +390,14 @@ function ServicesContent() {
     <div className="min-h-screen bg-white">
       <PremiumModal open={premiumOpen} onClose={() => setPremiumOpen(false)} />
 
-      {/* ═══ FLOATING HOME ICON (visible before scroll) ═══ */}
+      {/* --- FLOATING HOME ICON (visible before scroll) --- */}
       {heroVisible && (
         <Link href="/home" className="fixed top-4 left-4 z-50 h-10 w-10 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-sm hover:bg-gray-50 hover:shadow-md transition-all" title="Home">
           <Home className="h-5 w-5 text-primary" />
         </Link>
       )}
 
-      {/* ═══ FLOATING PROFILE ICON (visible before scroll) ═══ */}
+      {/* --- FLOATING PROFILE ICON (visible before scroll) --- */}
       {heroVisible && (
         <div className="fixed top-4 right-4 z-50 transition-all duration-300">
           {session ? (
@@ -370,7 +411,7 @@ function ServicesContent() {
         </div>
       )}
 
-      {/* ═══ STICKY NAVBAR (slides in when hero scrolls out) — exact same as /home ═══ */}
+      {/* --- STICKY NAVBAR (slides in when hero scrolls out) � exact same as /home --- */}
       <div className={cn(
         "fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-md transition-all duration-500",
         heroVisible ? "-translate-y-full opacity-0 pointer-events-none" : "translate-y-0 opacity-100"
@@ -384,7 +425,7 @@ function ServicesContent() {
           </Link>
           <div className="flex-1 flex items-center gap-2 bg-white border-2 border-gray-200 rounded-full px-4 py-2.5 shadow-lg hover:shadow-xl transition-shadow ml-6">
             <div className="shrink-0 w-36">
-              <Select value={selectedService} onValueChange={setSelectedService}><SelectTrigger className="h-9 text-xs border-0 bg-transparent focus:ring-0"><SelectValue placeholder="Select service" /></SelectTrigger>
+              <Select value={selectedService} onValueChange={handleServiceChange}><SelectTrigger className="h-9 text-xs border-0 bg-transparent focus:ring-0"><SelectValue placeholder="Select service" /></SelectTrigger>
                 <SelectContent>{services.map((s) => <SelectItem key={s.value} value={s.value} className="text-xs"><span className="flex items-center gap-2"><s.icon className="h-3.5 w-3.5" />{s.label}</span></SelectItem>)}</SelectContent>
               </Select>
             </div>
@@ -415,7 +456,7 @@ function ServicesContent() {
           <div className="flex items-center gap-2">
             <button onClick={() => setMobileFilterOpen(!mobileFilterOpen)} className="flex items-center gap-2 border-2 border-gray-200 rounded-full px-4 py-3 shadow-lg hover:bg-gray-50 transition-colors ml-4">
               <Search className="h-4 w-4 text-gray-400" />
-              <span className="text-sm text-gray-600 max-w-32 truncate">{selectedService || location ? `${services.find(s => s.value === selectedService)?.label || "Any"} · ${location || "Anywhere"}` : "Search..."}</span>
+              <span className="text-sm text-gray-600 max-w-32 truncate">{selectedService || location ? `${services.find(s => s.value === selectedService)?.label || "Any"} � ${location || "Anywhere"}` : "Search..."}</span>
               {mobileFilterOpen ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
             </button>
             {session && <ProfileDropdown session={session} isPremium={isPremium} profileOpen={profileOpen} setProfileOpen={setProfileOpen} setPremiumOpen={setPremiumOpen} />}
@@ -428,7 +469,7 @@ function ServicesContent() {
           <Link href="/home" className="shrink-0"><div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center"><span className="text-white font-bold text-sm">A</span></div></Link>
           <button onClick={() => setMobileFilterOpen(!mobileFilterOpen)} className="flex-1 flex items-center gap-2 border-2 border-gray-200 rounded-full px-3 py-2 text-left">
             <Search className="h-4 w-4 text-gray-400 shrink-0" />
-            <span className="text-sm text-gray-500 truncate">{selectedService || location ? `${services.find(s => s.value === selectedService)?.label || "Any"} · ${location || "Anywhere"}` : "Search..."}</span>
+            <span className="text-sm text-gray-500 truncate">{selectedService || location ? `${services.find(s => s.value === selectedService)?.label || "Any"} � ${location || "Anywhere"}` : "Search..."}</span>
           </button>
           {session && (
             <div onClick={(e) => e.stopPropagation()}>
@@ -441,7 +482,7 @@ function ServicesContent() {
         {mobileFilterOpen && !heroVisible && (
           <div className="lg:hidden px-4 pb-3 border-t border-gray-100 pt-3">
             <div className="grid grid-cols-2 gap-3">
-              <Select value={selectedService} onValueChange={setSelectedService}><SelectTrigger className="h-10 text-sm border-2 border-gray-200"><SelectValue placeholder="Service" /></SelectTrigger><SelectContent>{services.map(s => <SelectItem key={s.value} value={s.value} className="text-sm">{s.label}</SelectItem>)}</SelectContent></Select>
+              <Select value={selectedService} onValueChange={handleServiceChange}><SelectTrigger className="h-10 text-sm border-2 border-gray-200"><SelectValue placeholder="Service" /></SelectTrigger><SelectContent>{services.map(s => <SelectItem key={s.value} value={s.value} className="text-sm">{s.label}</SelectItem>)}</SelectContent></Select>
               <div className="relative"><MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /><Input placeholder="Location" value={location} onChange={(e) => setLocation(e.target.value)} className="pl-9 h-10 text-sm border-2 border-gray-200" /></div>
               <div className="col-span-2 flex items-center justify-center bg-gray-50 border-2 border-gray-200 rounded-lg px-4 py-2.5"><DateRangePicker checkIn={checkIn} checkOut={checkOut} onCheckIn={setCheckIn} onCheckOut={setCheckOut} /></div>
               <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 border-2 border-gray-200"><span className="text-sm text-gray-500">Rooms</span><div className="flex items-center gap-2"><button onClick={() => setRooms(Math.max(1, rooms - 1))} className="h-6 w-6 rounded-full border-2 border-gray-300 flex items-center justify-center hover:bg-gray-100"><Minus className="h-3 w-3" /></button><span className="text-sm font-semibold w-5 text-center">{rooms}</span><button onClick={() => setRooms(rooms + 1)} className="h-6 w-6 rounded-full border-2 border-gray-300 flex items-center justify-center hover:bg-gray-100"><Plus className="h-3 w-3" /></button></div></div>
@@ -452,7 +493,7 @@ function ServicesContent() {
         )}
       </div>
 
-      {/* ═══ HERO: AasPass text + Combo search bar (exact same as /home) ═══ */}
+      {/* --- HERO: AasPass text + Combo search bar (exact same as /home) --- */}
       <section ref={heroRef} className="relative pt-8 pb-4 bg-white">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_30%,rgba(var(--primary-rgb,59,130,246),0.05),transparent)] pointer-events-none" />
         <div className="text-center pt-6 pb-8">
@@ -462,7 +503,7 @@ function ServicesContent() {
         <div className="max-w-5xl mx-auto px-4">
           {/* Desktop combo bar */}
           <div className="hidden lg:flex items-center gap-2 bg-white border-2 border-gray-200 rounded-full px-4 py-2.5 shadow-lg hover:shadow-xl transition-shadow">
-            <div className="shrink-0 w-36"><Select value={selectedService} onValueChange={setSelectedService}><SelectTrigger className="h-9 text-xs border-0 bg-transparent focus:ring-0"><SelectValue placeholder="Select service" /></SelectTrigger><SelectContent>{services.map((s) => <SelectItem key={s.value} value={s.value} className="text-xs"><span className="flex items-center gap-2"><s.icon className="h-3.5 w-3.5" />{s.label}</span></SelectItem>)}</SelectContent></Select></div>
+            <div className="shrink-0 w-36"><Select value={selectedService} onValueChange={handleServiceChange}><SelectTrigger className="h-9 text-xs border-0 bg-transparent focus:ring-0"><SelectValue placeholder="Select service" /></SelectTrigger><SelectContent>{services.map((s) => <SelectItem key={s.value} value={s.value} className="text-xs"><span className="flex items-center gap-2"><s.icon className="h-3.5 w-3.5" />{s.label}</span></SelectItem>)}</SelectContent></Select></div>
             <div className="h-8 w-px bg-gray-200 shrink-0" />
             <Counter label="Rooms" value={rooms} onChange={setRooms} />
             <div className="h-8 w-px bg-gray-200 shrink-0" />
@@ -478,7 +519,7 @@ function ServicesContent() {
           <div className="hidden sm:block lg:hidden">
             <div className="bg-white border-2 border-gray-200 rounded-2xl p-4 shadow-lg">
               <div className="grid grid-cols-2 gap-3">
-                <Select value={selectedService} onValueChange={setSelectedService}><SelectTrigger className="h-10 text-sm border border-gray-200"><SelectValue placeholder="Service" /></SelectTrigger><SelectContent>{services.map(s => <SelectItem key={s.value} value={s.value} className="text-sm">{s.label}</SelectItem>)}</SelectContent></Select>
+                <Select value={selectedService} onValueChange={handleServiceChange}><SelectTrigger className="h-10 text-sm border border-gray-200"><SelectValue placeholder="Service" /></SelectTrigger><SelectContent>{services.map(s => <SelectItem key={s.value} value={s.value} className="text-sm">{s.label}</SelectItem>)}</SelectContent></Select>
                 <div className="relative"><MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /><Input placeholder="Location" value={location} onChange={(e) => setLocation(e.target.value)} className="pl-9 h-10 text-sm border border-gray-200" /></div>
                 <div className="col-span-2 flex items-center justify-center bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5"><DateRangePicker checkIn={checkIn} checkOut={checkOut} onCheckIn={setCheckIn} onCheckOut={setCheckOut} /></div>
               </div>
@@ -489,13 +530,13 @@ function ServicesContent() {
           <div className="sm:hidden">
             <button onClick={() => setMobileFilterOpen(!mobileFilterOpen)} className="w-full flex items-center gap-3 bg-white border-2 border-gray-200 rounded-full px-4 py-3 shadow-lg text-left">
               <Search className="h-5 w-5 text-gray-400 shrink-0" />
-              <span className="flex-1 text-gray-500 text-sm truncate">{selectedService || location ? `${services.find(s => s.value === selectedService)?.label || "Any"} · ${location || "Anywhere"}` : "Search services, locations..."}</span>
+              <span className="flex-1 text-gray-500 text-sm truncate">{selectedService || location ? `${services.find(s => s.value === selectedService)?.label || "Any"} � ${location || "Anywhere"}` : "Search services, locations..."}</span>
               {mobileFilterOpen ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
             </button>
             {mobileFilterOpen && (
               <div className="mt-3 bg-white border-2 border-gray-200 rounded-2xl p-4 shadow-lg">
                 <div className="grid grid-cols-2 gap-3">
-                  <Select value={selectedService} onValueChange={setSelectedService}><SelectTrigger className="h-10 text-sm border border-gray-200"><SelectValue placeholder="Service" /></SelectTrigger><SelectContent>{services.map(s => <SelectItem key={s.value} value={s.value} className="text-sm">{s.label}</SelectItem>)}</SelectContent></Select>
+                  <Select value={selectedService} onValueChange={handleServiceChange}><SelectTrigger className="h-10 text-sm border border-gray-200"><SelectValue placeholder="Service" /></SelectTrigger><SelectContent>{services.map(s => <SelectItem key={s.value} value={s.value} className="text-sm">{s.label}</SelectItem>)}</SelectContent></Select>
                   <div className="relative"><MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /><Input placeholder="Location" value={location} onChange={(e) => setLocation(e.target.value)} className="pl-9 h-10 text-sm border border-gray-200" /></div>
                   <div className="col-span-2 flex items-center justify-center bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5"><DateRangePicker checkIn={checkIn} checkOut={checkOut} onCheckIn={setCheckIn} onCheckOut={setCheckOut} /></div>
                   <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 border border-gray-200"><span className="text-xs text-gray-500">Rooms</span><div className="flex items-center gap-2"><button onClick={() => setRooms(Math.max(1, rooms - 1))} className="h-6 w-6 rounded-full border flex items-center justify-center"><Minus className="h-3 w-3" /></button><span className="text-sm font-semibold w-4 text-center">{rooms}</span><button onClick={() => setRooms(rooms + 1)} className="h-6 w-6 rounded-full border flex items-center justify-center"><Plus className="h-3 w-3" /></button></div></div>
@@ -508,7 +549,7 @@ function ServicesContent() {
         </div>
       </section>
 
-      {/* ═══ CHATBOX (left) + SERVICES heading (right) ═══ */}
+      {/* --- CHATBOX (left) + SERVICES heading (right) --- */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
           <div
@@ -527,12 +568,12 @@ function ServicesContent() {
           </div>
           <div className="flex-1 flex flex-col justify-center px-0 md:px-6">
             <p className="text-3xl sm:text-4xl lg:text-5xl font-black text-gray-900 leading-tight">{headingText}</p>
-            <p className="mt-2 text-sm text-gray-400 font-medium">Accommodation · Mess/Tiffin · Libraries · Laundry · Gyms & more</p>
+            <p className="mt-2 text-sm text-gray-400 font-medium">Accommodation � Mess/Tiffin � Libraries � Laundry � Gyms & more</p>
           </div>
         </div>
       </section>
 
-      {/* ═══ HORIZONTAL FILTER BAR ═══ */}
+      {/* --- HORIZONTAL FILTER BAR --- */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-6">
         <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-hide">
           {/* Accommodation sub-filter: Hostel / PG */}
@@ -548,7 +589,7 @@ function ServicesContent() {
           <div className="flex items-center gap-1.5 shrink-0 bg-gray-50 border border-gray-200 rounded-full px-3 py-2">
             <span className="text-xs font-medium text-gray-600 whitespace-nowrap">Price:</span>
             <Input placeholder="Min" value={minPrice} onChange={(e) => setMinPrice(e.target.value)} className="h-7 w-16 text-xs border-gray-200 rounded-full px-2" />
-            <span className="text-xs text-gray-400">–</span>
+            <span className="text-xs text-gray-400">�</span>
             <Input placeholder="Max" value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} className="h-7 w-16 text-xs border-gray-200 rounded-full px-2" />
           </div>
 
@@ -592,12 +633,12 @@ function ServicesContent() {
         </div>
       </section>
 
-      {/* ═══ RESULTS COUNT ═══ */}
+      {/* --- RESULTS COUNT --- */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-4">
         <p className="text-sm text-gray-500">{loading ? "Loading..." : `${filtered.length} services found`}</p>
       </div>
 
-      {/* ═══ SERVICE LISTING CARDS ═══ */}
+      {/* --- SERVICE LISTING CARDS --- */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
         {loading ? (
           <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
@@ -662,7 +703,7 @@ function ServicesContent() {
                             <>
                               <p className="text-xs text-gray-500 line-through">{formatPrice(Math.round(property.price * 1.2))}</p>
                               <p className="text-2xl font-bold text-gray-900">{formatPrice(property.price)}<span className="text-xs font-normal text-gray-400">/mo</span></p>
-                              <p className="text-xs text-gray-500">{formatPrice(pricing.perDay)}/day{checkIn && checkOut ? ` × ${pricing.days}d` : ""}</p>
+                              <p className="text-xs text-gray-500">{formatPrice(pricing.perDay)}/day{checkIn && checkOut ? ` � ${pricing.days}d` : ""}</p>
                               <p className="text-xs text-gray-400 mt-0.5">Total: {formatPrice(pricing.total)} <span className="text-[10px]">(incl. {property.gstRate}% GST)</span></p>
                             </>
                           );

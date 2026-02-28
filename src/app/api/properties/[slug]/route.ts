@@ -19,6 +19,7 @@ export async function GET(
           take: 20,
           include: { user: { select: { name: true, image: true } } },
         },
+        pricingPlans: { where: { isActive: true }, orderBy: { durationDays: "asc" } },
         _count: { select: { bookings: true } },
       },
     });
@@ -61,7 +62,7 @@ export async function PUT(
       latitude, longitude, nearbyLandmark, distanceMarket, distanceInstitute,
       isAC, hasWifi, forGender, occupancy, foodIncluded, laundryIncluded,
       foodRating, hasMedical, nearbyMess, nearbyLaundry, cancellationPolicy, rules, images,
-      capacity, availableRooms, closingTime,
+      capacity, availableRooms, closingTime, pricingPlans,
     } = body;
 
     // Build update data — only include fields that are provided
@@ -114,11 +115,27 @@ export async function PUT(
       }
     }
 
+    // Handle pricing plans: if provided, replace all plans
+    if (pricingPlans !== undefined) {
+      await prisma.pricingPlan.deleteMany({ where: { propertyId: existing.id } });
+      if (Array.isArray(pricingPlans) && pricingPlans.length > 0) {
+        data.pricingPlans = {
+          create: pricingPlans.map((plan: any) => ({
+            label: plan.label,
+            durationDays: parseInt(plan.durationDays),
+            price: parseFloat(plan.price),
+            isActive: plan.isActive !== false,
+          })),
+        };
+      }
+    }
+
     const property = await prisma.property.update({
       where: { id: existing.id },
       data,
       include: {
         images: { orderBy: { order: "asc" } },
+        pricingPlans: { where: { isActive: true }, orderBy: { durationDays: "asc" } },
       },
     });
 

@@ -51,6 +51,10 @@ export default function ManagePropertyPage() {
   /* Tab from URL */
   const defaultTab = searchParams.get("tab") || "bookings";
 
+  /* Pricing plans state */
+  const [pricingPlans, setPricingPlans] = useState<{ id?: string; label: string; durationDays: string; price: string; isActive: boolean }[]>([]);
+  const [savingPlans, setSavingPlans] = useState(false);
+
   useEffect(() => { if (status === "unauthenticated") router.push("/login"); }, [status, router]);
 
   useEffect(() => {
@@ -91,6 +95,16 @@ export default function ManagePropertyPage() {
         setEditImages(
           (prop.images || []).map((img: any) => ({ url: img.url, isWideShot: img.isWideShot, previewError: false }))
         );
+        // Load pricing plans
+        if (prop.pricingPlans && prop.pricingPlans.length > 0) {
+          setPricingPlans(prop.pricingPlans.map((p: any) => ({
+            id: p.id,
+            label: p.label,
+            durationDays: String(p.durationDays),
+            price: String(p.price),
+            isActive: p.isActive !== false,
+          })));
+        }
       }
     }).catch(() => toast.error("Failed to load property"))
       .finally(() => setLoading(false));
@@ -142,6 +156,37 @@ export default function ManagePropertyPage() {
       } else toast.error(data.error || "Failed to update");
     } catch { toast.error("Failed to update"); }
     finally { setSaving(false); }
+  };
+
+  /* ─── Pricing Plans Helpers ─── */
+  const addPlan = () => setPricingPlans((p) => [...p, { label: "", durationDays: "30", price: "", isActive: true }]);
+  const removePlan = (idx: number) => setPricingPlans((p) => p.filter((_, i) => i !== idx));
+  const updatePlan = (idx: number, field: string, value: string | boolean) =>
+    setPricingPlans((p) => p.map((plan, i) => i === idx ? { ...plan, [field]: value } : plan));
+
+  const handleSavePlans = async () => {
+    const validPlans = pricingPlans.filter((p) => p.label && p.durationDays && p.price);
+    if (validPlans.length === 0 && pricingPlans.length > 0) {
+      toast.error("Please fill all plan fields"); return;
+    }
+    setSavingPlans(true);
+    try {
+      const res = await fetch(`/api/properties/${params.slug}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pricingPlans: validPlans }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success("Pricing plans saved!");
+        if (data.property?.pricingPlans) {
+          setPricingPlans(data.property.pricingPlans.map((p: any) => ({
+            id: p.id, label: p.label, durationDays: String(p.durationDays), price: String(p.price), isActive: p.isActive !== false,
+          })));
+        }
+      } else toast.error(data.error || "Failed to save plans");
+    } catch { toast.error("Failed to save plans"); }
+    finally { setSavingPlans(false); }
   };
 
   /* ─── Announcement ─── */
@@ -232,6 +277,7 @@ export default function ManagePropertyPage() {
         <Tabs defaultValue={defaultTab} className="space-y-4">
           <TabsList className="flex flex-wrap">
             <TabsTrigger value="bookings">Bookings</TabsTrigger>
+            <TabsTrigger value="plans">Pricing Plans</TabsTrigger>
             <TabsTrigger value="edit">Edit Property</TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
             <TabsTrigger value="complaints">Complaints</TabsTrigger>
@@ -261,6 +307,74 @@ export default function ManagePropertyPage() {
                 </CardContent>
               </Card>
             ))}
+          </TabsContent>
+
+          {/* ══════ PRICING PLANS TAB ══════ */}
+          <TabsContent value="plans" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><DollarSign className="h-5 w-5" />Duration-Based Pricing Plans</CardTitle>
+                <CardDescription>Define strict booking plans for students. Students can only book your property for these exact durations. If no plans are set, the legacy per-day pricing is used.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {pricingPlans.length === 0 ? (
+                  <div className="text-center py-8 text-gray-400">
+                    <DollarSign className="h-10 w-10 mx-auto mb-3" />
+                    <p className="text-sm">No pricing plans defined yet. Students can book for any duration using per-day pricing.</p>
+                    <p className="text-xs mt-1 text-gray-400">Add plans to restrict booking to specific durations (e.g., Monthly, Quarterly, Yearly).</p>
+                  </div>
+                ) : (
+                  pricingPlans.map((plan, idx) => (
+                    <div key={idx} className="flex flex-col sm:flex-row gap-3 p-4 border border-gray-200 rounded-xl bg-white">
+                      <div className="flex-1">
+                        <Label className="text-xs">Plan Name *</Label>
+                        <Input
+                          placeholder="e.g. Monthly, Quarterly, Yearly"
+                          value={plan.label}
+                          onChange={(e) => updatePlan(idx, "label", e.target.value)}
+                        />
+                      </div>
+                      <div className="w-full sm:w-32">
+                        <Label className="text-xs">Duration (days) *</Label>
+                        <Input
+                          type="number"
+                          placeholder="30"
+                          value={plan.durationDays}
+                          onChange={(e) => updatePlan(idx, "durationDays", e.target.value)}
+                        />
+                      </div>
+                      <div className="w-full sm:w-36">
+                        <Label className="text-xs">Price (₹) *</Label>
+                        <Input
+                          type="number"
+                          placeholder="3000"
+                          value={plan.price}
+                          onChange={(e) => updatePlan(idx, "price", e.target.value)}
+                        />
+                      </div>
+                      <div className="flex items-end">
+                        <Button size="sm" variant="ghost" className="text-red-500 hover:bg-red-50" onClick={() => removePlan(idx)}>
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+                <Button variant="outline" onClick={addPlan} className="w-full border-dashed">
+                  <Plus className="h-4 w-4 mr-2" />Add Pricing Plan
+                </Button>
+                {pricingPlans.length > 0 && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
+                    <strong>Important:</strong> Once you save pricing plans, students will ONLY be able to book your property for these exact durations. They cannot choose arbitrary date ranges.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            <div className="flex justify-end">
+              <Button onClick={handleSavePlans} disabled={savingPlans} size="lg">
+                {savingPlans ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : <><Save className="h-4 w-4 mr-2" />Save Pricing Plans</>}
+              </Button>
+            </div>
           </TabsContent>
 
           {/* ══════ EDIT TAB ══════ */}

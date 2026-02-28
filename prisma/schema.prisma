@@ -191,6 +191,7 @@ model Property {
   complaints        Complaint[]
   announcements     Announcement[]
   cartItems         CartItem[]
+  pricingPlans      PricingPlan[]
 
   // Ratings (cached)
   avgRating         Float          @default(0)
@@ -218,6 +219,25 @@ model PropertyImage {
   @@map("property_images")
 }
 
+// ==================== PRICING PLANS ====================
+
+model PricingPlan {
+  id          String   @id @default(cuid())
+  propertyId  String
+  label       String   // e.g. "Monthly", "Quarterly", "Yearly"
+  durationDays Int     // e.g. 30, 90, 365
+  price       Float    // Price for this plan (before GST)
+  isActive    Boolean  @default(true)
+
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([propertyId])
+  @@map("pricing_plans")
+}
+
 // ==================== BOOKINGS ====================
 
 enum BookingStatus {
@@ -243,6 +263,7 @@ model Booking {
   grandTotal    Float
   isPrebooking  Boolean       @default(false)
   lateFeeWaiver Int           @default(0)
+  planLabel     String?       // Pricing plan label (e.g. "Monthly", "Quarterly")
   notes         String?       @db.Text
 
   // Razorpay payment details

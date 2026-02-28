@@ -21,29 +21,62 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { propertyId, checkIn, checkOut } = await req.json();
+  const { propertyId, checkIn, checkOut, planId } = await req.json();
   if (!propertyId || !checkIn || !checkOut) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
   try {
-    // Get property details for pricing
+    // Get property details for pricing, including pricing plans
     const property = await prisma.property.findUnique({
       where: { id: propertyId },
-      select: { id: true, name: true, price: true, gstRate: true },
+      select: { id: true, name: true, price: true, gstRate: true, pricingPlans: { where: { isActive: true } } },
     });
 
     if (!property) {
       return NextResponse.json({ error: "Property not found" }, { status: 404 });
     }
 
-    // Calculate dynamic pricing based on date range
     const checkInDate = new Date(checkIn);
     const checkOutDate = new Date(checkOut);
     const daysDiff = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
     const days = daysDiff > 0 ? daysDiff : 1;
-    const perDay = Math.round(property.price / 30);
-    const basePrice = perDay * days;
+
+    let basePrice: number;
+    let perDay: number;
+    let planLabel: string | null = null;
+
+    // If the property has pricing plans, enforce plan-based booking
+    if (property.pricingPlans && property.pricingPlans.length > 0) {
+      if (!planId) {
+        return NextResponse.json({
+          error: "This property requires selecting a plan",
+          plans: property.pricingPlans,
+        }, { status: 400 });
+      }
+      const selectedPlan = property.pricingPlans.find((p: any) => p.id === planId);
+      if (!selectedPlan) {
+        return NextResponse.json({
+          error: "Invalid plan selected",
+          plans: property.pricingPlans,
+        }, { status: 400 });
+      }
+      // Validate that the booking duration matches the plan
+      if (days !== selectedPlan.durationDays) {
+        return NextResponse.json({
+          error: `This plan is for ${selectedPlan.durationDays} days. Your selected dates span ${days} days. Please select dates matching the plan duration.`,
+          plans: property.pricingPlans,
+        }, { status: 400 });
+      }
+      basePrice = selectedPlan.price;
+      perDay = Math.round(selectedPlan.price / selectedPlan.durationDays);
+      planLabel = selectedPlan.label;
+    } else {
+      // Legacy: no plans, use per-day pricing
+      perDay = Math.round(property.price / 30);
+      basePrice = perDay * days;
+    }
+
     const gst = Math.round(basePrice * (property.gstRate / 100));
     const totalAmount = basePrice + gst;
     // Razorpay expects amount in paise
@@ -64,6 +97,8 @@ export async function POST(req: NextRequest) {
         propertyName: property.name,
         checkIn,
         checkOut,
+        ...(planId ? { planId } : {}),
+        ...(planLabel ? { planLabel } : {}),
       },
     });
 
@@ -77,6 +112,7 @@ export async function POST(req: NextRequest) {
       basePrice,
       gst,
       totalAmount,
+      planLabel,
       keyId: process.env.RAZORPAY_KEY_ID,
     });
   } catch (err: unknown) {
