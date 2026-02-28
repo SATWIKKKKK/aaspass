@@ -14,7 +14,7 @@ import { cn, formatPrice } from "@/lib/utils";
 import { PremiumSuccessPopup } from "@/components/premium-success-popup";
 
 const PLANS = [
-  { id: "monthly",   name: "Monthly",   price: 99,  period: "month",    popular: false },
+  { id: "monthly",   name: "Monthly",   price: 1,  period: "month",    popular: false },
   { id: "quarterly", name: "Quarterly", price: 249, period: "3 months", popular: true, save: "17%" },
   { id: "yearly",    name: "Yearly",    price: 799, period: "year",      popular: false, save: "33%" },
 ];

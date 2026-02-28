@@ -24,11 +24,6 @@ interface NearbyProperty {
   latitude: number; longitude: number; distance: number;
   images: { url: string }[];
 }
-interface GooglePlace {
-  placeId: string; name: string; address: string;
-  lat: number; lng: number; rating: number; totalRatings: number;
-  photoUrl: string | null; distance: number;
-}
 
 /* ── Constants ──────────────────────────────────────────────────────────── */
 const RADIUS_OPTIONS = [
@@ -45,16 +40,6 @@ const SERVICE_CHIPS = [
   { label: "Gym", types: "GYM" },
   { label: "Laundry", types: "LAUNDRY" },
 ];
-
-/* ── Haversine (client-side distance for Google Places results) ─────── */
-function haversineM(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371000;
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
-}
 
 /* ── Popular Indian Cities (fallback when Places API is unavailable) ── */
 const INDIAN_CITIES = [
@@ -127,7 +112,6 @@ function MapSearchInner() {
   const [radius, setRadius] = useState(2000);
   const [serviceFilter, setServiceFilter] = useState("");
   const [dbResults, setDbResults] = useState<NearbyProperty[]>([]);
-  const [googleResults, setGoogleResults] = useState<GooglePlace[]>([]);
   const [loading, setLoading] = useState(false);
   const [mapReady, setMapReady] = useState(false);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
@@ -374,40 +358,8 @@ function MapSearchInner() {
       } catch { return [] as NearbyProperty[]; }
     })();
 
-    /* 2) Google Places Nearby Search (may fail if Places API not enabled) */
-    const googlePromise = new Promise<GooglePlace[]>((resolve) => {
-      if (!serviceFilter || serviceFilter.includes("HOSTEL") || serviceFilter.includes("PG") || serviceFilter === "") {
-        try {
-          const svc = new google.maps.places.PlacesService(mapObjRef.current!);
-          svc.nearbySearch(
-            { location: { lat, lng }, radius, keyword: "hostel PG paying guest accommodation", type: "lodging" },
-            (results: google.maps.places.PlaceResult[] | null, status: google.maps.places.PlacesServiceStatus) => {
-              if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-                const places: GooglePlace[] = results.slice(0, 20).map((r: google.maps.places.PlaceResult) => ({
-                  placeId: r.place_id || "",
-                  name: r.name || "Unknown",
-                  address: r.vicinity || "",
-                  lat: r.geometry?.location?.lat() || 0,
-                  lng: r.geometry?.location?.lng() || 0,
-                  rating: r.rating || 0,
-                  totalRatings: r.user_ratings_total || 0,
-                  photoUrl: r.photos?.[0]?.getUrl({ maxWidth: 200, maxHeight: 150 }) || null,
-                  distance: haversineM(lat!, lng!, r.geometry?.location?.lat() || 0, r.geometry?.location?.lng() || 0),
-                }));
-                resolve(places);
-              } else { resolve([]); }
-            },
-          );
-        } catch {
-          console.warn("Google Places nearbySearch not available");
-          resolve([]);
-        }
-      } else { resolve([]); }
-    });
-
-    const [dbRes, googleRes] = await Promise.all([dbPromise, googlePromise]);
+    const dbRes = await dbPromise;
     setDbResults(dbRes);
-    setGoogleResults(googleRes);
 
     /* Place markers — DB results get branded purple pins, Google results get red */
     const map = mapObjRef.current!;
@@ -465,45 +417,6 @@ function MapSearchInner() {
       markersRef.current.push(extMarker);
     });
 
-    googleRes.forEach((p) => {
-      const marker = new google.maps.Marker({
-        position: { lat: p.lat, lng: p.lng },
-        map,
-        title: p.name,
-        animation: google.maps.Animation.DROP,
-        zIndex: 500,
-      });
-
-      const photoHtml = p.photoUrl
-        ? `<img src="${p.photoUrl}" style="width:100%;height:90px;object-fit:cover;border-radius:8px 8px 0 0;"/>`
-        : "";
-
-      marker.addListener("click", () => {
-        infoWindowRef.current?.setContent(`
-          <div style="max-width:220px;font-family:system-ui,sans-serif;margin:-8px -8px 0;">
-            ${photoHtml}
-            <div style="padding:10px 12px 12px;">
-              <div style="display:flex;align-items:center;gap:4px;margin-bottom:2px;">
-                <span style="background:#ef4444;color:white;font-size:9px;padding:1px 6px;border-radius:4px;font-weight:600;">Google</span>
-              </div>
-              <h3 style="margin:4px 0;font-size:14px;font-weight:700;">${p.name}</h3>
-              <p style="margin:0 0 6px;font-size:11px;color:#666;">${p.address}</p>
-              <div style="display:flex;align-items:center;justify-content:space-between;">
-                <span style="font-size:11px;color:#666;">${p.rating.toFixed(1)} ⭐ (${p.totalRatings})</span>
-                <span style="font-size:10px;color:#888;">📍 ${formatDist(p.distance)}</span>
-              </div>
-            </div>
-          </div>
-        `);
-        infoWindowRef.current?.open(map, marker);
-        setSelectedId(`g_${p.placeId}`);
-      });
-
-      const extGMarker = marker as google.maps.Marker & { _propId?: string };
-      extGMarker._propId = `g_${p.placeId}`;
-      markersRef.current.push(extGMarker);
-    });
-
     setLoading(false);
     setMobileView("map");
   }, [lat, lng, radius, serviceFilter]); // search deps
@@ -558,10 +471,7 @@ function MapSearchInner() {
   }
 
   /* ── Helpers ───────────────────────────────────────────────────── */
-  const allResults = [
-    ...dbResults.map((p) => ({ type: "db" as const, id: p.id, name: p.name, slug: p.slug, serviceType: p.serviceType, price: p.price, address: `${p.address}, ${p.city}`, rating: p.avgRating, totalRatings: p.totalReviews, distance: p.distance, imageUrl: p.images?.[0]?.url || null })),
-    ...googleResults.map((p) => ({ type: "google" as const, id: `g_${p.placeId}`, name: p.name, slug: null, serviceType: "Lodging", price: null, address: p.address, rating: p.rating, totalRatings: p.totalRatings, distance: p.distance, imageUrl: p.photoUrl })),
-  ].sort((a, b) => a.distance - b.distance);
+  const allResults = dbResults.map((p) => ({ type: "db" as const, id: p.id, name: p.name, slug: p.slug, serviceType: p.serviceType, price: p.price, address: `${p.address}, ${p.city}`, rating: p.avgRating, totalRatings: p.totalReviews, distance: p.distance, imageUrl: p.images?.[0]?.url || null })).sort((a, b) => a.distance - b.distance);
 
   /* ════════════════════════════════════════════════════════════════ */
   return (
@@ -589,7 +499,7 @@ function MapSearchInner() {
                 className="w-full pl-9 pr-10 h-10 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
               />
               {locationName && (
-                <button onClick={() => { setLocationName(""); setLat(null); setLng(null); setDbResults([]); setGoogleResults([]); setSearched(false); setCitySuggestions([]); setShowCityDropdown(false); if (inputRef.current) inputRef.current.value = ""; }} className="absolute right-3 top-1/2 -translate-y-1/2 z-10">
+                <button onClick={() => { setLocationName(""); setLat(null); setLng(null); setDbResults([]); setSearched(false); setCitySuggestions([]); setShowCityDropdown(false); if (inputRef.current) inputRef.current.value = ""; }} className="absolute right-3 top-1/2 -translate-y-1/2 z-10">
                   <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
                 </button>
               )}
@@ -664,7 +574,7 @@ function MapSearchInner() {
                 </h2>
                 {searched && !loading && (
                   <p className="text-[11px] text-gray-400 mt-0.5">
-                    {dbResults.length} on AasPass • {googleResults.length} from Google
+                    {dbResults.length} services found on AasPass
                   </p>
                 )}
               </div>
@@ -733,16 +643,14 @@ function MapSearchInner() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start gap-1.5">
                         <h3 className="font-semibold text-sm text-gray-900 truncate flex-1">{r.name}</h3>
-                        <Badge variant={r.type === "db" ? "default" : "secondary"} className={cn("text-[9px] px-1.5 py-0 shrink-0", r.type === "db" ? "bg-primary/90" : "bg-gray-200 text-gray-600")}>
-                          {r.type === "db" ? "AasPass" : "Google"}
+                        <Badge variant="default" className="text-[9px] px-1.5 py-0 shrink-0 bg-primary/90">
+                          AasPass
                         </Badge>
                       </div>
                       <p className="text-[11px] text-gray-400 truncate mt-0.5">{r.address}</p>
                       <div className="flex items-center justify-between mt-1.5">
                         <div className="flex items-center gap-2">
-                          {r.price !== null && (
-                            <span className="text-sm font-bold text-primary">₹{getDailyRate(r.price)}<span className="text-[10px] font-normal text-gray-400">/day</span></span>
-                          )}
+                          <span className="text-sm font-bold text-primary">₹{getDailyRate(r.price)}<span className="text-[10px] font-normal text-gray-400">/day</span></span>
                           <span className="text-[10px] text-gray-400">📍 {formatDist(r.distance)}</span>
                         </div>
                         <span className="flex items-center gap-0.5 text-[11px] text-gray-500">
@@ -751,11 +659,9 @@ function MapSearchInner() {
                           <span className="text-gray-300">({r.totalRatings})</span>
                         </span>
                       </div>
-                      {r.slug && (
-                        <Link href={`/services/${r.slug}`} onClick={(e) => e.stopPropagation()} className="text-[11px] text-primary font-medium hover:underline mt-1 inline-block">
+                      <Link href={`/services/${r.slug}`} onClick={(e) => e.stopPropagation()} className="text-[11px] text-primary font-medium hover:underline mt-1 inline-block">
                           View Details →
                         </Link>
-                      )}
                     </div>
                   </div>
                 ))}

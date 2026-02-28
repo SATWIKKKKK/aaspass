@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
       latitude, longitude, nearbyLandmark, distanceMarket, distanceInstitute,
       isAC, hasWifi, forGender, occupancy, foodIncluded, laundryIncluded,
       foodRating, hasMedical, nearbyMess, nearbyLaundry, cancellationPolicy, rules, images,
-      capacity, availableRooms, closingTime,
+      capacity, availableRooms, closingTime, pricingPlans,
     } = body;
 
     const slug = name
@@ -132,7 +132,18 @@ export async function POST(req: NextRequest) {
         images: images?.length
           ? { create: images.map((img: any) => ({ url: img.url, isWideShot: img.isWideShot || false })) }
           : undefined,
+        pricingPlans: pricingPlans?.length
+          ? {
+              create: pricingPlans.map((plan: any) => ({
+                label: plan.label,
+                durationDays: parseInt(plan.durationDays),
+                price: parseFloat(plan.price),
+                isActive: plan.isActive !== false,
+              })),
+            }
+          : undefined,
       },
+      include: { pricingPlans: true },
     });
 
     return NextResponse.json({ property }, { status: 201 });

@@ -70,6 +70,8 @@ export default function PropertyPage() {
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [showPlanRestriction, setShowPlanRestriction] = useState(false);
   const [bookingConfirmation, setBookingConfirmation] = useState<BookingConfirmation | null>(null);
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [showReviewRestriction, setShowReviewRestriction] = useState(false);
 
   // Load wishlist from localStorage
   useEffect(() => {
@@ -483,6 +485,19 @@ export default function PropertyPage() {
                     </CardContent>
                   </Card>
                 )}
+
+                {/* Give Review button for all logged-in students */}
+                {session && (session.user as any)?.role !== "OWNER" && !hasBooking && (
+                  <Button variant="outline" className="w-full" onClick={() => setShowReviewRestriction(true)}>
+                    <Star className="h-4 w-4 mr-2" /> Give Review
+                  </Button>
+                )}
+
+                {session && hasBooking && !showReviewForm && (
+                  <Button variant="outline" className="w-full" onClick={() => setShowReviewForm(true)}>
+                    <Star className="h-4 w-4 mr-2" /> Write Your Review
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -657,6 +672,30 @@ export default function PropertyPage() {
             <div className="flex gap-3 mt-5">
               <Button variant="outline" className="flex-1" onClick={() => { setBookingConfirmation(null); }}>Close</Button>
               <Button className="flex-1" onClick={() => { setBookingConfirmation(null); router.push("/dashboard"); }}>Go to Dashboard</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ REVIEW RESTRICTION POPUP ═══ */}
+      {showReviewRestriction && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowReviewRestriction(false)}>
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="text-center mb-4">
+              <div className="h-14 w-14 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <AlertCircle className="h-7 w-7 text-amber-600" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900">Booking Required</h3>
+              <p className="text-sm text-gray-500 mt-2">
+                Only students who have booked and used this service can leave a review. This ensures all reviews are genuine and from verified users.
+              </p>
+            </div>
+            <div className="bg-blue-50 rounded-lg p-3 text-sm text-blue-800 mb-4">
+              <strong>How to review:</strong> Book this service, complete your stay, and then come back to leave your review.
+            </div>
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1" onClick={() => setShowReviewRestriction(false)}>Close</Button>
+              <Button className="flex-1" onClick={() => { setShowReviewRestriction(false); document.querySelector('[data-booking-section]')?.scrollIntoView({ behavior: 'smooth' }); }}>Book Now</Button>
             </div>
           </div>
         </div>

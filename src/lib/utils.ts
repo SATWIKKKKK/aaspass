@@ -83,11 +83,10 @@ export const SERVICE_TYPES = [
   { value: "HOSTEL", label: "Hostel" },
   { value: "PG", label: "PG" },
   { value: "LIBRARY", label: "Library" },
-  { value: "COACHING", label: "Coaching" },
   { value: "MESS", label: "Mess" },
   { value: "LAUNDRY", label: "Laundry" },
   { value: "GYM", label: "Gym" },
-  { value: "COWORKING", label: "Co-working Space" },
+ 
 ] as const;
 
 export type ServiceTypeValue = (typeof SERVICE_TYPES)[number]["value"];

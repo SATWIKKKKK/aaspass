@@ -6,7 +6,7 @@ import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import {
-  Plus, Crown, ChevronDown, ChevronLeft, ChevronRight, Loader2,
+  Plus, ChevronDown, ChevronLeft, ChevronRight, Loader2,
   Settings, LogOut, LayoutDashboard, Building2, Pencil, BarChart3,
   Megaphone, Send, MapPin, Star, X, Eye, TrendingUp, ArrowRight,
   Ticket, Users, DollarSign, User, Calendar, CheckCircle, XCircle, Phone, Mail,
@@ -18,7 +18,6 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { PremiumModal } from "@/components/premium-modal";
 import { RouteGuard } from "@/components/route-guard";
 import { cn, formatPrice } from "@/lib/utils";
 
@@ -154,11 +153,9 @@ function AdminDashboardInner() {
   const [ownerBookings, setOwnerBookings] = useState<OwnerBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [premiumOpen, setPremiumOpen] = useState(false);
   const [announceProp, setAnnounceProp] = useState<PropertyData | null>(null);
   const [updatingBooking, setUpdatingBooking] = useState<string | null>(null);
 
-  const isPremium = (session?.user as any)?.isPremium;
   const userName = session?.user?.name ? session.user.name.split(" ")[0] : "Owner";
 
   useEffect(() => { if (status === "unauthenticated") router.push("/login"); }, [status, router]);
@@ -457,22 +454,8 @@ function AdminDashboardInner() {
 
         {/* ═══ BUSINESS STATS ═══ */}
         <section className="mb-12">
-          <h3 className="text-xl font-bold text-gray-900 mb-6">Special For You</h3>
+          <h3 className="text-xl font-bold text-gray-900 mb-6">Business Overview</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-
-            {/* Premium */}
-            <Card className="bg-linear-to-br from-amber-50 to-yellow-50 border-amber-100 hover:shadow-md transition-shadow">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-lg"><Crown className="h-5 w-5 text-amber-600" />Get Premium</CardTitle>
-                <CardDescription>Boost your property visibility</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-gray-600 mb-3">Premium owners get featured placement, priority support, and analytics.</p>
-                <Button size="sm" variant="premium" onClick={() => setPremiumOpen(true)}>
-                  {isPremium ? "Manage Premium" : "Upgrade Now"}
-                </Button>
-              </CardContent>
-            </Card>
 
             {/* Dynamic Business Stats */}
             <Card className="bg-linear-to-br from-blue-50 to-indigo-50 border-blue-100 hover:shadow-md transition-shadow">
@@ -502,27 +485,49 @@ function AdminDashboardInner() {
               </CardContent>
             </Card>
 
-            {/* Owner Offers */}
+            {/* Dynamic Insights */}
             <Card className="bg-linear-to-br from-green-50 to-emerald-50 border-green-100 hover:shadow-md transition-shadow">
               <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-lg"><Ticket className="h-5 w-5 text-green-600" />Owner Offers</CardTitle>
-                <CardDescription>Exclusive deals for property owners</CardDescription>
+                <CardTitle className="flex items-center gap-2 text-lg"><BarChart3 className="h-5 w-5 text-green-600" />Insights</CardTitle>
+                <CardDescription>Quick performance snapshot</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between bg-white/70 rounded-lg px-3 py-2 border border-green-100">
-                    <div>
-                      <p className="text-sm font-semibold text-gray-900">FREE LISTING</p>
-                      <p className="text-[10px] text-gray-500">First property listed free</p>
-                    </div>
-                    <Badge className="bg-green-100 text-green-700 text-[10px]">Active</Badge>
+                    <div><p className="text-sm font-semibold text-gray-900">Total Bookings</p><p className="text-[10px] text-gray-500">Across all properties</p></div>
+                    <span className="text-lg font-bold text-green-700">{stats?.totalBookings || 0}</span>
                   </div>
                   <div className="flex items-center justify-between bg-white/70 rounded-lg px-3 py-2 border border-green-100">
-                    <div>
-                      <p className="text-sm font-semibold text-gray-900">BOOST50</p>
-                      <p className="text-[10px] text-gray-500">50% off featured boost</p>
-                    </div>
-                    <Badge className="bg-amber-100 text-amber-700 text-[10px]">Limited</Badge>
+                    <div><p className="text-sm font-semibold text-gray-900">Completion Rate</p><p className="text-[10px] text-gray-500">Completed vs total</p></div>
+                    <span className="text-lg font-bold text-blue-700">{stats?.totalBookings ? Math.round(((stats?.completedBookings || 0) / stats.totalBookings) * 100) : 0}%</span>
+                  </div>
+                  <div className="flex items-center justify-between bg-white/70 rounded-lg px-3 py-2 border border-green-100">
+                    <div><p className="text-sm font-semibold text-gray-900">Total Reviews</p><p className="text-[10px] text-gray-500">From students</p></div>
+                    <span className="text-lg font-bold text-amber-700">{stats?.totalReviews || 0}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Support & Actions */}
+            <Card className="bg-linear-to-br from-amber-50 to-yellow-50 border-amber-100 hover:shadow-md transition-shadow">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-lg"><Ticket className="h-5 w-5 text-amber-600" />Activity Summary</CardTitle>
+                <CardDescription>Complaints & announcements</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between bg-white/70 rounded-lg px-3 py-2 border border-amber-100">
+                    <div><p className="text-sm font-semibold text-gray-900">Open Complaints</p><p className="text-[10px] text-gray-500">Needing attention</p></div>
+                    <Badge className={`text-[10px] ${(stats?.openComplaints || 0) > 0 ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"}`}>{stats?.openComplaints || 0}</Badge>
+                  </div>
+                  <div className="flex items-center justify-between bg-white/70 rounded-lg px-3 py-2 border border-amber-100">
+                    <div><p className="text-sm font-semibold text-gray-900">Pending Bookings</p><p className="text-[10px] text-gray-500">Awaiting confirmation</p></div>
+                    <Badge className="bg-blue-100 text-blue-700 text-[10px]">{stats?.pendingBookings || 0}</Badge>
+                  </div>
+                  <div className="flex items-center justify-between bg-white/70 rounded-lg px-3 py-2 border border-amber-100">
+                    <div><p className="text-sm font-semibold text-gray-900">Announcements</p><p className="text-[10px] text-gray-500">Sent to students</p></div>
+                    <span className="text-lg font-bold text-amber-700">{stats?.totalAnnouncements || 0}</span>
                   </div>
                 </div>
               </CardContent>

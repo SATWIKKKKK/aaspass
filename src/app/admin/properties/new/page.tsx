@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback, DragEvent } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -9,6 +9,7 @@ import {
   Building2, ChevronLeft, ChevronRight, Upload, MapPin, Wifi, Wind,
   Utensils, Shirt, ShieldCheck, Users, Check, Loader2, Plus, X,
   ArrowUp, ArrowDown, ImageIcon, Star as StarIcon, LocateFixed,
+  DollarSign, Film,
 } from "lucide-react";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
@@ -23,14 +24,24 @@ import { SERVICE_TYPES, type ServiceTypeValue } from "@/lib/utils";
 
 const STEPS = [
   { id: 1, title: "Basic Info", desc: "Name, type, and description" },
-  { id: 2, title: "Pricing", desc: "Set your rates" },
+  { id: 2, title: "Pricing", desc: "Set your rates and plans" },
   { id: 3, title: "Location", desc: "Where is it?" },
   { id: 4, title: "Amenities", desc: "Features and facilities" },
   { id: 5, title: "Rules & Policy", desc: "Rules and cancellation" },
-  { id: 6, title: "Photos", desc: "Add property images" },
+  { id: 6, title: "Photos & Videos", desc: "Add property media" },
 ];
 
-interface ImageEntry { url: string; isWideShot: boolean; previewError: boolean }
+const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/jpg"];
+const ACCEPTED_VIDEO_TYPES = ["video/mp4", "video/quicktime"];
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_FILES = 15;
+
+interface MediaEntry {
+  id: string; url: string; file?: File; type: "image" | "video";
+  isWideShot: boolean; previewUrl: string; error: string | null;
+}
+
+interface PlanEntry { label: string; durationDays: string; price: string; isActive: boolean; }
 
 export default function NewPropertyPage() {
   const { data: session, status } = useSession();
@@ -38,7 +49,11 @@ export default function NewPropertyPage() {
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [geocoding, setGeocoding] = useState(false);
-  const [images, setImages] = useState<ImageEntry[]>([]);
+  const [media, setMedia] = useState<MediaEntry[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const dragCounter = useRef(0);
+  const [pricingPlans, setPricingPlans] = useState<PlanEntry[]>([]);
   const [form, setForm] = useState({
     name: "", serviceType: "HOSTEL" as ServiceTypeValue, description: "",
     price: "", gstRate: "18",
@@ -58,28 +73,76 @@ export default function NewPropertyPage() {
     setForm((p) => ({ ...p, [field]: val }));
   };
 
-  /* ─── Image helpers ─── */
-  const addImage = () => setImages((prev) => [...prev, { url: "", isWideShot: false, previewError: false }]);
-  const removeImage = (idx: number) => setImages((prev) => prev.filter((_, i) => i !== idx));
-  const updateImageUrl = (idx: number, url: string) =>
-    setImages((prev) => prev.map((img, i) => i === idx ? { ...img, url, previewError: false } : img));
-  const toggleWideShot = (idx: number) =>
-    setImages((prev) => prev.map((img, i) => i === idx ? { ...img, isWideShot: !img.isWideShot } : img));
-  const moveImage = (idx: number, dir: -1 | 1) => {
-    const newIdx = idx + dir;
-    if (newIdx < 0 || newIdx >= images.length) return;
-    setImages((prev) => {
-      const arr = [...prev];
-      [arr[idx], arr[newIdx]] = [arr[newIdx], arr[idx]];
-      return arr;
-    });
+  /* ─── Pricing Plans ─── */
+  const addPlan = () => setPricingPlans((p) => [...p, { label: "", durationDays: "30", price: "", isActive: true }]);
+  const removePlan = (idx: number) => setPricingPlans((p) => p.filter((_, i) => i !== idx));
+  const updatePlan = (idx: number, field: keyof PlanEntry, value: string | boolean) =>
+    setPricingPlans((p) => p.map((plan, i) => i === idx ? { ...plan, [field]: value } : plan));
+
+  /* ─── Media / Drag-Drop ─── */
+  const genId = () => Math.random().toString(36).substring(2, 9);
+
+  const processFiles = useCallback((files: FileList | File[]) => {
+    const fileArr = Array.from(files);
+    const room = MAX_FILES - media.length;
+    if (room <= 0) { toast.error(`Maximum ${MAX_FILES} files allowed`); return; }
+    if (fileArr.length > room) toast.error(`Only adding first ${room} files (limit ${MAX_FILES})`);
+
+    const newMedia: MediaEntry[] = [];
+    for (const file of fileArr.slice(0, room)) {
+      const isImage = ACCEPTED_IMAGE_TYPES.includes(file.type);
+      const isVideo = ACCEPTED_VIDEO_TYPES.includes(file.type);
+      if (!isImage && !isVideo) { toast.error(`"${file.name}" — unsupported format`); continue; }
+      if (file.size > MAX_FILE_SIZE) { toast.error(`"${file.name}" exceeds 10 MB`); continue; }
+      newMedia.push({
+        id: genId(), url: "", file, type: isImage ? "image" : "video",
+        isWideShot: newMedia.length === 0 && media.length === 0,
+        previewUrl: URL.createObjectURL(file), error: null,
+      });
+    }
+    if (newMedia.length) { setMedia((prev) => [...prev, ...newMedia]); toast.success(`${newMedia.length} file(s) added`); }
+  }, [media.length]);
+
+  const handleDragEnter = (e: DragEvent) => { e.preventDefault(); e.stopPropagation(); dragCounter.current++; setIsDragging(true); };
+  const handleDragLeave = (e: DragEvent) => { e.preventDefault(); e.stopPropagation(); dragCounter.current--; if (dragCounter.current === 0) setIsDragging(false); };
+  const handleDragOver = (e: DragEvent) => { e.preventDefault(); e.stopPropagation(); };
+  const handleDrop = (e: DragEvent) => { e.preventDefault(); e.stopPropagation(); setIsDragging(false); dragCounter.current = 0; if (e.dataTransfer.files?.length) processFiles(e.dataTransfer.files); };
+
+  const removeMedia = (id: string) => setMedia((prev) => { const item = prev.find((m) => m.id === id); if (item?.previewUrl?.startsWith("blob:")) URL.revokeObjectURL(item.previewUrl); return prev.filter((m) => m.id !== id); });
+  const moveMedia = (idx: number, dir: -1 | 1) => { const n = idx + dir; if (n < 0 || n >= media.length) return; setMedia((prev) => { const a = [...prev]; [a[idx], a[n]] = [a[n], a[idx]]; return a; }); };
+  const toggleWideShot = (id: string) => setMedia((prev) => prev.map((m) => m.id === id ? { ...m, isWideShot: !m.isWideShot } : m));
+  const addUrlImage = () => { if (media.length >= MAX_FILES) { toast.error(`Maximum ${MAX_FILES} files`); return; } setMedia((prev) => [...prev, { id: genId(), url: "", type: "image", isWideShot: prev.length === 0, previewUrl: "", error: null }]); };
+  const updateMediaUrl = (id: string, url: string) => setMedia((prev) => prev.map((m) => m.id === id ? { ...m, url, previewUrl: url, error: null } : m));
+
+  /* ─── Geocoding (REST API — no JS SDK race condition) ─── */
+  const doGeocode = () => {
+    const addr = [form.address, form.city, form.state, form.pincode].filter(Boolean).join(", ");
+    if (!addr) { toast.error("Enter an address first"); return; }
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    if (!apiKey) { toast.error("Google Maps API key not configured"); return; }
+    setGeocoding(true);
+    fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(addr)}&key=${apiKey}`)
+      .then((r) => r.json())
+      .then((data) => {
+        setGeocoding(false);
+        if (data.status === "OK" && data.results?.[0]?.geometry?.location) {
+          const loc = data.results[0].geometry.location;
+          setForm((p) => ({ ...p, latitude: loc.lat.toFixed(6), longitude: loc.lng.toFixed(6) }));
+          toast.success("Coordinates detected from address!");
+        } else { toast.error(data.status === "REQUEST_DENIED"
+          ? "Geocoding API denied — check API key billing"
+          : "Could not geocode. Try pinning on map."); }
+      })
+      .catch(() => { setGeocoding(false); toast.error("Network error during geocoding"); });
   };
-  const setPreviewError = (idx: number) =>
-    setImages((prev) => prev.map((img, i) => i === idx ? { ...img, previewError: true } : img));
 
   const handleSubmit = async () => {
     if (!form.name || !form.description || !form.price || !form.address || !form.city || !form.state || !form.pincode) {
       toast.error("Please fill all required fields"); return;
+    }
+    const validPlans = pricingPlans.filter((p) => p.label && p.durationDays && p.price);
+    if (pricingPlans.length > 0 && validPlans.length === 0) {
+      toast.error("Fill all pricing plan fields or remove empty plans"); return;
     }
     setSubmitting(true);
     try {
@@ -105,8 +168,9 @@ export default function NewPropertyPage() {
       if (form.availableRooms) body.availableRooms = parseInt(form.availableRooms);
       if (form.closingTime) body.closingTime = form.closingTime;
 
-      const validImages = images.filter((img) => img.url.trim());
-      if (validImages.length > 0) body.images = validImages.map((img) => ({ url: img.url.trim(), isWideShot: img.isWideShot }));
+      const validMedia = media.filter((m) => (m.url?.trim() || m.previewUrl?.trim()));
+      if (validMedia.length > 0) body.images = validMedia.filter((m) => m.type === "image").map((m) => ({ url: m.url?.trim() || m.previewUrl, isWideShot: m.isWideShot }));
+      if (validPlans.length > 0) body.pricingPlans = validPlans.map((p) => ({ label: p.label, durationDays: p.durationDays, price: p.price, isActive: p.isActive }));
 
       const res = await fetch("/api/properties", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const data = await res.json();
@@ -153,7 +217,7 @@ export default function NewPropertyPage() {
 
             {step === 2 && (<>
               <div className="grid grid-cols-2 gap-4">
-                <div><Label>Monthly Price (₹) *</Label><Input type="number" placeholder="5000" value={form.price} onChange={update("price")} /></div>
+                <div><Label> Price (₹) *</Label><Input type="number" placeholder="5000" value={form.price} onChange={update("price")} /></div>
                 <div><Label>GST Rate (%)</Label><Input type="number" placeholder="18" value={form.gstRate} onChange={update("gstRate")} /></div>
               </div>
               <div><Label>Gender Preference</Label>
@@ -165,6 +229,33 @@ export default function NewPropertyPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div><Label>Total Capacity (rooms/seats)</Label><Input type="number" placeholder="50" value={form.capacity} onChange={update("capacity")} /></div>
                 <div><Label>Available Rooms/Seats</Label><Input type="number" placeholder="10" value={form.availableRooms} onChange={update("availableRooms")} /></div>
+              </div>
+
+              {/* ── Duration-Based Pricing Plans ── */}
+              <div className="border-t border-gray-200 pt-6 mt-6">
+                <div className="flex items-center gap-2 mb-1"><DollarSign className="h-5 w-5 text-primary" /><h3 className="text-lg font-semibold text-gray-900">Duration-Based Pricing Plans</h3></div>
+                <p className="text-sm text-gray-500 mb-4">Define strict booking plans. Students will only be able to book for these exact durations.</p>
+                {pricingPlans.length === 0 ? (
+                  <div className="text-center py-6 border-2 border-dashed border-gray-200 rounded-xl">
+                    <DollarSign className="h-10 w-10 text-gray-300 mx-auto mb-2" />
+                    <p className="text-sm text-gray-500">No pricing plans yet.</p>
+                    <p className="text-xs text-gray-400 mt-1">Add plans like Monthly, Quarterly, or Yearly.</p>
+                    <Button variant="outline" size="sm" onClick={addPlan} className="mt-3"><Plus className="h-3 w-3 mr-1" />Add First Plan</Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {pricingPlans.map((plan, idx) => (
+                      <div key={idx} className="flex flex-col sm:flex-row gap-3 p-4 border border-gray-200 rounded-xl bg-white">
+                        <div className="flex-1"><Label className="text-xs">Plan Name *</Label><Input placeholder="e.g. Monthly" value={plan.label} onChange={(e) => updatePlan(idx, "label", e.target.value)} /></div>
+                        <div className="w-full sm:w-32"><Label className="text-xs">Duration (days) *</Label><Input type="number" placeholder="30" value={plan.durationDays} onChange={(e) => updatePlan(idx, "durationDays", e.target.value)} /></div>
+                        <div className="w-full sm:w-36"><Label className="text-xs">Price (₹) *</Label><Input type="number" placeholder="3000" value={plan.price} onChange={(e) => updatePlan(idx, "price", e.target.value)} /></div>
+                        <div className="flex items-end"><Button size="sm" variant="ghost" className="text-red-500 hover:bg-red-50" onClick={() => removePlan(idx)}><X className="h-4 w-4" /></Button></div>
+                      </div>
+                    ))}
+                    <Button variant="outline" onClick={addPlan} className="w-full border-dashed"><Plus className="h-4 w-4 mr-2" />Add Another Plan</Button>
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800"><strong>Important:</strong> Students can ONLY book for these exact durations.</div>
+                  </div>
+                )}
               </div>
             </>)}
 
@@ -179,31 +270,7 @@ export default function NewPropertyPage() {
                 <div><Label>Latitude</Label><Input type="number" step="any" placeholder="20.2961" value={form.latitude} onChange={update("latitude")} /></div>
                 <div><Label>Longitude</Label><Input type="number" step="any" placeholder="85.8245" value={form.longitude} onChange={update("longitude")} /></div>
               </div>
-              <Button type="button" variant="outline" size="sm" disabled={geocoding || (!form.address && !form.city)} onClick={() => {
-                const addr = [form.address, form.city, form.state, form.pincode].filter(Boolean).join(", ");
-                if (!addr) { toast.error("Enter an address first"); return; }
-                setGeocoding(true);
-                const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-                if (!apiKey || !(window as any).google?.maps) {
-                  // Fallback: load script then geocode
-                  const script = document.createElement("script");
-                  script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
-                  script.onload = () => doGeocode(addr);
-                  script.onerror = () => { toast.error("Failed to load Google Maps"); setGeocoding(false); };
-                  document.head.appendChild(script);
-                } else { doGeocode(addr); }
-                function doGeocode(address: string) {
-                  const g = (window as any).google;
-                  new g.maps.Geocoder().geocode({ address }, (results: any, status: string) => {
-                    setGeocoding(false);
-                    if (status === "OK" && results?.[0]?.geometry?.location) {
-                      const loc = results[0].geometry.location;
-                      setForm((p) => ({ ...p, latitude: loc.lat().toFixed(6), longitude: loc.lng().toFixed(6) }));
-                      toast.success("Coordinates detected from address!");
-                    } else { toast.error("Could not geocode this address. Try pinning on the map instead."); }
-                  });
-                }
-              }}>
+              <Button type="button" variant="outline" size="sm" disabled={geocoding || (!form.address && !form.city)} onClick={doGeocode}>
                 {geocoding ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <LocateFixed className="h-3.5 w-3.5 mr-1" />}
                 Auto-detect coordinates from address
               </Button>
@@ -253,87 +320,75 @@ export default function NewPropertyPage() {
               <div><Label>Closing Time</Label><Input type="time" placeholder="22:00" value={form.closingTime} onChange={update("closingTime")} /><p className="text-xs text-gray-400 mt-1">Gate closing time (e.g. 10:00 PM)</p></div>
             </>)}
 
-            {/* ── Step 6: Photos ── */}
+            {/* ── Step 6: Photos & Videos with Drag-Drop ── */}
             {step === 6 && (<>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Add image URLs for your property. The first image will be the cover photo.</p>
-                  <p className="text-xs text-gray-400 mt-1">Supported: Direct image URLs (jpg, png, webp). Recommended: at least 3 photos.</p>
+                  <p className="text-sm text-gray-600">Add photos and videos for your property. First image = cover photo.</p>
+                  <p className="text-xs text-gray-400 mt-1">Supported: JPG, PNG, WEBP, MP4, MOV. Max 10 MB per file, up to {MAX_FILES} files.</p>
                 </div>
-                <Badge variant="secondary" className="shrink-0">{images.filter((i) => i.url.trim()).length} / {images.length}</Badge>
+                <Badge variant="secondary" className="shrink-0">{media.filter((m) => m.previewUrl || m.url?.trim()).length} / {MAX_FILES}</Badge>
               </div>
 
-              {/* Image list */}
-              <div className="space-y-4">
-                {images.map((img, idx) => (
-                  <div key={idx} className="flex gap-3 p-3 border border-gray-200 rounded-xl bg-white">
-                    {/* Preview */}
-                    <div className="w-24 h-24 shrink-0 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 relative">
-                      {img.url.trim() && !img.previewError ? (
-                        <img
-                          src={img.url}
-                          alt={`Photo ${idx + 1}`}
-                          className="w-full h-full object-cover"
-                          onError={() => setPreviewError(idx)}
-                        />
-                      ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center text-gray-300">
-                          <ImageIcon className="h-8 w-8" />
-                          <span className="text-[10px] mt-0.5">{img.previewError ? "Invalid URL" : "Preview"}</span>
-                        </div>
-                      )}
-                      {idx === 0 && img.url.trim() && (
-                        <span className="absolute top-1 left-1 bg-primary text-white text-[9px] font-bold px-1.5 py-0.5 rounded">COVER</span>
-                      )}
-                    </div>
-
-                    {/* URL + controls */}
-                    <div className="flex-1 min-w-0 flex flex-col justify-between">
-                      <div>
-                        <Input
-                          placeholder="https://images.unsplash.com/photo-..."
-                          value={img.url}
-                          onChange={(e) => updateImageUrl(idx, e.target.value)}
-                          className="text-sm"
-                        />
-                        <div className="flex items-center gap-3 mt-2">
-                          <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
-                            <input type="checkbox" checked={img.isWideShot} onChange={() => toggleWideShot(idx)} className="rounded border-gray-300 h-3 w-3" />
-                            Wide shot
-                          </label>
-                          <span className="text-xs text-gray-400">Photo {idx + 1}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1 mt-2">
-                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => moveImage(idx, -1)} disabled={idx === 0}>
-                          <ArrowUp className="h-3 w-3" />
-                        </Button>
-                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => moveImage(idx, 1)} disabled={idx === images.length - 1}>
-                          <ArrowDown className="h-3 w-3" />
-                        </Button>
-                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 ml-auto" onClick={() => removeImage(idx)}>
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </div>
+              {/* Drag-Drop Zone */}
+              <div
+                onDragEnter={handleDragEnter} onDragLeave={handleDragLeave} onDragOver={handleDragOver} onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+                className={`relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${isDragging ? "border-primary bg-primary/5 scale-[1.01]" : "border-gray-300 hover:border-primary/50 hover:bg-gray-50"}`}
+              >
+                <input ref={fileInputRef} type="file" multiple accept={[...ACCEPTED_IMAGE_TYPES, ...ACCEPTED_VIDEO_TYPES].join(",")} className="hidden" onChange={(e) => { if (e.target.files) processFiles(e.target.files); e.target.value = ""; }} />
+                <div className="flex flex-col items-center gap-2">
+                  <div className={`h-14 w-14 rounded-full flex items-center justify-center transition-colors ${isDragging ? "bg-primary/10" : "bg-gray-100"}`}>
+                    <Upload className={`h-7 w-7 ${isDragging ? "text-primary" : "text-gray-400"}`} />
                   </div>
-                ))}
+                  <p className="font-medium text-gray-700">{isDragging ? "Drop files here!" : "Drag & drop photos/videos here"}</p>
+                  <p className="text-xs text-gray-400">or click to browse files</p>
+                </div>
               </div>
 
-              {/* Add button */}
-              <Button variant="outline" onClick={addImage} className="w-full border-dashed border-2" disabled={images.length >= 10}>
-                <Plus className="h-4 w-4 mr-2" />Add Image {images.length >= 10 && "(Max 10)"}
-              </Button>
+              <div className="flex items-center gap-2"><div className="flex-1 h-px bg-gray-200" /><span className="text-xs text-gray-400">or</span><div className="flex-1 h-px bg-gray-200" /></div>
+              <Button variant="outline" onClick={addUrlImage} className="w-full" disabled={media.length >= MAX_FILES}><Plus className="h-4 w-4 mr-2" />Add Image by URL</Button>
 
-              {images.length === 0 && (
-                <div className="text-center py-8 border-2 border-dashed border-gray-200 rounded-xl">
-                  <ImageIcon className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-sm text-gray-500">No images added yet</p>
-                  <p className="text-xs text-gray-400 mt-1">Click &quot;Add Image&quot; to add photo URLs</p>
-                  <Button variant="outline" size="sm" onClick={addImage} className="mt-4">
-                    <Plus className="h-3 w-3 mr-1" />Add First Image
-                  </Button>
+              {/* Media List */}
+              {media.length > 0 && (
+                <div className="space-y-3">
+                  {media.map((item, idx) => (
+                    <div key={item.id} className="flex gap-3 p-3 border border-gray-200 rounded-xl bg-white">
+                      <div className="w-24 h-24 shrink-0 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 relative">
+                        {item.type === "video" ? (
+                          <div className="w-full h-full flex flex-col items-center justify-center bg-gray-900/80"><Film className="h-8 w-8 text-white/70" /><span className="text-[9px] text-white/50 mt-0.5">Video</span></div>
+                        ) : item.previewUrl ? (
+                          <img src={item.previewUrl} alt={`Preview ${idx + 1}`} className="w-full h-full object-cover" onError={() => setMedia((prev) => prev.map((m) => m.id === item.id ? { ...m, error: "Invalid URL" } : m))} />
+                        ) : (
+                          <div className="w-full h-full flex flex-col items-center justify-center text-gray-300"><ImageIcon className="h-8 w-8" /><span className="text-[10px] mt-0.5">{item.error || "Preview"}</span></div>
+                        )}
+                        {idx === 0 && (item.previewUrl || item.url?.trim()) && <span className="absolute top-1 left-1 bg-primary text-white text-[9px] font-bold px-1.5 py-0.5 rounded">COVER</span>}
+                      </div>
+                      <div className="flex-1 min-w-0 flex flex-col justify-between">
+                        <div>
+                          {item.file ? (
+                            <div><p className="text-sm font-medium text-gray-900 truncate">{item.file.name}</p><p className="text-xs text-gray-400">{(item.file.size / 1024 / 1024).toFixed(1)} MB &bull; {item.type}</p></div>
+                          ) : (
+                            <Input placeholder="https://images.unsplash.com/photo-..." value={item.url} onChange={(e) => updateMediaUrl(item.id, e.target.value)} className="text-sm" />
+                          )}
+                          <div className="flex items-center gap-3 mt-2">
+                            {item.type === "image" && <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer"><input type="checkbox" checked={item.isWideShot} onChange={() => toggleWideShot(item.id)} className="rounded border-gray-300 h-3 w-3" />Wide shot</label>}
+                            <span className="text-xs text-gray-400">#{idx + 1}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 mt-2">
+                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => moveMedia(idx, -1)} disabled={idx === 0}><ArrowUp className="h-3 w-3" /></Button>
+                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => moveMedia(idx, 1)} disabled={idx === media.length - 1}><ArrowDown className="h-3 w-3" /></Button>
+                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 ml-auto" onClick={() => removeMedia(item.id)}><X className="h-3 w-3" /></Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
+              )}
+
+              {media.length === 0 && (
+                <div className="text-center py-4"><p className="text-xs text-gray-400">No media added yet. Drag files above or add image URLs.</p></div>
               )}
             </>)}
 
