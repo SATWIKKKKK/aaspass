@@ -187,7 +187,7 @@ export default function NewPropertyPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navbar variant="minimal-admin" showNavLinks={false} />
+      <Navbar variant="minimal-admin" showNavLinks={false} showSearch={false} />
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Link href="/admin/dashboard" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-primary mb-4"><ChevronLeft className="h-4 w-4" /> Back to Dashboard</Link>
         <h1 className="text-2xl font-bold text-gray-900 mb-2">List New Property</h1>
