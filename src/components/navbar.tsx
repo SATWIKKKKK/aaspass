@@ -19,6 +19,7 @@ interface NavbarProps {
   showNavLinks?: boolean;
   autoHide?: boolean;
   onPremiumClick?: () => void;
+  preserveProfileRight?: boolean;
 }
 
 interface SearchResult {
@@ -247,7 +248,7 @@ export function Navbar({ variant = "public", showSearch = true, autoHide = false
             )}
 
             {/* Right side icons — ALL visible on ALL devices */}
-            <div className="flex items-center gap-0.5 sm:gap-1 shrink-0 ml-auto sm:ml-0">
+            <div className={cn("flex items-center gap-0.5 sm:gap-1 shrink-0 ml-auto", preserveProfileRight ? "" : "sm:ml-0")}>
 
               {/* Notifications */}
               {session && (
