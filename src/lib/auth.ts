@@ -148,6 +148,11 @@ export const authConfig: NextAuthConfig = {
         if (url === baseUrl || url === baseUrl + "/" || url === "/" || url.includes("/api/auth")) {
           return `${baseUrl}/auth/redirect`;
         }
+        // Relative paths (e.g. /auth/redirect?pendingRole=OWNER from register page Google OAuth)
+        // must be made absolute, otherwise the fallback below discards them and returns baseUrl
+        if (url.startsWith("/")) {
+          return `${baseUrl}${url}`;
+        }
       }
       return url.startsWith(baseUrl) ? url : baseUrl;
     },
