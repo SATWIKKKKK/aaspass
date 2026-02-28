@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 const PLANS: Record<string, { amount: number; durationDays: number; label: string }> = {
-  monthly:   { amount: 100,  durationDays: 30,  label: "AasPass Premium – Monthly"   },
+  monthly:   { amount: 9900,  durationDays: 30,  label: "AasPass Premium – Monthly"   },
   quarterly: { amount: 24900, durationDays: 90,  label: "AasPass Premium – Quarterly" },
   yearly:    { amount: 79900, durationDays: 365, label: "AasPass Premium – Yearly"    },
 };
