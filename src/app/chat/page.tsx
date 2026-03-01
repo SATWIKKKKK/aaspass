@@ -447,7 +447,7 @@ export default function ChatPage() {
               </div>
               <h2 className="text-2xl font-bold text-gray-900 mb-2">AI Chat Assistant</h2>
               <p className="text-gray-500 text-center max-w-md mb-8">
-                Ask me anything about student life, accommodation tips, property recommendations, or how to make the most of AasPass.
+                Ask me anything about student life, accommodation tips, service recommendations, or how to make the most of AasPass.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xl w-full">
                 {CHAT_SUGGESTIONS.map((s, i) => (

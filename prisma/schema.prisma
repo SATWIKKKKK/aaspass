@@ -199,6 +199,11 @@ model Property {
   // Ratings (cached)
   avgRating         Float          @default(0)
   totalReviews      Int            @default(0)
+  totalViews        Int            @default(0)
+
+  // Relations
+  visits            PropertyVisit[]
+  serviceStudents   ServiceStudent[]
 
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
@@ -206,6 +211,7 @@ model Property {
   @@index([serviceType])
   @@index([city])
   @@index([status])
+  @@index([totalViews])
   @@map("properties")
 }
 
@@ -474,4 +480,48 @@ model Wishlist {
   @@unique([userId, propertyId])
   @@index([userId])
   @@map("wishlists")
+}
+
+// ==================== PROPERTY VISITS ====================
+
+model PropertyVisit {
+  id          String   @id @default(cuid())
+  propertyId  String
+  userId      String?  // null for guests
+  ipAddress   String?
+  sessionToken String? // for deduplicating guest visits
+  userAgent   String?
+
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+
+  @@index([propertyId])
+  @@index([propertyId, createdAt])
+  @@index([propertyId, userId])
+  @@index([propertyId, ipAddress, sessionToken])
+  @@map("property_visits")
+}
+
+// ==================== SERVICE STUDENTS (Owner-uploaded) ====================
+
+model ServiceStudent {
+  id          String   @id @default(cuid())
+  propertyId  String
+  name        String
+  email       String?
+  phone       String?
+  userId      String?  // linked user account (if exists)
+  isVerified  Boolean  @default(false) // true if matched to existing user
+
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([propertyId, email])
+  @@unique([propertyId, phone])
+  @@index([propertyId])
+  @@index([userId])
+  @@map("service_students")
 }

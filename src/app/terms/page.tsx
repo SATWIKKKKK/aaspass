@@ -14,7 +14,7 @@ export default function TermsPage() {
           <p>By accessing or using AasPass, you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use our services.</p>
 
           <h2 className="text-xl font-semibold text-gray-900 mt-8">2. Description of Service</h2>
-          <p>AasPass is an online platform that connects students with accommodation providers (hostels, PGs), coaching centers, mess services, and related services. We act as an intermediary and do not own or operate any listed property.</p>
+          <p>AasPass is an online platform that connects students with accommodation providers (hostels, PGs), coaching centers, mess services, and related services. We act as an intermediary and do not own or operate any listed service.</p>
 
           <h2 className="text-xl font-semibold text-gray-900 mt-8">3. User Accounts</h2>
           <p>You must provide accurate and complete information when creating an account. You are responsible for maintaining the confidentiality of your credentials. Users must be at least 16 years of age.</p>
@@ -23,7 +23,7 @@ export default function TermsPage() {
           <p>All prices are listed in INR (Indian Rupees) and include applicable GST. Payments are processed through secure payment gateways. Booking confirmations are subject to availability and owner approval.</p>
 
           <h2 className="text-xl font-semibold text-gray-900 mt-8">5. Cancellation & Refunds</h2>
-          <p>Cancellation policies vary by property and are displayed on each listing page. Refunds are processed within 7-14 business days. Premium members enjoy extended grace periods.</p>
+          <p>Cancellation policies vary by service and are displayed on each listing page. Refunds are processed within 7-14 business days. Premium members enjoy extended grace periods.</p>
 
           <h2 className="text-xl font-semibold text-gray-900 mt-8">6. User Conduct</h2>
           <p>Users must not misuse the platform, submit false information, harass other users, or engage in any illegal activity. Violation may result in account suspension.</p>
@@ -32,7 +32,7 @@ export default function TermsPage() {
           <p>All content on AasPass, including logos, text, and design, is the property of AasPass and protected by applicable laws.</p>
 
           <h2 className="text-xl font-semibold text-gray-900 mt-8">8. Limitation of Liability</h2>
-          <p>AasPass is not liable for any disputes between students and property owners. We strive to verify all listings but cannot guarantee accuracy of all information provided by third parties.</p>
+          <p>AasPass is not liable for any disputes between students and service owners. We strive to verify all listings but cannot guarantee accuracy of all information provided by third parties.</p>
 
           <h2 className="text-xl font-semibold text-gray-900 mt-8">9. Contact</h2>
           <p>For questions about these terms, contact us at <strong>legal@aaspass.com</strong>.</p>

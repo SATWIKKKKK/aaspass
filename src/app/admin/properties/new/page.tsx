@@ -28,7 +28,7 @@ const STEPS = [
   { id: 3, title: "Location", desc: "Where is it?" },
   { id: 4, title: "Amenities", desc: "Features and facilities" },
   { id: 5, title: "Rules & Policy", desc: "Rules and cancellation" },
-  { id: 6, title: "Photos & Videos", desc: "Add property media" },
+  { id: 6, title: "Photos & Videos", desc: "Add service media" },
 ];
 
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/jpg"];
@@ -177,9 +177,9 @@ export default function NewPropertyPage() {
 
       const res = await fetch("/api/properties", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const data = await res.json();
-      if (res.ok) { toast.success("Property listed successfully!"); router.push("/admin/dashboard"); }
-      else toast.error(data.error || "Failed to create property");
-    } catch { toast.error("Failed to create property"); }
+      if (res.ok) { toast.success("Service listed successfully!"); router.push("/admin/dashboard"); }
+      else toast.error(data.error || "Failed to create service");
+    } catch { toast.error("Failed to create service"); }
     finally { setSubmitting(false); }
   };
 
@@ -193,7 +193,7 @@ export default function NewPropertyPage() {
       <Navbar variant="minimal-admin" showNavLinks={false} showSearch={false} />
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Link href="/admin/dashboard" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-primary mb-4"><ChevronLeft className="h-4 w-4" /> Back to Dashboard</Link>
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">List New Property</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">List New Service</h1>
 
         {/* Step Indicator */}
         <div className="flex items-center gap-2 mb-8 overflow-x-auto pb-2">
@@ -209,13 +209,13 @@ export default function NewPropertyPage() {
           <CardHeader><CardTitle>{currentStep.title}</CardTitle><CardDescription>{currentStep.desc}</CardDescription></CardHeader>
           <CardContent className="space-y-4">
             {step === 1 && (<>
-              <div><Label>Property Name *</Label><Input placeholder="Sunrise Boys Hostel" value={form.name} onChange={update("name")} /></div>
+              <div><Label>Service Name *</Label><Input placeholder="Sunrise Boys Hostel" value={form.name} onChange={update("name")} /></div>
               <div><Label>Service Type *</Label>
                 <select value={form.serviceType} onChange={update("serviceType")} className="w-full h-10 rounded-md border border-gray-200 px-3 text-sm">
                   {SERVICE_TYPES.map((st) => <option key={st.value} value={st.value}>{st.label}</option>)}
                 </select>
               </div>
-              <div><Label>Description *</Label><Textarea placeholder="Describe your property, facilities, and what makes it special..." rows={5} value={form.description} onChange={update("description")} /></div>
+              <div><Label>Description *</Label><Textarea placeholder="Describe your service, facilities, and what makes it special..." rows={5} value={form.description} onChange={update("description")} /></div>
             </>)}
 
             {step === 2 && (<>
@@ -382,7 +382,7 @@ export default function NewPropertyPage() {
             {step === 6 && (<>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Add photos and videos for your property. First image = cover photo.</p>
+                  <p className="text-sm text-gray-600">Add photos and videos for your service. First image = cover photo.</p>
                   <p className="text-xs text-gray-400 mt-1">Supported: JPG, PNG, WEBP, MP4, MOV. Max 10 MB per file, up to {MAX_FILES} files.</p>
                 </div>
                 <Badge variant="secondary" className="shrink-0">{media.filter((m) => m.previewUrl || m.url?.trim()).length} / {MAX_FILES}</Badge>
@@ -454,7 +454,7 @@ export default function NewPropertyPage() {
               <Button variant="outline" onClick={() => setStep((s) => Math.max(1, s - 1))} disabled={step === 1}><ChevronLeft className="h-4 w-4 mr-1" /> Previous</Button>
               {step < totalSteps
                 ? <Button onClick={() => setStep((s) => Math.min(totalSteps, s + 1))}>Next <ChevronRight className="h-4 w-4 ml-1" /></Button>
-                : <Button onClick={handleSubmit} disabled={submitting}>{submitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Publishing...</> : <><Check className="h-4 w-4 mr-1" />Publish Property</>}</Button>
+                : <Button onClick={handleSubmit} disabled={submitting}>{submitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Publishing...</> : <><Check className="h-4 w-4 mr-1" />Publish Service</>}</Button>
               }
             </div>
           </CardContent>

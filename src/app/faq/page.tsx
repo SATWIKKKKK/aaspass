@@ -8,15 +8,15 @@ import { cn } from "@/lib/utils";
 
 const faqs = [
   { q: "What is AasPass?", a: "AasPass is India&apos;s leading platform for students to discover, compare, and book accommodation, mess/tiffin, libraries, laundry, gyms & more — all in one place." },
-  { q: "How do I book a property?", a: "Browse services, select a property, choose your dates, and click 'Book Now'. You&apos;ll be guided through a secure payment process. Once confirmed, you&apos;ll receive a booking confirmation via email." },
+  { q: "How do I book a service?", a: "Browse services, select a service, choose your dates, and click 'Book Now'. You&apos;ll be guided through a secure payment process. Once confirmed, you&apos;ll receive a booking confirmation via email." },
   { q: "Is my payment secure?", a: "Yes. All payments are processed through secure, PCI-compliant payment gateways. Your card details are never stored on our servers." },
   { q: "What is AasPass Premium?", a: "Premium is our subscription plan that offers AI chatbot access, pre-booking priority, 13-day late fee waiver, exclusive coupons, and 2x-4x SuperCoins on bookings." },
   { q: "What are SuperCoins?", a: "SuperCoins are loyalty rewards earned on every booking. You can redeem them for discounts on future bookings. Premium members earn 2x-4x more coins." },
-  { q: "How do I cancel a booking?", a: "Go to your Dashboard, find the booking, and click 'Cancel'. Refund amount depends on the property&apos;s cancellation policy and how far in advance you cancel." },
-  { q: "Can I list my property on AasPass?", a: "Yes! Register as a Service Provider, fill in your property details, upload at least 6 images, and submit for review. Our team will verify and list your property." },
+  { q: "How do I cancel a booking?", a: "Go to your Dashboard, find the booking, and click 'Cancel'. Refund amount depends on the service&apos;s cancellation policy and how far in advance you cancel." },
+  { q: "Can I list my service on AasPass?", a: "Yes! Register as a Service Provider, fill in your service details, upload at least 6 images, and submit for review. Our team will verify and list your service." },
   { q: "How do I contact support?", a: "Email us at support@aaspass.com, call our toll-free number 1800-XXX-XXXX, or use the chat feature in your dashboard." },
-  { q: "Are all properties verified?", a: "Yes. Our team verifies every property before listing. We check photos, amenities, and conduct physical inspections for quality assurance." },
-  { q: "What if I have a complaint about a property?", a: "You can file a complaint from your booking details page. The property owner will be notified and our support team will mediate if needed." },
+  { q: "Are all services verified?", a: "Yes. Our team verifies every service before listing. We check photos, amenities, and conduct physical inspections for quality assurance." },
+  { q: "What if I have a complaint about a service?", a: "You can file a complaint from your booking details page. The service owner will be notified and our support team will mediate if needed." },
 ];
 
 export default function FAQPage() {

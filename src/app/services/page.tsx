@@ -9,7 +9,7 @@ import {
   Search, MapPin, Calendar, Users, Building2, BookOpen, Utensils, Dumbbell, Shirt,
   Crown, ChevronRight, ChevronDown, ChevronUp, ChevronLeft, MessageCircle,
   Star, Wifi, Wind, ShieldCheck, ShoppingCart, Loader2, X, Home, Map,
-  Minus, Plus, LogOut, Settings, User, LayoutDashboard,
+  Minus, Plus, LogOut, Settings, User, LayoutDashboard, Eye, SortAsc,
 } from "lucide-react";
 import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,7 @@ const u = (s: { user?: object | null } | null) => s?.user as SessionUser | undef
 interface Property {
   id: string; name: string; slug: string; serviceType: string; price: number;
   gstRate: number; city: string; address: string; avgRating: number; totalReviews: number;
+  totalViews: number;
   isAC: boolean; hasWifi: boolean; forGender: string | null;
   foodIncluded: boolean; laundryIncluded: boolean; occupancy: number | null;
   cancellationPolicy: string | null; hasMedical: boolean; nearbyLandmark: string | null;
@@ -122,7 +123,7 @@ function ProfileDropdown({ session, isPremium, profileOpen, setProfileOpen, setP
           {(isOwner ? [
             { icon: User, label: "Personal Details", href: "/settings/profile" },
             { icon: LayoutDashboard, label: "Dashboard", href: "/admin/dashboard" },
-            { icon: Building2, label: "My Properties", href: "/admin/properties" },
+            { icon: Building2, label: "My Services", href: "/admin/properties" },
             { icon: Settings, label: "Settings", href: "/settings/edit" },
           ] : [
             { icon: User, label: "Personal Details", href: "/settings/profile" },
@@ -285,6 +286,7 @@ function ServicesContent() {
   const [isACOnly, setIsACOnly] = useState(false);
   const [hasWifiOnly, setHasWifiOnly] = useState(false);
   const [genderFilter, setGenderFilter] = useState("");
+  const [sortBy, setSortBy] = useState("avgRating");
 
   // Data
   const [properties, setProperties] = useState<Property[]>([]);
@@ -315,14 +317,14 @@ function ServicesContent() {
       if (genderFilter) params.set("forGender", genderFilter);
       if (isACOnly) params.set("isAC", "true");
       if (hasWifiOnly) params.set("hasWifi", "true");
-      params.set("sort", "avgRating");
+      params.set("sort", sortBy);
       params.set("limit", "50");
       const res = await fetch(`/api/properties?${params.toString()}`);
       const data = await res.json();
       if (res.ok) setProperties(data.properties || []);
-    } catch { toast.error("Failed to load properties"); }
+    } catch { toast.error("Failed to load services"); }
     finally { setLoading(false); }
-  }, [selectedService, dbTypes, accommodationSubFilter, location, minPrice, maxPrice, genderFilter, isACOnly, hasWifiOnly]);
+  }, [selectedService, dbTypes, accommodationSubFilter, location, minPrice, maxPrice, genderFilter, isACOnly, hasWifiOnly, sortBy]);
 
   useEffect(() => { fetchProperties(); }, [fetchProperties]);
 
@@ -371,9 +373,9 @@ function ServicesContent() {
     : "Services";
 
   const clearFilters = () => {
-    setMinPrice(""); setMaxPrice(""); setRatingFilter(""); setIsACOnly(false); setHasWifiOnly(false); setGenderFilter("");
+    setMinPrice(""); setMaxPrice(""); setRatingFilter(""); setIsACOnly(false); setHasWifiOnly(false); setGenderFilter(""); setSortBy("avgRating");
   };
-  const hasActiveFilters = minPrice || maxPrice || ratingFilter || isACOnly || hasWifiOnly || genderFilter;
+  const hasActiveFilters = minPrice || maxPrice || ratingFilter || isACOnly || hasWifiOnly || genderFilter || sortBy !== "avgRating";
 
   const addToCart = async (property: Property) => {
     if (!session) { router.push("/login"); return; }
@@ -626,6 +628,18 @@ function ServicesContent() {
             </SelectContent>
           </Select>
 
+          {/* Sort */}
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="h-9 w-36 text-xs border-gray-200 rounded-full bg-gray-50 shrink-0"><SortAsc className="h-3 w-3 mr-1" /><SelectValue placeholder="Sort by" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="avgRating" className="text-xs">Top Rated</SelectItem>
+              <SelectItem value="most_viewed" className="text-xs">Most Viewed</SelectItem>
+              <SelectItem value="price_asc" className="text-xs">Price: Low–High</SelectItem>
+              <SelectItem value="price_desc" className="text-xs">Price: High–Low</SelectItem>
+              <SelectItem value="reviews" className="text-xs">Most Reviews</SelectItem>
+            </SelectContent>
+          </Select>
+
           {/* Clear */}
           {hasActiveFilters && (
             <button onClick={clearFilters} className="flex items-center gap-1 h-9 px-4 rounded-full text-xs font-medium text-red-600 bg-red-50 border border-red-200 hover:bg-red-100 transition-colors shrink-0">
@@ -663,6 +677,12 @@ function ServicesContent() {
                   {/* Left: Images */}
                   <div className="md:w-80 lg:w-96 h-56 md:h-auto bg-gray-100 shrink-0 relative" onClick={(e) => e.stopPropagation()}>
                     <ImageCarousel images={property.images} name={property.name} />
+                    {property.totalViews > 0 && (
+                      <div className="absolute top-2 left-2 bg-black/60 text-white text-xs font-medium px-2 py-1 rounded-full flex items-center gap-1 z-10">
+                        <Eye className="h-3 w-3" />
+                        {property.totalViews >= 1000 ? `${(property.totalViews / 1000).toFixed(1)}k` : property.totalViews} views
+                      </div>
+                    )}
                   </div>
 
                   {/* Right: Details */}

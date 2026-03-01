@@ -11,7 +11,7 @@ export default function CancellationPage() {
           <p className="text-lg">Last updated: January 2026</p>
 
           <h2 className="text-xl font-semibold text-gray-900 mt-8">General Policy</h2>
-          <p>All bookings on AasPass are subject to the individual property&apos;s cancellation policy, which is displayed clearly on each listing page before you book.</p>
+          <p>All bookings on AasPass are subject to the individual service&apos;s cancellation policy, which is displayed clearly on each listing page before you book.</p>
 
           <h2 className="text-xl font-semibold text-gray-900 mt-8">Standard Cancellation</h2>
           <ul className="list-disc pl-6 space-y-2">

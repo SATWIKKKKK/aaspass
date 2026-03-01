@@ -20,7 +20,7 @@ const PLANS = [
 ];
 
 const FEATURES = [
-  { icon: MessageSquare, title: "AI Chat Assistant", desc: "Smart property search" },
+  { icon: MessageSquare, title: "AI Chat Assistant", desc: "Smart service search" },
   { icon: Zap,           title: "Priority Booking",  desc: "Book before others" },
   { icon: Shield,        title: "Late Fee Waiver",    desc: "No late charges" },
   { icon: Gift,          title: "2x SuperCoins",      desc: "Double rewards" },

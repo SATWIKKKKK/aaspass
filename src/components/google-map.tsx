@@ -94,7 +94,7 @@ export function GoogleMap({
       markerRef.current = new google.maps.Marker({
         position: { lat, lng },
         map,
-        title: address || "Property Location",
+        title: address || "Service Location",
         animation: google.maps.Animation.DROP,
       });
     }

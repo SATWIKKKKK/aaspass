@@ -219,7 +219,7 @@ function ProfileDropdown({ session, isPremium, profileOpen, setProfileOpen, setP
           {(isOwner ? [
             { icon: User, label: "Personal Details", href: "/settings/profile" },
             { icon: LayoutDashboard, label: "Dashboard", href: "/admin/dashboard" },
-            { icon: Building2, label: "My Properties", href: "/admin/properties" },
+            { icon: Building2, label: "My Services", href: "/admin/properties" },
             { icon: Settings, label: "Settings", href: "/settings/edit" },
           ] : [
             { icon: User, label: "Personal Details", href: "/settings/profile" },
@@ -756,7 +756,7 @@ export default function HomePage() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
-              { title: "Verified Properties", description: "Every property is manually verified for quality and safety standards", icon: "🏠" },
+              { title: "Verified Services", description: "Every service is manually verified for quality and safety standards", icon: "🏠" },
               { title: "Best Prices", description: "Transparent pricing with no hidden charges. GST inclusive.", icon: "💰" },
               { title: "24/7 Support", description: "Our support team is always ready to help you with any issues", icon: "🛟" },
               { title: "Easy Booking", description: "Book your stay in just a few clicks. Instant confirmation.", icon: "⚡" },

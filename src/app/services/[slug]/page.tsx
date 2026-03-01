@@ -8,7 +8,7 @@ import toast from "react-hot-toast";
 import {
   MapPin, Star, Wifi, Wind, Utensils, Shirt, ShieldCheck, Users, Phone, MessageSquare,
   Share2, Heart, ChevronLeft, ShoppingCart, Building2, Navigation,
-  CheckCircle2, AlertCircle, Loader2, Copy, BadgeCheck, ExternalLink,
+  CheckCircle2, AlertCircle, Loader2, Copy, BadgeCheck, ExternalLink, Eye,
 } from "lucide-react";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
@@ -38,7 +38,7 @@ interface PropertyData {
   cancellationPolicy: string | null; rules: string | null;
   customAmenities: string[];
   capacity: number | null; availableRooms: number | null;
-  avgRating: number; totalReviews: number;
+  avgRating: number; totalReviews: number; totalViews: number;
   images: { url: string; isWideShot: boolean }[];
   owner: { name: string; phone: string | null };
   reviews: { id: string; rating: number; comment: string | null; createdAt: string; user: { name: string } }[];
@@ -74,6 +74,7 @@ export default function PropertyPage() {
   const [bookingConfirmation, setBookingConfirmation] = useState<BookingConfirmation | null>(null);
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [showReviewRestriction, setShowReviewRestriction] = useState(false);
+  const [isServiceStudent, setIsServiceStudent] = useState(false);
 
   // Load wishlist from DB
   useEffect(() => {
@@ -126,6 +127,19 @@ export default function PropertyPage() {
         if (res.ok) {
           const data = await res.json();
           setProperty(data.property);
+          // Track visit
+          try {
+            let sessionToken = localStorage.getItem("aaspass_visitor_token");
+            if (!sessionToken) {
+              sessionToken = Math.random().toString(36).substring(2) + Date.now().toString(36);
+              localStorage.setItem("aaspass_visitor_token", sessionToken);
+            }
+            fetch(`/api/properties/${params.slug}/visit`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ sessionToken }),
+            }).catch(() => {});
+          } catch {}
           // Track recently viewed
           try {
             const rv: string[] = JSON.parse(localStorage.getItem("aaspass_recently_viewed") || "[]");
@@ -140,17 +154,25 @@ export default function PropertyPage() {
               const bData = await bRes.json();
               const booked = (bData.bookings || []).some((b: any) => b.propertyId === data.property.id && ["CONFIRMED", "COMPLETED"].includes(b.status));
               setHasBooking(booked);
+              // Also check if on service student list
+              if (!booked) {
+                try {
+                  const ssRes = await fetch(`/api/properties/${params.slug}/students/check`);
+                  const ssData = await ssRes.json();
+                  if (ssData.isServiceStudent) { setIsServiceStudent(true); setHasBooking(true); }
+                } catch {}
+              }
             } catch {}
           }
-        } else toast.error("Property not found");
-      } catch { toast.error("Failed to load property"); }
+        } else toast.error("Service not found");
+      } catch { toast.error("Failed to load service"); }
       finally { setLoading(false); }
     }
     if (params.slug) load();
   }, [params.slug, session]);
 
   if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-  if (!property) return <div className="min-h-screen flex items-center justify-center"><p>Property not found</p></div>;
+  if (!property) return <div className="min-h-screen flex items-center justify-center"><p>Service not found</p></div>;
 
   const pricing = calculateDynamicPrice(property.price, property.gstRate, checkIn, checkOut);
   const perDay = getDailyRate(property.price);
@@ -416,6 +438,12 @@ export default function PropertyPage() {
                   <span className="font-semibold text-gray-900">{property.avgRating.toFixed(1)}</span>
                   <span>({property.totalReviews} reviews)</span>
                 </div>
+                {property.totalViews > 0 && (
+                  <span className="flex items-center gap-1 text-gray-500">
+                    <Eye className="h-4 w-4" />
+                    {property.totalViews >= 1000 ? `${(property.totalViews / 1000).toFixed(1)}k` : property.totalViews} views
+                  </span>
+                )}
               </div>
             </div>
 
@@ -640,7 +668,7 @@ export default function PropertyPage() {
               <Card><CardContent className="p-4"><h3 className="font-semibold text-gray-900 mb-2 flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-green-500" />Cancellation Policy</h3><p className="text-sm text-gray-600 leading-relaxed">{property.cancellationPolicy || "Contact owner for cancellation policy"}</p></CardContent></Card>
 
               <Card><CardContent className="p-4">
-                <h3 className="font-semibold text-gray-900 mb-2">Property Owner</h3>
+                <h3 className="font-semibold text-gray-900 mb-2">Service Owner</h3>
                 <div className="flex items-center gap-3"><div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center"><span className="font-semibold text-primary">{property.owner.name[0]}</span></div><div><p className="font-medium text-gray-900">{property.owner.name}</p>{property.owner.phone && <p className="text-xs text-gray-500">{property.owner.phone}</p>}</div></div>
                 <div className="flex gap-2 mt-3">
                   {property.owner.phone && <a href={`tel:${property.owner.phone}`} className="flex-1"><Button variant="outline" size="sm" className="w-full"><Phone className="h-3.5 w-3.5 mr-1" /> Call</Button></a>}

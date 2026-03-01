@@ -23,7 +23,7 @@ export default function PrivacyPage() {
           </ul>
 
           <h2 className="text-xl font-semibold text-gray-900 mt-8">3. Data Sharing</h2>
-          <p>We share relevant information with property owners to facilitate bookings. We do not sell personal data to third parties. We may share data with payment processors and cloud service providers as needed.</p>
+          <p>We share relevant information with service owners to facilitate bookings. We do not sell personal data to third parties. We may share data with payment processors and cloud service providers as needed.</p>
 
           <h2 className="text-xl font-semibold text-gray-900 mt-8">4. Data Security</h2>
           <p>We use industry-standard encryption (SSL/TLS) and security measures to protect your data. Passwords are hashed and never stored in plain text.</p>

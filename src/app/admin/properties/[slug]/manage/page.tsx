@@ -10,7 +10,7 @@ import {
   Star, Calendar, Megaphone, Loader2, Send, Pencil, BarChart3,
   MapPin, Wifi, Wind, Utensils, Shirt, ShieldCheck, Save,
   X, Plus, ArrowUp, ArrowDown, ImageIcon, TrendingUp,
-  DollarSign, CheckCircle, Clock, XCircle,
+  DollarSign, CheckCircle, Clock, XCircle, Eye, Upload, UserPlus, Trash2,
 } from "lucide-react";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
@@ -54,6 +54,18 @@ export default function ManagePropertyPage() {
   /* Pricing plans state */
   const [pricingPlans, setPricingPlans] = useState<{ id?: string; label: string; durationDays: string; price: string; isActive: boolean }[]>([]);
   const [savingPlans, setSavingPlans] = useState(false);
+
+  /* Visit Analytics state */
+  const [visitStats, setVisitStats] = useState<{ totalViews: number; thisWeek: number; thisMonth: number } | null>(null);
+
+  /* Service Students state */
+  const [serviceStudents, setServiceStudents] = useState<any[]>([]);
+  const [newStudentName, setNewStudentName] = useState("");
+  const [newStudentEmail, setNewStudentEmail] = useState("");
+  const [newStudentPhone, setNewStudentPhone] = useState("");
+  const [addingStudent, setAddingStudent] = useState(false);
+  const [uploadingCSV, setUploadingCSV] = useState(false);
+  const [deletingStudent, setDeletingStudent] = useState<string | null>(null);
 
   useEffect(() => { if (status === "unauthenticated") router.push("/login"); }, [status, router]);
 
@@ -106,8 +118,14 @@ export default function ManagePropertyPage() {
           })));
         }
       }
-    }).catch(() => toast.error("Failed to load property"))
+    }).catch(() => toast.error("Failed to load service"))
       .finally(() => setLoading(false));
+    // Fetch visit analytics
+    fetch(`/api/properties/${params.slug}/visits`).then((r) => r.json())
+      .then((data) => { if (!data.error) setVisitStats(data); }).catch(() => {});
+    // Fetch service students
+    fetch(`/api/properties/${params.slug}/students`).then((r) => r.json())
+      .then((data) => setServiceStudents(data.students || [])).catch(() => {});
   }, [status, params.slug]);
 
   /* ─── Edit form helpers ─── */
@@ -147,7 +165,7 @@ export default function ManagePropertyPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        toast.success("Property updated!");
+        toast.success("Service updated!");
         setProperty(data.property);
         // Update slug in URL if changed
         if (data.property.slug !== params.slug) {
@@ -187,6 +205,81 @@ export default function ManagePropertyPage() {
       } else toast.error(data.error || "Failed to save plans");
     } catch { toast.error("Failed to save plans"); }
     finally { setSavingPlans(false); }
+  };
+
+  /* ─── Student Management ─── */
+  const handleAddStudent = async () => {
+    if (!newStudentName.trim() || (!newStudentEmail.trim() && !newStudentPhone.trim())) {
+      toast.error("Name and email or phone required"); return;
+    }
+    setAddingStudent(true);
+    try {
+      const res = await fetch(`/api/properties/${params.slug}/students`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ students: [{ name: newStudentName.trim(), email: newStudentEmail.trim() || undefined, phone: newStudentPhone.trim() || undefined }] }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(`Added ${data.added} student(s), ${data.linked} linked to accounts`);
+        setNewStudentName(""); setNewStudentEmail(""); setNewStudentPhone("");
+        // Refresh list
+        const listRes = await fetch(`/api/properties/${params.slug}/students`);
+        const listData = await listRes.json();
+        setServiceStudents(listData.students || []);
+      } else toast.error(data.error || "Failed to add student");
+    } catch { toast.error("Failed to add student"); }
+    finally { setAddingStudent(false); }
+  };
+
+  const handleCSVUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingCSV(true);
+    try {
+      const text = await file.text();
+      const lines = text.split("\n").filter((l) => l.trim());
+      const students: { name: string; email?: string; phone?: string }[] = [];
+      // Try to detect header
+      const firstLine = lines[0].toLowerCase();
+      const hasHeader = firstLine.includes("name") || firstLine.includes("email") || firstLine.includes("phone");
+      const startIdx = hasHeader ? 1 : 0;
+      for (let i = startIdx; i < lines.length; i++) {
+        const cols = lines[i].split(/[,\t]/).map((c) => c.trim().replace(/^"|"$/g, ""));
+        if (cols.length >= 1 && cols[0]) {
+          students.push({
+            name: cols[0],
+            ...(cols[1] && cols[1].includes("@") ? { email: cols[1] } : cols[1] ? { phone: cols[1] } : {}),
+            ...(cols[2] ? (cols[2].includes("@") ? { email: cols[2] } : { phone: cols[2] }) : {}),
+          });
+        }
+      }
+      if (students.length === 0) { toast.error("No valid entries found"); setUploadingCSV(false); return; }
+      const res = await fetch(`/api/properties/${params.slug}/students`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ students }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(`Processed ${data.total}: ${data.added} added, ${data.linked} linked, ${data.skipped} skipped`);
+        const listRes = await fetch(`/api/properties/${params.slug}/students`);
+        const listData = await listRes.json();
+        setServiceStudents(listData.students || []);
+      } else toast.error(data.error || "Upload failed");
+    } catch { toast.error("Failed to process file"); }
+    finally { setUploadingCSV(false); e.target.value = ""; }
+  };
+
+  const handleDeleteStudent = async (id: string) => {
+    if (!confirm("Remove this student from the list?")) return;
+    setDeletingStudent(id);
+    try {
+      const res = await fetch(`/api/properties/${params.slug}/students?id=${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setServiceStudents((prev) => prev.filter((s) => s.id !== id));
+        toast.success("Student removed");
+      } else toast.error("Failed to remove");
+    } catch { toast.error("Failed to remove"); }
+    finally { setDeletingStudent(null); }
   };
 
   /* ─── Announcement ─── */
@@ -238,7 +331,7 @@ export default function ManagePropertyPage() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4">
         <Building2 className="h-16 w-16 text-gray-300" />
-        <p className="text-lg font-medium text-gray-500">Property not found</p>
+        <p className="text-lg font-medium text-gray-500">Service not found</p>
         <Link href="/admin/dashboard"><Button variant="outline"><ChevronLeft className="h-4 w-4 mr-1" />Back to Dashboard</Button></Link>
       </div>
     );
@@ -266,10 +359,11 @@ export default function ManagePropertyPage() {
         </div>
 
         {/* Stat cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-6">
           <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold text-blue-600">{bookings.length}</p><p className="text-xs text-gray-500">Total Bookings</p></CardContent></Card>
           <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold text-green-600">{formatPrice(analytics.revenue)}</p><p className="text-xs text-gray-500">Revenue</p></CardContent></Card>
           <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold text-yellow-600">{property.avgRating?.toFixed(1) || "0.0"}</p><p className="text-xs text-gray-500">Rating ({property.totalReviews || 0} reviews)</p></CardContent></Card>
+          <Card className="bg-linear-to-br from-purple-50 to-indigo-50 border-purple-100"><CardContent className="p-4 text-center"><Eye className="h-5 w-5 text-purple-600 mx-auto mb-1" /><p className="text-2xl font-bold text-purple-700">{visitStats?.totalViews ?? property.totalViews ?? 0}</p><p className="text-xs text-gray-500 font-semibold">Total Views (KPI)</p></CardContent></Card>
           <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold text-red-600">{complaints.filter((c: any) => c.status === "OPEN").length}</p><p className="text-xs text-gray-500">Open Complaints</p></CardContent></Card>
         </div>
 
@@ -278,7 +372,9 @@ export default function ManagePropertyPage() {
           <TabsList className="flex flex-wrap">
             <TabsTrigger value="bookings">Bookings</TabsTrigger>
             <TabsTrigger value="plans">Pricing Plans</TabsTrigger>
-            <TabsTrigger value="edit">Edit Property</TabsTrigger>
+            <TabsTrigger value="students">Students</TabsTrigger>
+            <TabsTrigger value="edit">Edit Service</TabsTrigger>
+            <TabsTrigger value="visits">Visit Analytics</TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
             <TabsTrigger value="complaints">Complaints</TabsTrigger>
             <TabsTrigger value="announce">Announcements</TabsTrigger>
@@ -314,7 +410,7 @@ export default function ManagePropertyPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><DollarSign className="h-5 w-5" />Duration-Based Pricing Plans</CardTitle>
-                <CardDescription>Define strict booking plans for students. Students can only book your property for these exact durations. If no plans are set, the legacy per-day pricing is used.</CardDescription>
+                <CardDescription>Define strict booking plans for students. Students can only book your service for these exact durations. If no plans are set, the legacy per-day pricing is used.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 {pricingPlans.length === 0 ? (
@@ -365,7 +461,7 @@ export default function ManagePropertyPage() {
                 </Button>
                 {pricingPlans.length > 0 && (
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
-                    <strong>Important:</strong> Once you save pricing plans, students will ONLY be able to book your property for these exact durations. They cannot choose arbitrary date ranges.
+                    <strong>Important:</strong> Once you save pricing plans, students will ONLY be able to book your service for these exact durations. They cannot choose arbitrary date ranges.
                   </div>
                 )}
               </CardContent>
@@ -382,10 +478,10 @@ export default function ManagePropertyPage() {
             {editForm && (
               <>
                 <Card>
-                  <CardHeader><CardTitle className="flex items-center gap-2"><Pencil className="h-5 w-5" />Edit Property Details</CardTitle></CardHeader>
+                  <CardHeader><CardTitle className="flex items-center gap-2"><Pencil className="h-5 w-5" />Edit Service Details</CardTitle></CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div><Label>Property Name *</Label><Input value={editForm.name} onChange={updateEdit("name")} /></div>
+                      <div><Label>Service Name *</Label><Input value={editForm.name} onChange={updateEdit("name")} /></div>
                       <div><Label>Service Type</Label>
                         <select value={editForm.serviceType} onChange={updateEdit("serviceType")} className="w-full h-10 rounded-md border border-gray-200 px-3 text-sm">
                           {SERVICE_TYPES.map((st) => <option key={st.value} value={st.value}>{st.label}</option>)}
@@ -447,8 +543,8 @@ export default function ManagePropertyPage() {
                 {/* Edit Images */}
                 <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><ImageIcon className="h-5 w-5" />Property Photos</CardTitle>
-                    <CardDescription>Update your property images. First image is the cover photo.</CardDescription>
+                    <CardTitle className="flex items-center gap-2"><ImageIcon className="h-5 w-5" />Service Photos</CardTitle>
+                    <CardDescription>Update your service images. First image is the cover photo.</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {editImages.map((img, idx) => (
@@ -558,7 +654,7 @@ export default function ManagePropertyPage() {
 
             {/* Quick stats */}
             <Card>
-              <CardHeader><CardTitle>Property Overview</CardTitle></CardHeader>
+              <CardHeader><CardTitle>Service Overview</CardTitle></CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div className="flex justify-between py-2 border-b border-gray-100"><span className="text-gray-500">Service Type</span><span className="font-medium capitalize">{property.serviceType?.toLowerCase()}</span></div>
@@ -599,7 +695,7 @@ export default function ManagePropertyPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Megaphone className="h-5 w-5" />Send Announcement</CardTitle>
-                <CardDescription>Notify all students booked at this property</CardDescription>
+                <CardDescription>Notify all students booked at this service</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div><Label>Title</Label><Input placeholder="Water Supply Update" value={announcementTitle} onChange={(e) => setAnnouncementTitle(e.target.value)} /></div>
@@ -628,6 +724,101 @@ export default function ManagePropertyPage() {
                 </div>
               </div>
             )}
+          </TabsContent>
+
+          {/* Visit Analytics Tab */}
+          <TabsContent value="visits" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Eye className="h-5 w-5" />Visit Analytics</CardTitle>
+                <CardDescription>How many times your service listing has been viewed</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {visitStats ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="bg-purple-50 rounded-xl p-5 text-center">
+                      <p className="text-sm font-medium text-purple-600">Total Views</p>
+                      <p className="text-3xl font-bold text-purple-700 mt-1">{visitStats.totalViews?.toLocaleString() ?? 0}</p>
+                    </div>
+                    <div className="bg-blue-50 rounded-xl p-5 text-center">
+                      <p className="text-sm font-medium text-blue-600">This Week</p>
+                      <p className="text-3xl font-bold text-blue-700 mt-1">{visitStats.thisWeek?.toLocaleString() ?? 0}</p>
+                    </div>
+                    <div className="bg-green-50 rounded-xl p-5 text-center">
+                      <p className="text-sm font-medium text-green-600">This Month</p>
+                      <p className="text-3xl font-bold text-green-700 mt-1">{visitStats.thisMonth?.toLocaleString() ?? 0}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-gray-500 text-sm">Loading analytics...</p>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Student List Tab */}
+          <TabsContent value="students" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><UserPlus className="h-5 w-5" />Add Student</CardTitle>
+                <CardDescription>Students in this list can leave reviews even without a booking</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div><Label>Name *</Label><Input placeholder="Student name" value={newStudentName} onChange={(e) => setNewStudentName(e.target.value)} /></div>
+                  <div><Label>Email</Label><Input placeholder="student@example.com" value={newStudentEmail} onChange={(e) => setNewStudentEmail(e.target.value)} /></div>
+                  <div><Label>Phone</Label><Input placeholder="9876543210" value={newStudentPhone} onChange={(e) => setNewStudentPhone(e.target.value)} /></div>
+                </div>
+                <Button onClick={handleAddStudent} disabled={addingStudent}>
+                  {addingStudent ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Adding...</> :
+                    <><UserPlus className="h-4 w-4 mr-2" />Add Student</>}
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Upload className="h-5 w-5" />Bulk Upload (CSV)</CardTitle>
+                <CardDescription>Upload a CSV/TSV file with columns: name, email, phone. Header row is optional.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <input type="file" accept=".csv,.tsv,.txt" disabled={uploadingCSV}
+                  onChange={handleCSVUpload}
+                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
+                />
+                {uploadingCSV && <p className="text-sm text-gray-500 mt-2 flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Uploading...</p>}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Student List ({serviceStudents.length})</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {serviceStudents.length === 0 ? (
+                  <p className="text-gray-500 text-sm">No students added yet.</p>
+                ) : (
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {serviceStudents.map((s: any) => (
+                      <div key={s.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div>
+                          <p className="font-medium text-gray-900">{s.name}</p>
+                          <p className="text-sm text-gray-500">
+                            {s.email && <span>{s.email}</span>}
+                            {s.email && s.phone && <span> · </span>}
+                            {s.phone && <span>{s.phone}</span>}
+                          </p>
+                          {s.userId && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Linked</span>}
+                        </div>
+                        <Button variant="ghost" size="sm" onClick={() => handleDeleteStudent(s.id)} disabled={deletingStudent === s.id}>
+                          {deletingStudent === s.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4 text-red-500" />}
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>

@@ -63,6 +63,7 @@ export async function GET(req: NextRequest) {
     if (sort === "price_asc") orderBy = { price: "asc" };
     if (sort === "price_desc") orderBy = { price: "desc" };
     if (sort === "reviews") orderBy = { totalReviews: "desc" };
+    if (sort === "most_viewed") orderBy = { totalViews: "desc" };
 
     const [properties, total] = await Promise.all([
       prisma.property.findMany({

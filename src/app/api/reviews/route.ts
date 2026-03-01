@@ -14,12 +14,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid data" }, { status: 400 });
     }
 
-    // Check if user has a booking for this property
-    const booking = await prisma.booking.findFirst({
-      where: { studentId: session.user.id!, propertyId, status: { in: ["CONFIRMED", "COMPLETED"] } },
-    });
-    if (!booking) {
-      return NextResponse.json({ error: "You can only review properties you've booked" }, { status: 403 });
+    // Check if user has a booking for this property OR is on the owner's student list
+    const [booking, serviceStudent] = await Promise.all([
+      prisma.booking.findFirst({
+        where: { studentId: session.user.id!, propertyId, status: { in: ["CONFIRMED", "COMPLETED"] } },
+      }),
+      prisma.serviceStudent.findFirst({
+        where: { propertyId, userId: session.user.id! },
+      }),
+    ]);
+    if (!booking && !serviceStudent) {
+      return NextResponse.json({ error: "You can only review services you've booked or been verified for" }, { status: 403 });
     }
 
     // Check existing review

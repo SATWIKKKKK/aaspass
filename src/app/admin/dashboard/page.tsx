@@ -243,10 +243,10 @@ function AdminDashboardInner() {
                       <LayoutDashboard className="h-4 w-4 text-gray-400" /> Dashboard
                     </Link>
                     <Link href="/admin/properties" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setProfileOpen(false)}>
-                      <Building2 className="h-4 w-4 text-gray-400" /> My Properties
+                      <Building2 className="h-4 w-4 text-gray-400" /> My Services
                     </Link>
                     <Link href="/admin/properties/new" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setProfileOpen(false)}>
-                      <Plus className="h-4 w-4 text-gray-400" /> Add Property
+                      <Plus className="h-4 w-4 text-gray-400" /> Add Service
                     </Link>
                     <Link href="/settings/edit" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50" onClick={() => setProfileOpen(false)}>
                       <Settings className="h-4 w-4 text-gray-400" /> Settings
@@ -279,13 +279,13 @@ function AdminDashboardInner() {
         {/* Greeting */}
         <div className="mb-8">
           <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Hello {userName}</h2>
-          <p className="text-gray-600 mt-1">Manage your properties, track bookings, and grow your business.</p>
+          <p className="text-gray-600 mt-1">Manage your services, track bookings, and grow your business.</p>
         </div>
 
         {/* ═══ YOUR PROPERTIES ═══ */}
         <section className="mb-12">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-bold text-gray-900">Your Properties</h3>
+            <h3 className="text-xl font-bold text-gray-900">Your Services</h3>
             {properties.length > 2 && (
               <Link href="/admin/properties" className="flex items-center gap-1 text-sm font-medium text-primary hover:underline">
                 View All ({properties.length}) <ArrowRight className="h-4 w-4" />
@@ -301,7 +301,7 @@ function AdminDashboardInner() {
                   <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
                     <Plus className="h-8 w-8 text-primary" />
                   </div>
-                  <p className="font-semibold text-gray-900 text-lg">Add Property</p>
+                  <p className="font-semibold text-gray-900 text-lg">Add Service</p>
                   <p className="text-sm text-gray-500 mt-1">List a new hostel, PG, gym...</p>
                 </CardContent>
               </Card>
@@ -313,8 +313,8 @@ function AdminDashboardInner() {
                 <Card className="border-2 border-dashed border-gray-200 w-full h-full">
                   <CardContent className="p-12 text-center flex flex-col items-center justify-center h-full">
                     <Building2 className="h-12 w-12 text-gray-300 mb-4" />
-                    <h4 className="text-lg font-semibold text-gray-900">No properties yet</h4>
-                    <p className="text-sm text-gray-500 mt-1">Click &quot;Add Property&quot; to list your first one</p>
+                    <h4 className="text-lg font-semibold text-gray-900">No services yet</h4>
+                    <p className="text-sm text-gray-500 mt-1">Click &quot;Add Service&quot; to list your first one</p>
                   </CardContent>
                 </Card>
               </div>
@@ -341,7 +341,7 @@ function AdminDashboardInner() {
               <CardContent className="p-8 flex flex-col items-center justify-center text-center">
                 <Calendar className="h-12 w-12 text-gray-300 mb-4" />
                 <h4 className="text-lg font-semibold text-gray-900">No bookings yet</h4>
-                <p className="text-sm text-gray-500 mt-1">When students book your properties, they&apos;ll appear here.</p>
+                <p className="text-sm text-gray-500 mt-1">When students book your services, they&apos;ll appear here.</p>
               </CardContent>
             </Card>
           ) : (
@@ -373,7 +373,7 @@ function AdminDashboardInner() {
 
                           <div className="bg-gray-50 rounded-lg px-3 py-2 space-y-1.5 text-sm">
                             <div className="flex items-center justify-between">
-                              <span className="text-gray-500">Property</span>
+                              <span className="text-gray-500">Service</span>
                               <span className="font-medium text-gray-900 truncate ml-2">{booking.property.name}</span>
                             </div>
                             <div className="flex items-center justify-between">
@@ -467,7 +467,7 @@ function AdminDashboardInner() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <p className="text-2xl font-bold text-blue-700">{stats?.totalProperties || 0}</p>
-                    <p className="text-xs text-gray-500">Properties</p>
+                    <p className="text-xs text-gray-500">Services</p>
                   </div>
                   <div>
                     <p className="text-2xl font-bold text-green-700">{formatPrice(stats?.totalRevenue || 0)}</p>
@@ -494,7 +494,7 @@ function AdminDashboardInner() {
               <CardContent>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between bg-white/70 rounded-lg px-3 py-2 border border-green-100">
-                    <div><p className="text-sm font-semibold text-gray-900">Total Bookings</p><p className="text-[10px] text-gray-500">Across all properties</p></div>
+                    <div><p className="text-sm font-semibold text-gray-900">Total Bookings</p><p className="text-[10px] text-gray-500">Across all services</p></div>
                     <span className="text-lg font-bold text-green-700">{stats?.totalBookings || 0}</span>
                   </div>
                   <div className="flex items-center justify-between bg-white/70 rounded-lg px-3 py-2 border border-green-100">

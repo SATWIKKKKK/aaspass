@@ -74,17 +74,17 @@ export default function AllPropertiesPage() {
     fetch("/api/properties?owner=me&limit=100")
       .then((r) => r.json())
       .then((data) => setProperties(data.properties || []))
-      .catch(() => toast.error("Failed to load properties"))
+      .catch(() => toast.error("Failed to load services"))
       .finally(() => setLoading(false));
   }, [status]);
 
   const handleDelete = async (slug: string) => {
-    if (!confirm("Are you sure you want to delete this property? This action cannot be undone.")) return;
+    if (!confirm("Are you sure you want to delete this service? This action cannot be undone.")) return;
     setDeleting(slug);
     try {
       const res = await fetch(`/api/properties/${slug}`, { method: "DELETE" });
       if (res.ok) {
-        toast.success("Property deleted");
+        toast.success("Service deleted");
         setProperties((prev) => prev.filter((p) => p.slug !== slug));
       } else {
         const data = await res.json();
@@ -108,10 +108,10 @@ export default function AllPropertiesPage() {
                 <ArrowLeft className="h-4 w-4" /> Dashboard
               </Link>
               <span className="text-gray-300">|</span>
-              <h1 className="text-lg font-bold text-gray-900">My Properties</h1>
+              <h1 className="text-lg font-bold text-gray-900">My Services</h1>
             </div>
             <Link href="/admin/properties/new">
-              <Button size="sm"><Plus className="h-4 w-4 mr-1" />Add Property</Button>
+              <Button size="sm"><Plus className="h-4 w-4 mr-1" />Add Service</Button>
             </Link>
           </div>
         </div>
@@ -133,9 +133,9 @@ export default function AllPropertiesPage() {
           <Card className="border-2 border-dashed border-gray-200">
             <CardContent className="p-16 text-center">
               <Building2 className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-              <h2 className="text-xl font-semibold text-gray-900">No properties yet</h2>
-              <p className="text-gray-500 mt-2 mb-6">Start by listing your first property</p>
-              <Link href="/admin/properties/new"><Button><Plus className="h-4 w-4 mr-2" />Add Property</Button></Link>
+              <h2 className="text-xl font-semibold text-gray-900">No services yet</h2>
+              <p className="text-gray-500 mt-2 mb-6">Start by listing your first service</p>
+              <Link href="/admin/properties/new"><Button><Plus className="h-4 w-4 mr-2" />Add Service</Button></Link>
             </CardContent>
           </Card>
         ) : (
@@ -147,7 +147,7 @@ export default function AllPropertiesPage() {
                   <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
                     <Plus className="h-8 w-8 text-primary" />
                   </div>
-                  <p className="font-semibold text-gray-900 text-lg">Add New Property</p>
+                  <p className="font-semibold text-gray-900 text-lg">Add New Service</p>
                   <p className="text-sm text-gray-500 mt-1">List another hostel, PG, gym...</p>
                 </CardContent>
               </Card>

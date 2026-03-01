@@ -139,7 +139,7 @@ export function Navbar({ variant = "public", showSearch = true, autoHide = false
   const dropdownItems: any[] = isOwner ? [
     { icon: User, label: "Personal Details", href: "/settings/profile" },
     { icon: LayoutDashboard, label: "Dashboard", href: "/admin/dashboard" },
-    { icon: Building2, label: "My Properties", href: "/admin/properties" },
+    { icon: Building2, label: "My Services", href: "/admin/properties" },
     { icon: Settings, label: "Settings", href: "/settings/edit" },
   ] : [
     { icon: User, label: "Personal Details", href: "/settings/profile" },

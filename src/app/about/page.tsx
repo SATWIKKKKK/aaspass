@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 
 const stats = [
   { label: "Cities", value: "50+" },
-  { label: "Properties", value: "10,000+" },
+  { label: "Services", value: "10,000+" },
   { label: "Students Served", value: "1,00,000+" },
   { label: "Happy Reviews", value: "50,000+" },
 ];
@@ -58,7 +58,7 @@ export default function AboutPage() {
               <h2 className="text-2xl font-bold text-gray-900">Our Values</h2>
             </div>
             <ul className="space-y-2 text-gray-600">
-              <li>• <strong>Trust:</strong> Every property is verified before listing</li>
+              <li>• <strong>Trust:</strong> Every service is verified before listing</li>
               <li>• <strong>Transparency:</strong> No hidden charges, clear pricing with GST</li>
               <li>• <strong>Quality:</strong> Rated and reviewed by real students</li>
               <li>• <strong>Support:</strong> 24/7 customer support for all users</li>

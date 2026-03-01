@@ -164,7 +164,7 @@ function CartPageInner() {
         <h1 className="text-3xl font-bold text-gray-900 mb-6 flex items-center gap-3"><ShoppingCart className="h-8 w-8 text-primary" /> Your Cart ({items.length})</h1>
 
         {items.length === 0 ? (
-          <Card><CardContent className="p-12 text-center"><ShoppingCart className="h-12 w-12 text-gray-300 mx-auto mb-4" /><h3 className="text-lg font-semibold text-gray-900 mb-2">Your cart is empty</h3><p className="text-gray-500 mb-4">Browse services to add properties</p><Link href="/services"><Button>Browse Services</Button></Link></CardContent></Card>
+          <Card><CardContent className="p-12 text-center"><ShoppingCart className="h-12 w-12 text-gray-300 mx-auto mb-4" /><h3 className="text-lg font-semibold text-gray-900 mb-2">Your cart is empty</h3><p className="text-gray-500 mb-4">Browse services to add to your cart</p><Link href="/services"><Button>Browse Services</Button></Link></CardContent></Card>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-4">
