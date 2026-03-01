@@ -54,6 +54,8 @@ export default function NewPropertyPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounter = useRef(0);
   const [pricingPlans, setPricingPlans] = useState<PlanEntry[]>([]);
+  const [customAmenities, setCustomAmenities] = useState<string[]>([]);
+  const [newAmenity, setNewAmenity] = useState("");
   const [form, setForm] = useState({
     name: "", serviceType: "HOSTEL" as ServiceTypeValue, description: "",
     price: "", gstRate: "18",
@@ -167,6 +169,7 @@ export default function NewPropertyPage() {
       if (form.capacity) body.capacity = parseInt(form.capacity);
       if (form.availableRooms) body.availableRooms = parseInt(form.availableRooms);
       if (form.closingTime) body.closingTime = form.closingTime;
+      if (customAmenities.length > 0) body.customAmenities = customAmenities;
 
       const validMedia = media.filter((m) => (m.url?.trim() || m.previewUrl?.trim()));
       if (validMedia.length > 0) body.images = validMedia.filter((m) => m.type === "image").map((m) => ({ url: m.url?.trim() || m.previewUrl, isWideShot: m.isWideShot }));
@@ -187,7 +190,7 @@ export default function NewPropertyPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navbar variant="minimal-admin" showNavLinks={false} showSearch={false} preserveProfileRight />
+      <Navbar variant="minimal-admin" showNavLinks={false} showSearch={false} />
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Link href="/admin/dashboard" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-primary mb-4"><ChevronLeft className="h-4 w-4" /> Back to Dashboard</Link>
         <h1 className="text-2xl font-bold text-gray-900 mb-2">List New Property</h1>
@@ -227,8 +230,8 @@ export default function NewPropertyPage() {
               </div>
               <div><Label>Occupancy (sharing)</Label><Input type="number" placeholder="2" value={form.occupancy} onChange={update("occupancy")} /></div>
               <div className="grid grid-cols-2 gap-4">
-                <div><Label>Total Capacity (rooms/seats)</Label><Input type="number" placeholder="50" value={form.capacity} onChange={update("capacity")} /></div>
-                <div><Label>Available Rooms/Seats</Label><Input type="number" placeholder="10" value={form.availableRooms} onChange={update("availableRooms")} /></div>
+                <div><Label>Total Capacity</Label><Input type="number" placeholder="50" value={form.capacity} onChange={update("capacity")} /></div>
+                <div><Label>Available Seats</Label><Input type="number" placeholder="10" value={form.availableRooms} onChange={update("availableRooms")} /></div>
               </div>
 
               {/* ── Duration-Based Pricing Plans ── */}
@@ -307,6 +310,61 @@ export default function NewPropertyPage() {
                   </label>
                 ))}
               </div>
+
+              {/* Custom Amenities */}
+              <div className="border-t border-gray-200 pt-4 mt-4">
+                <Label className="mb-2 block text-sm font-semibold">Custom Amenities</Label>
+                <p className="text-xs text-gray-400 mb-3">Add any additional amenities not listed above.</p>
+                <div className="flex gap-2 mb-3">
+                  <Input
+                    placeholder="e.g. Swimming Pool, Parking, CCTV..."
+                    value={newAmenity}
+                    onChange={(e) => setNewAmenity(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        const val = newAmenity.trim();
+                        if (val && !customAmenities.includes(val)) {
+                          setCustomAmenities((prev) => [...prev, val]);
+                          setNewAmenity("");
+                        }
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      const val = newAmenity.trim();
+                      if (val && !customAmenities.includes(val)) {
+                        setCustomAmenities((prev) => [...prev, val]);
+                        setNewAmenity("");
+                      }
+                    }}
+                    disabled={!newAmenity.trim()}
+                  >
+                    <Plus className="h-4 w-4 mr-1" /> Add
+                  </Button>
+                </div>
+                {customAmenities.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {customAmenities.map((amenity, idx) => (
+                      <span key={idx} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary rounded-full text-sm font-medium">
+                        <Check className="h-3.5 w-3.5" />
+                        {amenity}
+                        <button
+                          type="button"
+                          onClick={() => setCustomAmenities((prev) => prev.filter((_, i) => i !== idx))}
+                          className="ml-0.5 hover:text-red-500 transition-colors"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {form.foodIncluded && <div><Label>Food Rating (1-5)</Label><Input type="number" min="1" max="5" placeholder="4" value={form.foodRating} onChange={update("foodRating")} /></div>}
               <div className="grid grid-cols-2 gap-4">
                 <div><Label>Nearby Mess</Label><Input placeholder="Swaad Mess, 200m" value={form.nearbyMess} onChange={update("nearbyMess")} /></div>

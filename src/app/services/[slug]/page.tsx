@@ -36,6 +36,8 @@ interface PropertyData {
   foodIncluded: boolean; laundryIncluded: boolean; foodRating: number | null;
   hasMedical: boolean; nearbyMess: string | null; nearbyLaundry: string | null;
   cancellationPolicy: string | null; rules: string | null;
+  customAmenities: string[];
+  capacity: number | null; availableRooms: number | null;
   avgRating: number; totalReviews: number;
   images: { url: string; isWideShot: boolean }[];
   owner: { name: string; phone: string | null };
@@ -73,29 +75,39 @@ export default function PropertyPage() {
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [showReviewRestriction, setShowReviewRestriction] = useState(false);
 
-  // Load wishlist from localStorage
+  // Load wishlist from DB
   useEffect(() => {
-    try {
-      const wishlist = JSON.parse(localStorage.getItem("aaspass_wishlist") || "[]");
-      if (wishlist.includes(params.slug)) setSaved(true);
-    } catch {}
-  }, [params.slug]);
+    if (!session) return;
+    fetch(`/api/wishlist`)
+      .then((r) => r.json())
+      .then((data) => {
+        const inWishlist = (data.items || []).some((item: any) => item.property?.slug === params.slug);
+        if (inWishlist) setSaved(true);
+      })
+      .catch(() => {});
+  }, [params.slug, session]);
 
-  const toggleSave = () => {
+  const toggleSave = async () => {
+    if (!session) { router.push("/login"); return; }
+    if (!property) return;
     try {
-      const wishlist: string[] = JSON.parse(localStorage.getItem("aaspass_wishlist") || "[]");
-      const slug = params.slug as string;
-      if (wishlist.includes(slug)) {
-        localStorage.setItem("aaspass_wishlist", JSON.stringify(wishlist.filter((s) => s !== slug)));
-        setSaved(false);
-        toast.success("Removed from wishlist");
+      if (saved) {
+        const res = await fetch(`/api/wishlist?propertyId=${property.id}`, { method: "DELETE" });
+        if (res.ok) { setSaved(false); toast.success("Removed from wishlist"); }
       } else {
-        wishlist.unshift(slug);
-        localStorage.setItem("aaspass_wishlist", JSON.stringify(wishlist.slice(0, 50)));
-        setSaved(true);
-        toast.success("Saved to wishlist");
+        const res = await fetch("/api/wishlist", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ propertyId: property.id }),
+        });
+        if (res.ok) { setSaved(true); toast.success("Saved to wishlist"); }
+        else {
+          const data = await res.json();
+          if (res.status === 409) { setSaved(true); toast.success("Already in wishlist"); }
+          else toast.error(data.error || "Failed to save");
+        }
       }
-    } catch {}
+    } catch { toast.error("Failed to update wishlist"); }
   };
 
   const handleShare = async (method: "copy" | "whatsapp" | "native") => {
@@ -420,6 +432,9 @@ export default function PropertyPage() {
                 {property.laundryIncluded && <div className="flex items-center gap-2 p-3 bg-teal-50 rounded-lg"><Shirt className="h-5 w-5 text-teal-600" /><span className="text-sm font-medium text-teal-800">Laundry Included</span></div>}
                 {property.hasMedical && <div className="flex items-center gap-2 p-3 bg-red-50 rounded-lg"><ShieldCheck className="h-5 w-5 text-red-600" /><span className="text-sm font-medium text-red-800">Medical Facility</span></div>}
                 {property.occupancy && <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg"><Users className="h-5 w-5 text-gray-600" /><span className="text-sm font-medium text-gray-800">{property.occupancy}-Sharing Room</span></div>}
+                {property.customAmenities?.map((amenity, i) => (
+                  <div key={`custom-${i}`} className="flex items-center gap-2 p-3 bg-purple-50 rounded-lg"><CheckCircle2 className="h-5 w-5 text-purple-600" /><span className="text-sm font-medium text-purple-800">{amenity}</span></div>
+                ))}
               </div>
             </div>
 
@@ -505,6 +520,34 @@ export default function PropertyPage() {
           {/* Right Sidebar */}
           <div className="lg:col-span-1">
             <div className="sticky top-20 space-y-4">
+              {/* Availability Badge */}
+              {property.availableRooms != null && (
+                <div className={cn(
+                  "rounded-xl p-4 border-2 text-center",
+                  property.availableRooms <= 10
+                    ? "bg-red-50 border-red-200"
+                    : property.availableRooms <= 20
+                    ? "bg-yellow-50 border-yellow-200"
+                    : "bg-green-50 border-green-200"
+                )}>
+                  <p className={cn(
+                    "text-2xl font-bold",
+                    property.availableRooms <= 10 ? "text-red-700" : property.availableRooms <= 20 ? "text-yellow-700" : "text-green-700"
+                  )}>
+                    {property.availableRooms}
+                  </p>
+                  <p className={cn(
+                    "text-sm font-medium",
+                    property.availableRooms <= 10 ? "text-red-600" : property.availableRooms <= 20 ? "text-yellow-600" : "text-green-600"
+                  )}>
+                    Seat{property.availableRooms !== 1 ? "s" : ""} Available{property.capacity ? ` out of ${property.capacity}` : ""}
+                  </p>
+                  {property.availableRooms <= 10 && (
+                    <p className="text-xs text-red-500 mt-1 font-medium">Filling up fast!</p>
+                  )}
+                </div>
+              )}
+
               <Card className="shadow-lg"><CardContent className="p-6 space-y-4">
                 {/* Pricing — show plans if available, else legacy */}
                 {property.pricingPlans && property.pricingPlans.length > 0 ? (

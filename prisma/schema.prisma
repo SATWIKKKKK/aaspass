@@ -61,6 +61,7 @@ model User {
   chatMessages    ChatMessage[]
   coupons         UserCoupon[]
   cart            CartItem[]
+  wishlist        Wishlist[]
   announcements   Announcement[]
   paymentLogs     PaymentLog[]
 
@@ -160,6 +161,7 @@ model Property {
   hasMedical        Boolean        @default(false)
   nearbyMess        String?
   nearbyLaundry     String?
+  customAmenities   String[]       @default([])
 
   // Capacity
   capacity          Int?           // Total capacity (rooms/seats)
@@ -191,6 +193,7 @@ model Property {
   complaints        Complaint[]
   announcements     Announcement[]
   cartItems         CartItem[]
+  wishlistItems     Wishlist[]
   pricingPlans      PricingPlan[]
 
   // Ratings (cached)
@@ -454,4 +457,21 @@ model CartItem {
 
   @@unique([userId, propertyId])
   @@map("cart_items")
+}
+
+// ==================== WISHLIST ====================
+
+model Wishlist {
+  id         String   @id @default(cuid())
+  userId     String
+  propertyId String
+
+  user       User     @relation(fields: [userId], references: [id])
+  property   Property @relation(fields: [propertyId], references: [id])
+
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, propertyId])
+  @@index([userId])
+  @@map("wishlists")
 }

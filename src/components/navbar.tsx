@@ -7,7 +7,7 @@ import { useSession, signOut } from "next-auth/react";
 import {
   Search, ShoppingCart, Bell, X, Crown, User, Settings,
   LogOut, ChevronDown, LayoutDashboard,
-  Building2, Bot, ArrowLeft, Sparkles,
+  Building2, Bot, ArrowLeft, Sparkles, Heart,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +19,6 @@ interface NavbarProps {
   showNavLinks?: boolean;
   autoHide?: boolean;
   onPremiumClick?: () => void;
-  preserveProfileRight?: boolean;
 }
 
 interface SearchResult {
@@ -248,7 +247,7 @@ export function Navbar({ variant = "public", showSearch = true, autoHide = false
             )}
 
             {/* Right side icons — ALL visible on ALL devices */}
-            <div className={cn("flex items-center gap-0.5 sm:gap-1 shrink-0 ml-auto", preserveProfileRight ? "" : "sm:ml-0")}>
+            <div className={cn("flex items-center gap-0.5 sm:gap-1 shrink-0", showSearch ? "ml-auto sm:ml-0" : "ml-auto")}>
 
               {/* Notifications */}
               {session && (
@@ -263,6 +262,13 @@ export function Navbar({ variant = "public", showSearch = true, autoHide = false
               )}
 
               {/* Cart — students only */}
+              {session && isStudent && (
+                <Link href="/wishlist" className="relative p-2 rounded-xl hover:bg-gray-100 transition" title="Wishlist">
+                  <Heart className="w-5 h-5 text-gray-600" />
+                </Link>
+              )}
+
+              {/* Cart icon — students only */}
               {session && isStudent && (
                 <Link href="/cart" className="relative p-2 rounded-xl hover:bg-gray-100 transition">
                   <ShoppingCart className="w-5 h-5 text-gray-600" />

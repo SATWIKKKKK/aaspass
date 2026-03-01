@@ -31,6 +31,8 @@ interface Property {
   isAC: boolean; hasWifi: boolean; forGender: string | null;
   foodIncluded: boolean; laundryIncluded: boolean; occupancy: number | null;
   cancellationPolicy: string | null; hasMedical: boolean; nearbyLandmark: string | null;
+  capacity: number | null; availableRooms: number | null;
+  customAmenities: string[];
   images: { url: string; isWideShot: boolean }[];
 }
 
@@ -652,10 +654,14 @@ function ServicesContent() {
         ) : (
           <div className="space-y-5">
             {filtered.map((property) => (
-              <Card key={property.id} className="overflow-hidden hover:shadow-lg transition-all">
+              <Card
+                key={property.id}
+                className="overflow-hidden hover:shadow-lg transition-all cursor-pointer"
+                onClick={() => router.push(`/services/${property.slug}${checkIn || checkOut ? `?from=${checkIn}&to=${checkOut}` : ''}`)}
+              >
                 <div className="flex flex-col md:flex-row">
                   {/* Left: Images */}
-                  <div className="md:w-80 lg:w-96 h-56 md:h-auto bg-gray-100 shrink-0 relative">
+                  <div className="md:w-80 lg:w-96 h-56 md:h-auto bg-gray-100 shrink-0 relative" onClick={(e) => e.stopPropagation()}>
                     <ImageCarousel images={property.images} name={property.name} />
                   </div>
 
@@ -665,7 +671,7 @@ function ServicesContent() {
                       <div className="flex-1 min-w-0">
                         {/* Name + type badge */}
                         <div className="flex items-center gap-2 flex-wrap">
-                          <Link href={`/services/${property.slug}${checkIn || checkOut ? `?from=${checkIn}&to=${checkOut}` : ''}`}><h3 className="font-bold text-lg text-gray-900 hover:text-primary transition-colors">{property.name}</h3></Link>
+                          <h3 className="font-bold text-lg text-gray-900">{property.name}</h3>
                           <Badge variant="outline" className="text-xs">{SERVICE_TYPES.find((s) => s.value === property.serviceType)?.label || property.serviceType}</Badge>
                         </div>
 
@@ -693,6 +699,26 @@ function ServicesContent() {
 
                         {/* Nearby landmark */}
                         {property.nearbyLandmark && <p className="text-xs text-gray-500 mt-2 flex items-center gap-1"><MapPin className="h-3 w-3" /> Near {property.nearbyLandmark}</p>}
+
+                        {/* Availability */}
+                        {property.availableRooms != null && (
+                          <div className="mt-2">
+                            <span className={cn(
+                              "inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full",
+                              property.availableRooms <= 10
+                                ? "bg-red-50 text-red-700 border border-red-200"
+                                : property.availableRooms <= 20
+                                ? "bg-yellow-50 text-yellow-700 border border-yellow-200"
+                                : "bg-green-50 text-green-700 border border-green-200"
+                            )}>
+                              <span className={cn(
+                                "h-1.5 w-1.5 rounded-full",
+                                property.availableRooms <= 10 ? "bg-red-500" : property.availableRooms <= 20 ? "bg-yellow-500" : "bg-green-500"
+                              )} />
+                              {property.availableRooms} seat{property.availableRooms !== 1 ? "s" : ""} available{property.capacity ? ` / ${property.capacity} total` : ""}
+                            </span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Price + Actions (right corner) */}
@@ -709,10 +735,9 @@ function ServicesContent() {
                           );
                         })()}
 
-                        <div className="mt-3 space-y-2 lg:space-y-3">
-                          <Link href={`/services/${property.slug}${checkIn || checkOut ? `?from=${checkIn}&to=${checkOut}` : ''}`}><Button size="sm" variant="outline" className="w-full text-xs lg:text-sm lg:h-9">View More</Button></Link>
+                        <div className="mt-3 space-y-2 lg:space-y-3" onClick={(e) => e.stopPropagation()}>
                           <Link href={`/services/${property.slug}${checkIn || checkOut ? `?from=${checkIn}&to=${checkOut}` : ''}`}><Button size="sm" className="w-full text-xs lg:text-sm lg:h-9">Book Now</Button></Link>
-                          <Button size="sm" variant="outline" className="w-full text-xs lg:text-sm lg:h-9" disabled={addingToCart === property.id} onClick={() => addToCart(property)}>
+                          <Button size="sm" variant="outline" className="w-full text-xs lg:text-sm lg:h-9" disabled={addingToCart === property.id} onClick={(e) => { e.stopPropagation(); addToCart(property); }}>
                             {addingToCart === property.id ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <ShoppingCart className="h-3.5 w-3.5 mr-1" />} Cart
                           </Button>
                         </div>
