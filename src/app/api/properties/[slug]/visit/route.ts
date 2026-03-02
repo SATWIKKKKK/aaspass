@@ -31,6 +31,19 @@ export async function POST(
     const sessionToken = body.sessionToken || null;
     const userAgent = req.headers.get("user-agent") || null;
 
+    // Always log append-only CLICK engagement event (no dedup — every click counts)
+    const month = new Date().toISOString().slice(0, 7); // "2025-01"
+    await prisma.engagementEvent.create({
+      data: {
+        propertyId: property.id,
+        eventType: "CLICK",
+        userId,
+        guestToken: sessionToken,
+        ipAddress,
+        month,
+      },
+    });
+
     // Deduplication: For logged-in users, limit to 1 visit per user per property per hour
     // For guests, limit by IP + sessionToken per hour
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
@@ -60,7 +73,7 @@ export async function POST(
       }
     }
 
-    // Record visit
+    // Record visit (deduplicated — for unique visitor analytics)
     await prisma.propertyVisit.create({
       data: {
         propertyId: property.id,

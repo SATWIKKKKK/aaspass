@@ -204,6 +204,7 @@ model Property {
   // Relations
   visits            PropertyVisit[]
   serviceStudents   ServiceStudent[]
+  engagementEvents  EngagementEvent[]
 
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
@@ -480,6 +481,34 @@ model Wishlist {
   @@unique([userId, propertyId])
   @@index([userId])
   @@map("wishlists")
+}
+
+// ==================== ENGAGEMENT EVENTS ====================
+
+enum EngagementEventType {
+  CLICK
+  WISHLIST_ADD
+  CART_ADD
+}
+
+model EngagementEvent {
+  id          String              @id @default(cuid())
+  propertyId  String
+  eventType   EngagementEventType
+  userId      String?             // null for guests
+  guestToken  String?             // anonymous visitor token
+  ipAddress   String?
+  month       String              // "2025-01" for fast monthly aggregation
+
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+
+  @@index([propertyId])
+  @@index([propertyId, eventType])
+  @@index([propertyId, month])
+  @@index([propertyId, eventType, month])
+  @@map("engagement_events")
 }
 
 // ==================== PROPERTY VISITS ====================

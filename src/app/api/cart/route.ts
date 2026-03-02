@@ -46,6 +46,16 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // Log append-only CART_ADD engagement event
+    await prisma.engagementEvent.create({
+      data: {
+        propertyId,
+        eventType: "CART_ADD",
+        userId: session.user.id!,
+        month: new Date().toISOString().slice(0, 7),
+      },
+    });
+
     return NextResponse.json({ item }, { status: 201 });
   } catch (error) {
     console.error("POST /api/cart error:", error);

@@ -9,7 +9,8 @@ import {
   Plus, ChevronDown, ChevronLeft, ChevronRight, Loader2,
   Settings, LogOut, LayoutDashboard, Building2, Pencil, BarChart3,
   Megaphone, Send, MapPin, Star, X, Eye, TrendingUp, ArrowRight,
-  Ticket, Users, DollarSign, User, Calendar, CheckCircle, XCircle, Phone, Mail,
+  Ticket, Users, User, Calendar, CheckCircle, XCircle, Phone, Mail,
+  MousePointerClick, Heart, ShoppingCart,
 } from "lucide-react";
 import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,15 @@ interface OwnerStats {
   totalComplaints: number; openComplaints: number;
   totalAnnouncements: number;
   monthlyRevenue: { month: string; revenue: number; bookings: number }[];
+}
+
+interface MonthlyVisibility {
+  month: string; label: string;
+  clicks: number; uniqueVisitors: number; wishlistAdds: number; cartAdds: number;
+}
+interface VisibilityStats {
+  allTime: { totalClicks: number; uniqueVisitors: number; wishlistAdds: number; cartAdds: number; };
+  monthly: MonthlyVisibility[];
 }
 
 interface OwnerBooking {
@@ -144,6 +154,66 @@ function AnnouncementModal({ open, onClose, property }: {
   );
 }
 
+/* ═══════════════════ VISIBILITY CHART ═══════════════════ */
+function VisibilityChart({ monthly }: { monthly: MonthlyVisibility[] }) {
+  const metrics: { key: keyof MonthlyVisibility; label: string; color: string }[] = [
+    { key: "clicks",         label: "Clicks",        color: "#3b82f6" },
+    { key: "uniqueVisitors", label: "Unique",         color: "#8b5cf6" },
+    { key: "wishlistAdds",   label: "Wishlisted",     color: "#f43f5e" },
+    { key: "cartAdds",       label: "Cart",           color: "#f97316" },
+  ];
+
+  const maxVal = Math.max(
+    1,
+    ...monthly.flatMap((m) => metrics.map((mt) => (m[mt.key] as number) ?? 0))
+  );
+  const BAR_H = 140; // max bar height in px
+
+  const currentMonth = new Date().toISOString().slice(0, 7);
+
+  return (
+    <div className="overflow-x-auto -mx-1 px-1 pb-2">
+      <div className="flex items-end gap-3 min-w-max">
+        {monthly.map((m) => {
+          const isCurrent = m.month === currentMonth;
+          return (
+            <div key={m.month} className={cn(
+              "flex flex-col items-center gap-1 px-2 pb-1 rounded-xl transition-colors",
+              isCurrent ? "bg-primary/5 ring-1 ring-primary/20" : "hover:bg-gray-50"
+            )}>
+              {/* Bars */}
+              <div className="flex items-end gap-0.5" style={{ height: BAR_H }}>
+                {metrics.map((mt) => {
+                  const val = (m[mt.key] as number) ?? 0;
+                  const h = Math.max(2, Math.round((val / maxVal) * BAR_H));
+                  return (
+                    <div
+                      key={mt.key}
+                      title={`${mt.label}: ${val}`}
+                      className="w-4 rounded-t-sm cursor-default transition-all hover:opacity-80"
+                      style={{ height: h, backgroundColor: mt.color }}
+                    />
+                  );
+                })}
+              </div>
+              {/* Values on hover / label */}
+              <span className={cn(
+                "text-[10px] whitespace-nowrap font-medium",
+                isCurrent ? "text-primary" : "text-gray-400"
+              )}>
+                {m.label}
+              </span>
+              {isCurrent && (
+                <span className="text-[8px] bg-primary text-white rounded-full px-1.5 py-0.5 font-bold leading-none">NOW</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /* ═══════════════════ MAIN DASHBOARD ═══════════════════ */
 function AdminDashboardInner() {
   const { data: session, status } = useSession();
@@ -155,6 +225,7 @@ function AdminDashboardInner() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [announceProp, setAnnounceProp] = useState<PropertyData | null>(null);
   const [updatingBooking, setUpdatingBooking] = useState<string | null>(null);
+  const [visibilityStats, setVisibilityStats] = useState<VisibilityStats | null>(null);
 
   const userName = session?.user?.name ? session.user.name.split(" ")[0] : "Owner";
 
@@ -166,10 +237,12 @@ function AdminDashboardInner() {
       fetch("/api/properties?owner=me").then((r) => r.json()),
       fetch("/api/owner/stats").then((r) => r.json()),
       fetch("/api/bookings").then((r) => r.json()),
-    ]).then(([propData, statsData, bookingsData]) => {
+      fetch("/api/owner/visibility-stats").then((r) => r.json()),
+    ]).then(([propData, statsData, bookingsData, visData]) => {
       setProperties(propData.properties || []);
       if (!statsData.error) setStats(statsData);
       setOwnerBookings(bookingsData.bookings || []);
+      if (!visData.error) setVisibilityStats(visData);
     }).catch(() => toast.error("Failed to load data"))
       .finally(() => setLoading(false));
   }, [status]);
@@ -470,8 +543,8 @@ function AdminDashboardInner() {
                     <p className="text-xs text-gray-500">Services</p>
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-green-700">{formatPrice(stats?.totalRevenue || 0)}</p>
-                    <p className="text-xs text-gray-500">Revenue</p>
+                    <p className="text-2xl font-bold text-green-700">{stats?.totalReviews || 0}</p>
+                    <p className="text-xs text-gray-500">Total Reviews</p>
                   </div>
                   <div>
                     <p className="text-2xl font-bold text-purple-700">{stats?.activeBookings || 0}</p>
@@ -533,6 +606,120 @@ function AdminDashboardInner() {
               </CardContent>
             </Card>
           </div>
+        </section>
+
+        {/* ═══ VISIBILITY PERFORMANCE ═══ */}
+        <section className="mb-12">
+          <div className="mb-6">
+            <h3 className="text-xl font-bold text-gray-900">Your Visibility Performance</h3>
+            <p className="text-sm text-gray-500 mt-1">How AasPass is growing your reach — all counts are permanent and never decrease</p>
+          </div>
+
+          {/* Metric cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            {/* Total Clicks */}
+            <Card className="bg-linear-to-br from-blue-50 to-blue-100 border-blue-200">
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="h-9 w-9 rounded-xl bg-blue-200 flex items-center justify-center">
+                    <MousePointerClick className="h-5 w-5 text-blue-700" />
+                  </div>
+                  <span className="text-[10px] font-medium text-blue-500 border border-blue-200 rounded-full px-2 py-0.5 bg-white/70">
+                    {visibilityStats?.monthly.at(-1)?.clicks ?? 0} this month
+                  </span>
+                </div>
+                <p className="text-3xl font-black text-blue-700">
+                  {(visibilityStats?.allTime.totalClicks ?? 0).toLocaleString()}
+                </p>
+                <p className="text-xs font-semibold text-blue-600 mt-1">Total Clicks</p>
+                <p className="text-[10px] text-gray-400 mt-0.5">Every page open counts</p>
+              </CardContent>
+            </Card>
+
+            {/* Unique Visitors */}
+            <Card className="bg-linear-to-br from-purple-50 to-purple-100 border-purple-200">
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="h-9 w-9 rounded-xl bg-purple-200 flex items-center justify-center">
+                    <Users className="h-5 w-5 text-purple-700" />
+                  </div>
+                  <span className="text-[10px] font-medium text-purple-500 border border-purple-200 rounded-full px-2 py-0.5 bg-white/70">
+                    {visibilityStats?.monthly.at(-1)?.uniqueVisitors ?? 0} this month
+                  </span>
+                </div>
+                <p className="text-3xl font-black text-purple-700">
+                  {(visibilityStats?.allTime.uniqueVisitors ?? 0).toLocaleString()}
+                </p>
+                <p className="text-xs font-semibold text-purple-600 mt-1">Unique Visitors</p>
+                <p className="text-[10px] text-gray-400 mt-0.5">Distinct users &amp; guests</p>
+              </CardContent>
+            </Card>
+
+            {/* Wishlist Adds */}
+            <Card className="bg-linear-to-br from-rose-50 to-rose-100 border-rose-200">
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="h-9 w-9 rounded-xl bg-rose-200 flex items-center justify-center">
+                    <Heart className="h-5 w-5 text-rose-700" />
+                  </div>
+                  <span className="text-[10px] font-medium text-rose-500 border border-rose-200 rounded-full px-2 py-0.5 bg-white/70">
+                    {visibilityStats?.monthly.at(-1)?.wishlistAdds ?? 0} this month
+                  </span>
+                </div>
+                <p className="text-3xl font-black text-rose-700">
+                  {(visibilityStats?.allTime.wishlistAdds ?? 0).toLocaleString()}
+                </p>
+                <p className="text-xs font-semibold text-rose-600 mt-1">Wishlisted</p>
+                <p className="text-[10px] text-gray-400 mt-0.5">Even if later removed</p>
+              </CardContent>
+            </Card>
+
+            {/* Cart Adds */}
+            <Card className="bg-linear-to-br from-orange-50 to-orange-100 border-orange-200">
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="h-9 w-9 rounded-xl bg-orange-200 flex items-center justify-center">
+                    <ShoppingCart className="h-5 w-5 text-orange-700" />
+                  </div>
+                  <span className="text-[10px] font-medium text-orange-500 border border-orange-200 rounded-full px-2 py-0.5 bg-white/70">
+                    {visibilityStats?.monthly.at(-1)?.cartAdds ?? 0} this month
+                  </span>
+                </div>
+                <p className="text-3xl font-black text-orange-700">
+                  {(visibilityStats?.allTime.cartAdds ?? 0).toLocaleString()}
+                </p>
+                <p className="text-xs font-semibold text-orange-600 mt-1">Added to Cart</p>
+                <p className="text-[10px] text-gray-400 mt-0.5">Even if never booked</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Monthly Trend Chart */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <BarChart3 className="h-4 w-4 text-gray-500" />
+                Monthly Trend — Last 12 Months
+              </CardTitle>
+              <CardDescription>
+                <span className="inline-flex items-center gap-3 flex-wrap text-xs">
+                  <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-blue-500" />Clicks</span>
+                  <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-purple-500" />Unique Visitors</span>
+                  <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-rose-500" />Wishlisted</span>
+                  <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm bg-orange-500" />Cart Adds</span>
+                </span>
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {visibilityStats?.monthly && visibilityStats.monthly.length > 0 ? (
+                <VisibilityChart monthly={visibilityStats.monthly} />
+              ) : (
+                <div className="h-40 flex items-center justify-center text-gray-400 text-sm">
+                  No engagement data yet — share your services to start tracking
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </section>
       </div>
 
