@@ -612,7 +612,7 @@ function AdminDashboardInner() {
         <section className="mb-12">
           <div className="mb-6">
             <h3 className="text-xl font-bold text-gray-900">Your Visibility Performance</h3>
-            <p className="text-sm text-gray-500 mt-1">How AasPass is growing your reach — all counts are permanent and never decrease</p>
+          
           </div>
 
           {/* Metric cards */}
@@ -632,7 +632,7 @@ function AdminDashboardInner() {
                   {(visibilityStats?.allTime.totalClicks ?? 0).toLocaleString()}
                 </p>
                 <p className="text-xs font-semibold text-blue-600 mt-1">Total Clicks</p>
-                <p className="text-[10px] text-gray-400 mt-0.5">Every page open counts</p>
+               
               </CardContent>
             </Card>
 
@@ -651,7 +651,7 @@ function AdminDashboardInner() {
                   {(visibilityStats?.allTime.uniqueVisitors ?? 0).toLocaleString()}
                 </p>
                 <p className="text-xs font-semibold text-purple-600 mt-1">Unique Visitors</p>
-                <p className="text-[10px] text-gray-400 mt-0.5">Distinct users &amp; guests</p>
+               
               </CardContent>
             </Card>
 
@@ -670,7 +670,7 @@ function AdminDashboardInner() {
                   {(visibilityStats?.allTime.wishlistAdds ?? 0).toLocaleString()}
                 </p>
                 <p className="text-xs font-semibold text-rose-600 mt-1">Wishlisted</p>
-                <p className="text-[10px] text-gray-400 mt-0.5">Even if later removed</p>
+               
               </CardContent>
             </Card>
 
@@ -689,7 +689,7 @@ function AdminDashboardInner() {
                   {(visibilityStats?.allTime.cartAdds ?? 0).toLocaleString()}
                 </p>
                 <p className="text-xs font-semibold text-orange-600 mt-1">Added to Cart</p>
-                <p className="text-[10px] text-gray-400 mt-0.5">Even if never booked</p>
+              
               </CardContent>
             </Card>
           </div>
