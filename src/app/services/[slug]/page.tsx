@@ -1,14 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import {
   MapPin, Star, Wifi, Wind, Utensils, Shirt, ShieldCheck, Users, Phone, MessageSquare,
-  Share2, Heart, ChevronLeft, ShoppingCart, Building2, Navigation,
-  CheckCircle2, AlertCircle, Loader2, Copy, BadgeCheck, ExternalLink, Eye,
+  Share2, Heart, ChevronLeft, ChevronRight, ShoppingCart, Building2, Navigation,
+  CheckCircle2, AlertCircle, Loader2, Copy, BadgeCheck, ExternalLink, Eye, X, Maximize2, Images,
 } from "lucide-react";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
@@ -75,6 +75,23 @@ export default function PropertyPage() {
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [showReviewRestriction, setShowReviewRestriction] = useState(false);
   const [isServiceStudent, setIsServiceStudent] = useState(false);
+  const [carouselIdx, setCarouselIdx] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIdx, setLightboxIdx] = useState(0);
+  const touchStartX = useRef<number | null>(null);
+
+  // Lightbox keyboard navigation
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    const imgs = property?.images ?? [];
+    const handle = (e: KeyboardEvent) => {
+      if (e.key === "ArrowRight") setLightboxIdx((i) => (i + 1) % imgs.length);
+      else if (e.key === "ArrowLeft") setLightboxIdx((i) => (i - 1 + imgs.length) % imgs.length);
+      else if (e.key === "Escape") setLightboxOpen(false);
+    };
+    window.addEventListener("keydown", handle);
+    return () => window.removeEventListener("keydown", handle);
+  }, [lightboxOpen, property?.images]);
 
   // Load wishlist from DB
   useEffect(() => {
@@ -370,30 +387,129 @@ export default function PropertyPage() {
         </Link>
       </div>
 
-      {/* Image Gallery */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 rounded-2xl overflow-hidden">
-          <div className="md:col-span-2 md:row-span-2 h-64 md:h-[400px] bg-gray-100">
-            {property.images?.[0]?.url ? (
-              <img src={property.images[0].url} alt={property.name} className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
-                <Building2 className="h-16 w-16 text-primary/30" />
-              </div>
-            )}
+      {/* ── LIGHTBOX ── */}
+      {lightboxOpen && property.images?.length > 0 && (
+        <div
+          className="fixed inset-0 z-200 bg-black/95 flex items-center justify-center"
+          onClick={() => setLightboxOpen(false)}
+          onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
+          onTouchEnd={(e) => {
+            if (touchStartX.current === null) return;
+            const dx = e.changedTouches[0].clientX - touchStartX.current;
+            if (Math.abs(dx) > 50) setLightboxIdx((i) => dx < 0 ? (i + 1) % property.images.length : (i - 1 + property.images.length) % property.images.length);
+            touchStartX.current = null;
+          }}
+        >
+          <button className="absolute top-4 right-4 z-10 h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors" onClick={() => setLightboxOpen(false)}>
+            <X className="h-5 w-5 text-white" />
+          </button>
+          <button className="absolute left-4 top-1/2 -translate-y-1/2 z-10 h-12 w-12 rounded-full bg-white/10 hover:bg-white/30 flex items-center justify-center transition-colors" onClick={(e) => { e.stopPropagation(); setLightboxIdx((i) => (i - 1 + property.images.length) % property.images.length); }}>
+            <ChevronLeft className="h-6 w-6 text-white" />
+          </button>
+          <div className="max-w-5xl max-h-screen w-full h-full flex items-center justify-center px-16 py-16" onClick={(e) => e.stopPropagation()}>
+            <img src={property.images[lightboxIdx].url} alt={`${property.name} photo ${lightboxIdx + 1}`} className="max-w-full max-h-full object-contain rounded-lg select-none" draggable={false} />
           </div>
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className={cn("h-48 bg-gray-100", i > 2 && "hidden md:block")}>
-              {property.images?.[i]?.url ? (
-                <img src={property.images[i].url} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-50 flex items-center justify-center">
-                  <Building2 className="h-8 w-8 text-gray-300" />
+          <button className="absolute right-4 top-1/2 -translate-y-1/2 z-10 h-12 w-12 rounded-full bg-white/10 hover:bg-white/30 flex items-center justify-center transition-colors" onClick={(e) => { e.stopPropagation(); setLightboxIdx((i) => (i + 1) % property.images.length); }}>
+            <ChevronRight className="h-6 w-6 text-white" />
+          </button>
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3">
+            <span className="text-white/70 text-sm">{lightboxIdx + 1} / {property.images.length}</span>
+            <div className="flex gap-1.5">
+              {property.images.map((_, i) => (
+                <button key={i} onClick={(e) => { e.stopPropagation(); setLightboxIdx(i); }}
+                  className={cn("rounded-full transition-all", i === lightboxIdx ? "h-2 w-6 bg-white" : "h-2 w-2 bg-white/40 hover:bg-white/70")} />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── IMAGE GALLERY (Carousel) ── */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div
+          className="relative rounded-2xl overflow-hidden bg-gray-100 h-64 md:h-110 group cursor-pointer"
+          onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
+          onTouchEnd={(e) => {
+            if (!property.images?.length || touchStartX.current === null) return;
+            const dx = e.changedTouches[0].clientX - touchStartX.current;
+            if (Math.abs(dx) > 50) setCarouselIdx((i) => dx < 0 ? (i + 1) % property.images.length : (i - 1 + property.images.length) % property.images.length);
+            touchStartX.current = null;
+          }}
+        >
+          {property.images?.length > 0 ? (
+            <>
+              <img
+                src={property.images[carouselIdx]?.url}
+                alt={`${property.name} photo ${carouselIdx + 1}`}
+                className="w-full h-full object-cover transition-opacity duration-300 select-none"
+                draggable={false}
+                onClick={() => { setLightboxIdx(carouselIdx); setLightboxOpen(true); }}
+              />
+              {/* Prev / Next arrows */}
+              {property.images.length > 1 && (
+                <>
+                  <button onClick={(e) => { e.stopPropagation(); setCarouselIdx((i) => (i - 1 + property.images.length) % property.images.length); }}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-white/80 hover:bg-white flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity">
+                    <ChevronLeft className="h-5 w-5 text-gray-700" />
+                  </button>
+                  <button onClick={(e) => { e.stopPropagation(); setCarouselIdx((i) => (i + 1) % property.images.length); }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 h-9 w-9 rounded-full bg-white/80 hover:bg-white flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity">
+                    <ChevronRight className="h-5 w-5 text-gray-700" />
+                  </button>
+                </>
+              )}
+              {/* Dot indicators */}
+              {property.images.length > 1 && (
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
+                  {property.images.map((_, i) => (
+                    <button key={i} onClick={(e) => { e.stopPropagation(); setCarouselIdx(i); }}
+                      className={cn("rounded-full transition-all", i === carouselIdx ? "h-2 w-6 bg-white shadow" : "h-2 w-2 bg-white/60 hover:bg-white/90")} />
+                  ))}
                 </div>
               )}
+              {/* Counter + View All Photos */}
+              <div className="absolute bottom-4 right-4 flex items-center gap-2">
+                <span className="bg-black/50 text-white text-xs font-medium px-2.5 py-1 rounded-full">{carouselIdx + 1} / {property.images.length}</span>
+                {property.images.length > 1 && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setLightboxIdx(carouselIdx); setLightboxOpen(true); }}
+                    className="bg-white/90 hover:bg-white text-gray-800 text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow transition-colors"
+                  >
+                    <Images className="h-3.5 w-3.5" /> All Photos
+                  </button>
+                )}
+              </div>
+              {/* Zoom hint */}
+              <button
+                onClick={(e) => { e.stopPropagation(); setLightboxIdx(carouselIdx); setLightboxOpen(true); }}
+                className="absolute top-4 right-4 h-9 w-9 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                title="View fullscreen"
+              >
+                <Maximize2 className="h-4 w-4 text-white" />
+              </button>
+            </>
+          ) : (
+            <div className="w-full h-full bg-linear-to-br from-primary/10 to-primary/5 flex flex-col items-center justify-center gap-3">
+              <Building2 className="h-16 w-16 text-primary/30" />
+              <p className="text-sm text-gray-400">No photos available</p>
             </div>
-          ))}
+          )}
         </div>
+        {/* Thumbnail strip */}
+        {property.images?.length > 1 && (
+          <div className="flex gap-2 mt-2 overflow-x-auto pb-1 scrollbar-hide">
+            {property.images.map((img, i) => (
+              <button
+                key={i}
+                onClick={() => setCarouselIdx(i)}
+                className={cn("shrink-0 h-16 w-24 rounded-lg overflow-hidden border-2 transition-all",
+                  i === carouselIdx ? "border-primary shadow-md" : "border-transparent opacity-60 hover:opacity-100")}
+              >
+                <img src={img.url} alt="" className="w-full h-full object-cover" />
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">

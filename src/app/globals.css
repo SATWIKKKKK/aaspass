@@ -244,3 +244,12 @@
 .animate-slide-in-right {
   animation: slideInRight 0.3s ease-out both;
 }
+
+/* Hide scrollbar utility */
+.scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

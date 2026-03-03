@@ -171,8 +171,8 @@ export default function NewPropertyPage() {
       if (form.closingTime) body.closingTime = form.closingTime;
       if (customAmenities.length > 0) body.customAmenities = customAmenities;
 
-      const validMedia = media.filter((m) => (m.url?.trim() || m.previewUrl?.trim()));
-      if (validMedia.length > 0) body.images = validMedia.filter((m) => m.type === "image").map((m) => ({ url: m.url?.trim() || m.previewUrl, isWideShot: m.isWideShot }));
+      const validMedia = media.filter((m) => m.url?.trim() && !m.url.startsWith("blob:"));
+      if (validMedia.length > 0) body.images = validMedia.filter((m) => m.type === "image").map((m) => ({ url: m.url!.trim(), isWideShot: m.isWideShot }));
       if (validPlans.length > 0) body.pricingPlans = validPlans.map((p) => ({ label: p.label, durationDays: p.durationDays, price: p.price, isActive: p.isActive }));
 
       const res = await fetch("/api/properties", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -273,10 +273,7 @@ export default function NewPropertyPage() {
                 <div><Label>Latitude</Label><Input type="number" step="any" placeholder="20.2961" value={form.latitude} onChange={update("latitude")} /></div>
                 <div><Label>Longitude</Label><Input type="number" step="any" placeholder="85.8245" value={form.longitude} onChange={update("longitude")} /></div>
               </div>
-              <Button type="button" variant="outline" size="sm" disabled={geocoding || (!form.address && !form.city)} onClick={doGeocode}>
-                {geocoding ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <LocateFixed className="h-3.5 w-3.5 mr-1" />}
-                Auto-detect coordinates from address
-              </Button>
+              
               <div>
                 <Label className="mb-2 block">Pin Location on Map <span className="text-xs text-gray-400">(click to set coordinates)</span></Label>
                 <GoogleMap

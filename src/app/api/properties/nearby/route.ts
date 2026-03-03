@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {
-      status: "VERIFIED",
+      status: { in: ["VERIFIED", "PENDING"] },
       latitude: { not: null, gte: lat - latDelta, lte: lat + latDelta },
       longitude: { not: null, gte: lng - lngDelta, lte: lng + lngDelta },
     };

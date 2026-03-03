@@ -192,8 +192,9 @@ function SeatUpdateModal({ open, onClose, property, onUpdate }: {
         method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ availableRooms: seats }),
       });
-      if (res.ok) { toast.success("Seats updated!"); onUpdate(property.slug, seats); onClose(); }
-      else { const d = await res.json(); toast.error(d.error || "Failed"); }
+      const d = await res.json();
+      if (res.ok) { toast.success("Seats updated!"); onUpdate(property.slug, d.availableRooms ?? seats); onClose(); }
+      else { toast.error(d.error || "Failed"); }
     } catch { toast.error("Failed to update"); }
     finally { setSaving(false); }
   };
@@ -361,7 +362,12 @@ function AdminDashboardInner() {
   }, [profileOpen, showNotifs]);
 
   const handleSeatUpdate = (slug: string, newAvailable: number) => {
-    setProperties((prev) => prev.map((p) => p.slug === slug ? { ...p, availableRooms: newAvailable } : p));
+    setProperties((prev) => {
+      const updated = prev.map((p) => p.slug === slug ? { ...p, availableRooms: newAvailable } : p);
+      const newTotal = updated.reduce((sum, p) => sum + (p.availableRooms ?? 0), 0);
+      setStats((s) => s ? { ...s, totalAvailable: newTotal } : s);
+      return updated;
+    });
   };
 
   const handleBookingAction = async (bookingId: string, action: "COMPLETED" | "CANCELLED") => {
@@ -480,7 +486,7 @@ function AdminDashboardInner() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* ── GREETING + TRUST BANNER ── */}
         <div className={cn("mb-6 transition-all duration-500", contentReady ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4")}>
-          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Hello {userName} 👋</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Hello {userName}! </h2>
           <p className="text-gray-500 mt-1">Here&apos;s how your services are performing today.</p>
         </div>
 

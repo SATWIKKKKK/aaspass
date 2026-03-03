@@ -145,7 +145,7 @@ export function Navbar({ variant = "public", showSearch = true, autoHide = false
     { icon: User, label: "Personal Details", href: "/settings/profile" },
     { icon: LayoutDashboard, label: "My Dashboard", href: "/dashboard" },
     { icon: Search, label: "Browse Services", href: "/services" },
-    ...(!isPremium ? [{ icon: Crown, label: "Upgrade to Premium", action: () => { if (onPremiumClick) { onPremiumClick(); setProfileOpen(false); } } }] : []),
+    ...(!isPremium ? [{ icon: Crown, label: "Upgrade to Premium", action: () => { setProfileOpen(false); if (onPremiumClick) { onPremiumClick(); } else { router.push("/home"); } } }] : []),
     { icon: Settings, label: "Settings", href: "/settings/edit" },
   ];
   const isHidden = autoHide && !showSearch;

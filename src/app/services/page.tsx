@@ -657,7 +657,34 @@ function ServicesContent() {
       {/* --- SERVICE LISTING CARDS --- */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
         {loading ? (
-          <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+          <div className="space-y-5">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="bg-white rounded-xl border border-gray-100 overflow-hidden animate-pulse">
+                <div className="flex flex-col md:flex-row">
+                  <div className="md:w-80 lg:w-96 h-56 md:h-64 bg-gray-200 shrink-0" />
+                  <div className="flex-1 p-4 md:p-6 space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className="h-5 w-48 bg-gray-200 rounded" />
+                      <div className="h-5 w-16 bg-gray-100 rounded-full" />
+                    </div>
+                    <div className="h-4 w-40 bg-gray-200 rounded" />
+                    <div className="flex gap-2 mt-2">
+                      {Array.from({ length: 4 }).map((_, j) => (
+                        <div key={j} className="h-8 w-24 bg-gray-100 rounded-lg" />
+                      ))}
+                    </div>
+                    <div className="flex items-center justify-between mt-4">
+                      <div className="space-y-1">
+                        <div className="h-6 w-24 bg-gray-200 rounded" />
+                        <div className="h-3 w-16 bg-gray-100 rounded" />
+                      </div>
+                      <div className="h-9 w-28 bg-gray-200 rounded-lg" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-16">
             <Building2 className="h-12 w-12 text-gray-300 mx-auto mb-4" />
