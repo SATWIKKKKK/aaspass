@@ -74,6 +74,7 @@ export async function GET(req: NextRequest) {
         include: {
           images: { take: 4, orderBy: { order: "asc" } },
           owner: { select: { name: true } },
+          _count: { select: { bookings: true, serviceStudents: true, wishlistItems: true } },
         },
       }),
       prisma.property.count({ where }),
@@ -102,7 +103,7 @@ export async function POST(req: NextRequest) {
       name, serviceType, description, price, gstRate, address, city, state, pincode,
       latitude, longitude, nearbyLandmark, distanceMarket, distanceInstitute,
       isAC, hasWifi, forGender, occupancy, foodIncluded, laundryIncluded,
-      foodRating, hasMedical, nearbyMess, nearbyLaundry, cancellationPolicy, rules, images,
+      hasMedical, nearbyMess, nearbyLaundry, cancellationPolicy, rules, images,
       capacity, availableRooms, closingTime, pricingPlans, customAmenities,
     } = body;
 
@@ -122,7 +123,7 @@ export async function POST(req: NextRequest) {
         isAC: Boolean(isAC), hasWifi: Boolean(hasWifi),
         forGender: forGender || null, occupancy: occupancy ? parseInt(occupancy) : null,
         foodIncluded: Boolean(foodIncluded), laundryIncluded: Boolean(laundryIncluded),
-        foodRating: foodRating ? parseFloat(foodRating) : null,
+
         hasMedical: Boolean(hasMedical), nearbyMess, nearbyLaundry,
         cancellationPolicy, rules,
         customAmenities: Array.isArray(customAmenities) ? customAmenities : [],

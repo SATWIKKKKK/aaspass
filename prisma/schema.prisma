@@ -542,6 +542,8 @@ model ServiceStudent {
   phone       String?
   userId      String?  // linked user account (if exists)
   isVerified  Boolean  @default(false) // true if matched to existing user
+  status      String   @default("ACTIVE") // ACTIVE | INACTIVE | LEFT
+  seatNumber  String?  // optional seat/room number
 
   property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 

@@ -61,7 +61,7 @@ export async function PUT(
       name, description, price, gstRate, address, city, state, pincode,
       latitude, longitude, nearbyLandmark, distanceMarket, distanceInstitute,
       isAC, hasWifi, forGender, occupancy, foodIncluded, laundryIncluded,
-      foodRating, hasMedical, nearbyMess, nearbyLaundry, cancellationPolicy, rules, images,
+      hasMedical, nearbyMess, nearbyLaundry, cancellationPolicy, rules, images,
       capacity, availableRooms, closingTime, pricingPlans,
     } = body;
 
@@ -89,7 +89,7 @@ export async function PUT(
     if (occupancy !== undefined) data.occupancy = occupancy ? parseInt(occupancy) : null;
     if (foodIncluded !== undefined) data.foodIncluded = Boolean(foodIncluded);
     if (laundryIncluded !== undefined) data.laundryIncluded = Boolean(laundryIncluded);
-    if (foodRating !== undefined) data.foodRating = foodRating ? parseFloat(foodRating) : null;
+
     if (hasMedical !== undefined) data.hasMedical = Boolean(hasMedical);
     if (nearbyMess !== undefined) data.nearbyMess = nearbyMess || null;
     if (nearbyLaundry !== undefined) data.nearbyLaundry = nearbyLaundry || null;

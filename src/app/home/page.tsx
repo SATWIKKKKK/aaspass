@@ -734,9 +734,9 @@ export default function HomePage() {
           <h2 className="text-2xl font-bold text-gray-900">Offers & Coupons</h2>
          
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5 stagger-enter">
           {offers.map((offer, i) => (
-            <Card key={i} className="overflow-hidden cursor-pointer hover:shadow-lg transition-all border-0 bg-transparent">
+            <Card key={i} className="overflow-hidden cursor-pointer hover:shadow-lg transition-all border-0 bg-transparent card-hover-lift">
               <div className={cn("h-full w-full rounded-lg bg-linear-to-br text-white p-6", offer.gradient)}>
                 <offer.icon className="h-8 w-8 mb-3 opacity-90" />
                 <h3 className="font-bold text-lg">{offer.title}</h3>
@@ -754,7 +754,7 @@ export default function HomePage() {
             <h2 className="text-3xl font-bold text-gray-900">Why Choose AasPass?</h2>
             <p className="text-gray-600 mt-2">Trusted by thousands of students across India</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 stagger-enter">
             {[
               { title: "Verified Services", description: "Every service is manually verified for quality and safety standards", icon: "🏠" },
               { title: "Best Prices", description: "Transparent pricing with no hidden charges. GST inclusive.", icon: "💰" },
@@ -763,7 +763,7 @@ export default function HomePage() {
               { title: "Student Reviews", description: "Read genuine reviews from verified students before booking", icon: "⭐" },
               { title: "Premium Perks", description: "AI chat, pre-booking access, and late fee waivers for premium users", icon: "👑" },
             ].map((b, i) => (
-              <div key={i} className="bg-white rounded-xl p-6 shadow-sm border">
+              <div key={i} className="bg-white rounded-xl p-6 shadow-sm border card-hover-lift">
                 <div className="text-3xl mb-3">{b.icon}</div>
                 <h3 className="font-semibold text-gray-900 mb-2">{b.title}</h3>
                 <p className="text-sm text-gray-500">{b.description}</p>

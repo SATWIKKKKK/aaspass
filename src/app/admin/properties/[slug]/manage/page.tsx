@@ -11,6 +11,7 @@ import {
   MapPin, Wifi, Wind, Utensils, Shirt, ShieldCheck, Save,
   X, Plus, ArrowUp, ArrowDown, ImageIcon, TrendingUp,
   DollarSign, CheckCircle, Clock, XCircle, Eye, Upload, UserPlus, Trash2,
+  Search, Armchair, Minus, Filter,
 } from "lucide-react";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
@@ -66,6 +67,10 @@ export default function ManagePropertyPage() {
   const [addingStudent, setAddingStudent] = useState(false);
   const [uploadingCSV, setUploadingCSV] = useState(false);
   const [deletingStudent, setDeletingStudent] = useState<string | null>(null);
+  const [studentSearch, setStudentSearch] = useState("");
+  const [studentStatusFilter, setStudentStatusFilter] = useState<string>("ALL");
+  const [updatingStudentStatus, setUpdatingStudentStatus] = useState<string | null>(null);
+  const [updatingSeats, setUpdatingSeats] = useState(false);
 
   useEffect(() => { if (status === "unauthenticated") router.push("/login"); }, [status, router]);
 
@@ -99,7 +104,6 @@ export default function ManagePropertyPage() {
           isAC: prop.isAC || false, hasWifi: prop.hasWifi || false,
           forGender: prop.forGender || "", occupancy: prop.occupancy ? String(prop.occupancy) : "",
           foodIncluded: prop.foodIncluded || false, laundryIncluded: prop.laundryIncluded || false,
-          foodRating: prop.foodRating ? String(prop.foodRating) : "",
           hasMedical: prop.hasMedical || false,
           nearbyMess: prop.nearbyMess || "", nearbyLaundry: prop.nearbyLaundry || "",
           rules: prop.rules || "", cancellationPolicy: prop.cancellationPolicy || "",
@@ -155,7 +159,7 @@ export default function ManagePropertyPage() {
         occupancy: editForm.occupancy ? parseInt(editForm.occupancy) : null,
         latitude: editForm.latitude ? parseFloat(editForm.latitude) : null,
         longitude: editForm.longitude ? parseFloat(editForm.longitude) : null,
-        foodRating: editForm.foodRating ? parseFloat(editForm.foodRating) : null,
+
       };
       const validImages = editImages.filter((img) => img.url.trim());
       body.images = validImages.map((img) => ({ url: img.url.trim(), isWideShot: img.isWideShot }));
@@ -281,6 +285,52 @@ export default function ManagePropertyPage() {
     } catch { toast.error("Failed to remove"); }
     finally { setDeletingStudent(null); }
   };
+
+  const handleStudentStatusChange = async (id: string, newStatus: string) => {
+    setUpdatingStudentStatus(id);
+    try {
+      const res = await fetch(`/api/properties/${params.slug}/students`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentId: id, status: newStatus }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setServiceStudents((prev) => prev.map((s) => s.id === id ? { ...s, status: newStatus } : s));
+        toast.success(`Student marked as ${newStatus}`);
+        // Refresh property to get updated seat count
+        if (data.updatedProperty) {
+          setProperty((p: any) => ({ ...p, availableRooms: data.updatedProperty.availableRooms }));
+        }
+      } else { const d = await res.json(); toast.error(d.error || "Failed"); }
+    } catch { toast.error("Failed to update status"); }
+    finally { setUpdatingStudentStatus(null); }
+  };
+
+  const handleQuickSeatUpdate = async (delta: number) => {
+    const newVal = Math.max(0, Math.min(property.capacity || 9999, (property.availableRooms ?? 0) + delta));
+    setUpdatingSeats(true);
+    try {
+      const res = await fetch(`/api/properties/${params.slug}/seats`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ availableRooms: newVal }),
+      });
+      if (res.ok) {
+        setProperty((p: any) => ({ ...p, availableRooms: newVal }));
+        toast.success("Seats updated");
+      } else { const d = await res.json(); toast.error(d.error || "Failed"); }
+    } catch { toast.error("Failed"); }
+    finally { setUpdatingSeats(false); }
+  };
+
+  /* Filtered students */
+  const filteredStudents = useMemo(() => {
+    return serviceStudents.filter((s) => {
+      const matchSearch = !studentSearch || s.name?.toLowerCase().includes(studentSearch.toLowerCase()) ||
+        s.email?.toLowerCase().includes(studentSearch.toLowerCase()) || s.phone?.includes(studentSearch);
+      const matchStatus = studentStatusFilter === "ALL" || (s.status || "ACTIVE") === studentStatusFilter;
+      return matchSearch && matchStatus;
+    });
+  }, [serviceStudents, studentSearch, studentStatusFilter]);
 
   /* ─── Announcement ─── */
   const handleSendAnnouncement = async () => {
@@ -758,6 +808,45 @@ export default function ManagePropertyPage() {
 
           {/* Student List Tab */}
           <TabsContent value="students" className="space-y-6">
+            {/* Seat Overview */}
+            {property.capacity && (
+              <Card className="bg-linear-to-r from-indigo-50 to-purple-50 border-indigo-100">
+                <CardContent className="p-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-semibold text-indigo-700 mb-2">Seat Availability</p>
+                      <div className="flex items-center gap-3 text-sm">
+                        <span className="text-gray-600">Capacity: <strong>{property.capacity}</strong></span>
+                        <span className="text-gray-400">|</span>
+                        <span className="text-gray-600">Available: <strong className={cn(
+                          (property.availableRooms ?? 0) === 0 ? "text-red-600" :
+                          (property.availableRooms ?? 0) <= Math.ceil(property.capacity * 0.1) ? "text-yellow-600" : "text-green-600"
+                        )}>{property.availableRooms ?? 0}</strong></span>
+                        <span className="text-gray-400">|</span>
+                        <span className="text-gray-600">Students: <strong>{serviceStudents.filter(s => (s.status || "ACTIVE") === "ACTIVE").length}</strong></span>
+                      </div>
+                      <div className="w-full max-w-sm h-2.5 bg-white/50 rounded-full overflow-hidden mt-2">
+                        {(() => {
+                          const pct = Math.round(((property.capacity - (property.availableRooms ?? 0)) / property.capacity) * 100);
+                          const color = pct >= 90 ? "bg-red-500" : pct >= 70 ? "bg-yellow-500" : "bg-green-500";
+                          return <div className={cn("h-full rounded-full transition-all duration-500", color)} style={{ width: `${pct}%` }} />;
+                        })()}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button size="sm" variant="outline" className="h-9 w-9 p-0 bg-white" onClick={() => handleQuickSeatUpdate(-1)} disabled={updatingSeats || (property.availableRooms ?? 0) <= 0}>
+                        <Minus className="h-4 w-4" />
+                      </Button>
+                      <span className="text-2xl font-bold text-indigo-700 w-12 text-center">{property.availableRooms ?? 0}</span>
+                      <Button size="sm" variant="outline" className="h-9 w-9 p-0 bg-white" onClick={() => handleQuickSeatUpdate(1)} disabled={updatingSeats || (property.availableRooms ?? 0) >= (property.capacity || 9999)}>
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><UserPlus className="h-5 w-5" />Add Student</CardTitle>
@@ -792,29 +881,79 @@ export default function ManagePropertyPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Student List ({serviceStudents.length})</CardTitle>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <CardTitle>Student List ({serviceStudents.length})</CardTitle>
+                  <div className="flex items-center gap-2">
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Input placeholder="Search students..." value={studentSearch} onChange={(e) => setStudentSearch(e.target.value)}
+                        className="pl-9 h-9 w-48 text-sm" />
+                    </div>
+                    <select value={studentStatusFilter} onChange={(e) => setStudentStatusFilter(e.target.value)}
+                      className="h-9 rounded-md border border-gray-200 px-2.5 text-sm bg-white">
+                      <option value="ALL">All Status</option>
+                      <option value="ACTIVE">Active</option>
+                      <option value="INACTIVE">Inactive</option>
+                      <option value="LEFT">Left</option>
+                    </select>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
-                {serviceStudents.length === 0 ? (
-                  <p className="text-gray-500 text-sm">No students added yet.</p>
+                {filteredStudents.length === 0 ? (
+                  <p className="text-gray-500 text-sm py-4 text-center">
+                    {serviceStudents.length === 0 ? "No students added yet." : "No students match your filters."}
+                  </p>
                 ) : (
-                  <div className="space-y-2 max-h-96 overflow-y-auto">
-                    {serviceStudents.map((s: any) => (
-                      <div key={s.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div>
-                          <p className="font-medium text-gray-900">{s.name}</p>
-                          <p className="text-sm text-gray-500">
-                            {s.email && <span>{s.email}</span>}
-                            {s.email && s.phone && <span> · </span>}
-                            {s.phone && <span>{s.phone}</span>}
-                          </p>
-                          {s.userId && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Linked</span>}
+                  <div className="space-y-2 max-h-125 overflow-y-auto">
+                    {filteredStudents.map((s: any) => {
+                      const currentStatus = s.status || "ACTIVE";
+                      const statusColors: Record<string, string> = {
+                        ACTIVE: "bg-green-100 text-green-700",
+                        INACTIVE: "bg-yellow-100 text-yellow-700",
+                        LEFT: "bg-red-100 text-red-700",
+                      };
+                      return (
+                        <div key={s.id} className={cn(
+                          "flex items-center justify-between p-3 rounded-lg border transition-all",
+                          currentStatus === "ACTIVE" ? "bg-white border-gray-200" :
+                          currentStatus === "INACTIVE" ? "bg-yellow-50/50 border-yellow-100" : "bg-red-50/30 border-red-100"
+                        )}>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-gray-900 truncate">{s.name}</p>
+                              {s.userId && <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-medium">Linked</span>}
+                              {s.seatNumber && <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-medium">Seat: {s.seatNumber}</span>}
+                            </div>
+                            <p className="text-sm text-gray-500 truncate">
+                              {s.email && <span>{s.email}</span>}
+                              {s.email && s.phone && <span> · </span>}
+                              {s.phone && <span>{s.phone}</span>}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0 ml-2">
+                            {/* Status Toggle */}
+                            <select
+                              value={currentStatus}
+                              onChange={(e) => handleStudentStatusChange(s.id, e.target.value)}
+                              disabled={updatingStudentStatus === s.id}
+                              className={cn(
+                                "text-xs font-semibold rounded-full pl-2 pr-6 py-1 border-0 cursor-pointer appearance-none",
+                                statusColors[currentStatus] || "bg-gray-100 text-gray-700"
+                              )}
+                              style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 4px center" }}
+                            >
+                              <option value="ACTIVE">Active</option>
+                              <option value="INACTIVE">Inactive</option>
+                              <option value="LEFT">Left</option>
+                            </select>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => handleDeleteStudent(s.id)} disabled={deletingStudent === s.id}>
+                              {deletingStudent === s.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4 text-red-500" />}
+                            </Button>
+                          </div>
                         </div>
-                        <Button variant="ghost" size="sm" onClick={() => handleDeleteStudent(s.id)} disabled={deletingStudent === s.id}>
-                          {deletingStudent === s.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4 text-red-500" />}
-                        </Button>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>

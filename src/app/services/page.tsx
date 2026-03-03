@@ -666,11 +666,11 @@ function ServicesContent() {
             <Button variant="outline" className="mt-4" onClick={clearFilters}>Clear Filters</Button>
           </div>
         ) : (
-          <div className="space-y-5">
+          <div className="space-y-5 stagger-enter">
             {filtered.map((property) => (
               <Card
                 key={property.id}
-                className="overflow-hidden hover:shadow-lg transition-all cursor-pointer"
+                className="overflow-hidden hover:shadow-lg transition-all cursor-pointer card-hover-lift"
                 onClick={() => router.push(`/services/${property.slug}${checkIn || checkOut ? `?from=${checkIn}&to=${checkOut}` : ''}`)}
               >
                 <div className="flex flex-col md:flex-row">

@@ -64,7 +64,7 @@ export default function NewPropertyPage() {
     distanceMarket: "", distanceInstitute: "",
     isAC: false, hasWifi: false, forGender: "",
     occupancy: "", foodIncluded: false, laundryIncluded: false,
-    foodRating: "", hasMedical: false,
+    hasMedical: false,
     nearbyMess: "", nearbyLaundry: "",
     rules: "", cancellationPolicy: "", closingTime: "",
     capacity: "", availableRooms: "",
@@ -163,7 +163,7 @@ export default function NewPropertyPage() {
       if (form.distanceInstitute) body.distanceInstitute = form.distanceInstitute;
       if (form.forGender) body.forGender = form.forGender;
       if (form.occupancy) body.occupancy = parseInt(form.occupancy);
-      if (form.foodRating) body.foodRating = parseFloat(form.foodRating);
+
       if (form.nearbyMess) body.nearbyMess = form.nearbyMess;
       if (form.nearbyLaundry) body.nearbyLaundry = form.nearbyLaundry;
       if (form.capacity) body.capacity = parseInt(form.capacity);
@@ -365,7 +365,7 @@ export default function NewPropertyPage() {
                 )}
               </div>
 
-              {form.foodIncluded && <div><Label>Food Rating (1-5)</Label><Input type="number" min="1" max="5" placeholder="4" value={form.foodRating} onChange={update("foodRating")} /></div>}
+
               <div className="grid grid-cols-2 gap-4">
                 <div><Label>Nearby Mess</Label><Input placeholder="Swaad Mess, 200m" value={form.nearbyMess} onChange={update("nearbyMess")} /></div>
                 <div><Label>Nearby Laundry</Label><Input placeholder="QuickWash, 100m" value={form.nearbyLaundry} onChange={update("nearbyLaundry")} /></div>

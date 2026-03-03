@@ -26,6 +26,9 @@ export async function GET(req: NextRequest) {
           price: true,
           serviceType: true,
           city: true,
+          capacity: true,
+          availableRooms: true,
+          _count: { select: { serviceStudents: true } },
         },
       }),
       prisma.booking.findMany({
@@ -119,6 +122,9 @@ export async function GET(req: NextRequest) {
         avgRating: p.avgRating,
         totalReviews: p.totalReviews,
         price: p.price,
+        capacity: p.capacity,
+        availableRooms: p.availableRooms,
+        studentCount: (p as any)._count?.serviceStudents ?? 0,
         totalBookings: propBookings.length,
         activeBookings: propBookings.filter((b) =>
           ["ACTIVE", "CONFIRMED"].includes(b.status)
@@ -126,6 +132,11 @@ export async function GET(req: NextRequest) {
         revenue: propBookings.reduce((s, b) => s + (b.grandTotal || 0), 0),
       };
     });
+
+    // Total students and capacity across all properties
+    const totalStudents = properties.reduce((s, p) => s + ((p as any)._count?.serviceStudents ?? 0), 0);
+    const totalCapacity = properties.reduce((s, p) => s + (p.capacity ?? 0), 0);
+    const totalAvailable = properties.reduce((s, p) => s + (p.availableRooms ?? 0), 0);
 
     return NextResponse.json({
       totalProperties: properties.length,
@@ -141,6 +152,9 @@ export async function GET(req: NextRequest) {
       totalComplaints: complaints.length,
       openComplaints,
       totalAnnouncements: announcementCount,
+      totalStudents,
+      totalCapacity,
+      totalAvailable,
       monthlyRevenue,
       propertyStats,
     });

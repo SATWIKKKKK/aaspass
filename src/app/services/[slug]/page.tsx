@@ -426,8 +426,8 @@ export default function PropertyPage() {
                       </div>
                     )}
                   </div>
-                  <button onClick={toggleSave} className="p-2 rounded-full hover:bg-gray-100 transition" title={saved ? "Remove from wishlist" : "Save"}>
-                    <Heart className={cn("h-5 w-5 transition", saved ? "fill-red-500 text-red-500" : "text-gray-600")} />
+                  <button onClick={toggleSave} className="p-2 rounded-full hover:bg-gray-100 transition active:scale-90" title={saved ? "Remove from wishlist" : "Save"}>
+                    <Heart className={cn("h-5 w-5 transition", saved ? "fill-red-500 text-red-500 animate-heart-pop" : "text-gray-600")} />
                   </button>
                 </div>
               </div>
@@ -571,7 +571,7 @@ export default function PropertyPage() {
                     Seat{property.availableRooms !== 1 ? "s" : ""} Available{property.capacity ? ` out of ${property.capacity}` : ""}
                   </p>
                   {property.availableRooms <= 10 && (
-                    <p className="text-xs text-red-500 mt-1 font-medium">Filling up fast!</p>
+                    <p className="text-xs text-red-500 mt-1 font-medium animate-gentle-pulse">⚡ Filling up fast!</p>
                   )}
                 </div>
               )}

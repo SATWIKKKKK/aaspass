@@ -48,14 +48,14 @@ export async function POST(
     const { slug } = await params;
     const property = await prisma.property.findUnique({
       where: { slug },
-      select: { id: true, ownerId: true },
+      select: { id: true, ownerId: true, availableRooms: true, capacity: true },
     });
     if (!property || property.ownerId !== session.user.id) {
       return NextResponse.json({ error: "Not found or unauthorized" }, { status: 404 });
     }
 
     const body = await req.json();
-    const { students } = body; // Array of { name, email?, phone? }
+    const { students } = body; // Array of { name, email?, phone?, seatNumber? }
 
     if (!Array.isArray(students) || students.length === 0) {
       return NextResponse.json({ error: "No students provided" }, { status: 400 });
@@ -104,12 +104,23 @@ export async function POST(
           phone: s.phone || null,
           userId: matchedUser?.id || null,
           isVerified: !!matchedUser,
+          seatNumber: s.seatNumber || null,
+          status: "ACTIVE",
         },
       });
 
       results.push(serviceStudent);
       added++;
       if (matchedUser) linked++;
+
+      // Auto-decrement available seats
+      if (property.capacity && property.availableRooms !== null && property.availableRooms > 0) {
+        property.availableRooms = Math.max(0, property.availableRooms - 1);
+        await prisma.property.update({
+          where: { id: property.id },
+          data: { availableRooms: property.availableRooms },
+        });
+      }
 
       // Send notification to linked user
       if (matchedUser) {
@@ -138,7 +149,7 @@ export async function POST(
   }
 }
 
-// DELETE /api/properties/[slug]/students — remove a student
+// DELETE /api/properties/[slug]/students — remove a student (auto-frees seat)
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
@@ -158,19 +169,105 @@ export async function DELETE(
 
     const property = await prisma.property.findUnique({
       where: { slug },
-      select: { id: true, ownerId: true },
+      select: { id: true, ownerId: true, availableRooms: true, capacity: true },
     });
     if (!property || property.ownerId !== session.user.id) {
       return NextResponse.json({ error: "Not found or unauthorized" }, { status: 404 });
     }
 
+    // Check if student was ACTIVE before deleting (to free up seat)
+    const student = await prisma.serviceStudent.findUnique({
+      where: { id: studentId, propertyId: property.id },
+    });
+
     await prisma.serviceStudent.delete({
       where: { id: studentId, propertyId: property.id },
     });
+
+    // Auto-increment available seats if student was active and capacity is tracked
+    if (student?.status === "ACTIVE" && property.capacity && property.availableRooms !== null) {
+      const newAvailable = Math.min(property.capacity, (property.availableRooms || 0) + 1);
+      await prisma.property.update({
+        where: { id: property.id },
+        data: { availableRooms: newAvailable },
+      });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("DELETE /api/properties/[slug]/students error:", error);
     return NextResponse.json({ error: "Failed to remove student" }, { status: 500 });
+  }
+}
+
+// PATCH /api/properties/[slug]/students — update student status (ACTIVE/INACTIVE/LEFT)
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ slug: string }> }
+) {
+  try {
+    const session = await auth();
+    if (!session || (session.user as any)?.role !== "OWNER") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { slug } = await params;
+    const property = await prisma.property.findUnique({
+      where: { slug },
+      select: { id: true, ownerId: true, availableRooms: true, capacity: true },
+    });
+    if (!property || property.ownerId !== session.user.id) {
+      return NextResponse.json({ error: "Not found or unauthorized" }, { status: 404 });
+    }
+
+    const body = await req.json();
+    const { studentId, status, seatNumber } = body;
+
+    if (!studentId) {
+      return NextResponse.json({ error: "Student ID required" }, { status: 400 });
+    }
+
+    const student = await prisma.serviceStudent.findUnique({
+      where: { id: studentId, propertyId: property.id },
+    });
+    if (!student) {
+      return NextResponse.json({ error: "Student not found" }, { status: 404 });
+    }
+
+    const updateData: any = {};
+    if (status !== undefined) updateData.status = status;
+    if (seatNumber !== undefined) updateData.seatNumber = seatNumber;
+
+    const updated = await prisma.serviceStudent.update({
+      where: { id: studentId },
+      data: updateData,
+    });
+
+    // Auto-update seat count when status changes
+    if (status && status !== student.status && property.capacity && property.availableRooms !== null) {
+      const wasActive = student.status === "ACTIVE";
+      const isNowActive = status === "ACTIVE";
+
+      if (wasActive && !isNowActive) {
+        // Student left/inactive → free up a seat
+        const newAvailable = Math.min(property.capacity, (property.availableRooms || 0) + 1);
+        await prisma.property.update({
+          where: { id: property.id },
+          data: { availableRooms: newAvailable },
+        });
+      } else if (!wasActive && isNowActive) {
+        // Student re-activated → occupy a seat
+        const newAvailable = Math.max(0, (property.availableRooms || 0) - 1);
+        await prisma.property.update({
+          where: { id: property.id },
+          data: { availableRooms: newAvailable },
+        });
+      }
+    }
+
+    return NextResponse.json({ student: updated });
+  } catch (error) {
+    console.error("PATCH /api/properties/[slug]/students error:", error);
+    return NextResponse.json({ error: "Failed to update student" }, { status: 500 });
   }
 }
