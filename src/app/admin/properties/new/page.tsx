@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { SERVICE_TYPES, type ServiceTypeValue } from "@/lib/utils";
+import { uploadFile } from "@/lib/upload";
 
 const STEPS = [
   { id: 1, title: "Basic Info", desc: "Name, type, and description" },
@@ -39,6 +40,7 @@ const MAX_FILES = 15;
 interface MediaEntry {
   id: string; url: string; file?: File; type: "image" | "video";
   isWideShot: boolean; previewUrl: string; error: string | null;
+  uploading?: boolean;
 }
 
 interface PlanEntry { label: string; durationDays: string; price: string; isActive: boolean; }
@@ -99,10 +101,23 @@ export default function NewPropertyPage() {
       newMedia.push({
         id: genId(), url: "", file, type: isImage ? "image" : "video",
         isWideShot: newMedia.length === 0 && media.length === 0,
-        previewUrl: URL.createObjectURL(file), error: null,
+        previewUrl: URL.createObjectURL(file), error: null, uploading: true,
       });
     }
-    if (newMedia.length) { setMedia((prev) => [...prev, ...newMedia]); toast.success(`${newMedia.length} file(s) added`); }
+    if (!newMedia.length) return;
+    setMedia((prev) => [...prev, ...newMedia]);
+    // Upload each file to Cloudinary immediately
+    for (const entry of newMedia) {
+      if (!entry.file) continue;
+      uploadFile(entry.file)
+        .then((url) => {
+          setMedia((prev) => prev.map((m) => m.id === entry.id ? { ...m, url, previewUrl: url, uploading: false } : m));
+        })
+        .catch((err: Error) => {
+          setMedia((prev) => prev.map((m) => m.id === entry.id ? { ...m, uploading: false, error: err.message } : m));
+          toast.error(`Upload failed for "${entry.file!.name}": ${err.message}`);
+        });
+    }
   }, [media.length]);
 
   const handleDragEnter = (e: DragEvent) => { e.preventDefault(); e.stopPropagation(); dragCounter.current++; setIsDragging(true); };
@@ -141,6 +156,12 @@ export default function NewPropertyPage() {
   const handleSubmit = async () => {
     if (!form.name || !form.description || !form.price || !form.address || !form.city || !form.state || !form.pincode) {
       toast.error("Please fill all required fields"); return;
+    }
+    if (media.some((m) => m.uploading)) {
+      toast.error("Please wait — photos are still uploading"); return;
+    }
+    if (media.some((m) => m.error && !m.url)) {
+      toast.error("Some photos failed to upload. Remove them or retry."); return;
     }
     const validPlans = pricingPlans.filter((p) => p.label && p.durationDays && p.price);
     if (pricingPlans.length > 0 && validPlans.length === 0) {
@@ -417,12 +438,35 @@ export default function NewPropertyPage() {
                         ) : (
                           <div className="w-full h-full flex flex-col items-center justify-center text-gray-300"><ImageIcon className="h-8 w-8" /><span className="text-[10px] mt-0.5">{item.error || "Preview"}</span></div>
                         )}
-                        {idx === 0 && (item.previewUrl || item.url?.trim()) && <span className="absolute top-1 left-1 bg-primary text-white text-[9px] font-bold px-1.5 py-0.5 rounded">COVER</span>}
+                        {item.uploading && (
+                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-lg">
+                            <Loader2 className="h-6 w-6 text-white animate-spin" />
+                          </div>
+                        )}
+                        {item.error && !item.uploading && !item.url && (
+                          <div className="absolute inset-0 bg-red-900/70 flex items-center justify-center rounded-lg">
+                            <span className="text-[9px] text-white font-bold text-center px-1">Upload failed</span>
+                          </div>
+                        )}
+                        {!item.uploading && item.url && idx === 0 && <span className="absolute top-1 left-1 bg-primary text-white text-[9px] font-bold px-1.5 py-0.5 rounded">COVER</span>}
                       </div>
                       <div className="flex-1 min-w-0 flex flex-col justify-between">
                         <div>
                           {item.file ? (
-                            <div><p className="text-sm font-medium text-gray-900 truncate">{item.file.name}</p><p className="text-xs text-gray-400">{(item.file.size / 1024 / 1024).toFixed(1)} MB &bull; {item.type}</p></div>
+                            <div>
+                              <p className="text-sm font-medium text-gray-900 truncate">{item.file.name}</p>
+                              <p className="text-xs mt-0.5">
+                                {item.uploading ? (
+                                  <span className="text-blue-500 flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" />Uploading…</span>
+                                ) : item.error && !item.url ? (
+                                  <span className="text-red-500">Upload failed — remove and retry</span>
+                                ) : item.url ? (
+                                  <span className="text-green-600">✓ Uploaded</span>
+                                ) : (
+                                  <span className="text-gray-400">{(item.file.size / 1024 / 1024).toFixed(1)} MB &bull; {item.type}</span>
+                                )}
+                              </p>
+                            </div>
                           ) : (
                             <Input placeholder="https://images.unsplash.com/photo-..." value={item.url} onChange={(e) => updateMediaUrl(item.id, e.target.value)} className="text-sm" />
                           )}

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
+import type { DragEvent } from "react";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import {
@@ -23,9 +24,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn, formatPrice, formatDate, SERVICE_TYPES } from "@/lib/utils";
+import { uploadFile } from "@/lib/upload";
+
+const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/jpg"];
+const ACCEPTED_VIDEO_TYPES = ["video/mp4", "video/quicktime"];
+const MAX_IMG_SIZE = 20 * 1024 * 1024;
+const MAX_IMAGES = 15;
 
 /* ───── Image entry type ───── */
-interface ImageEntry { url: string; isWideShot: boolean; previewError: boolean }
+interface ImageEntry { id: string; url: string; isWideShot: boolean; previewError: boolean; uploading?: boolean; file?: File; }
 
 export default function ManagePropertyPage() {
   const params = useParams();
@@ -48,6 +55,9 @@ export default function ManagePropertyPage() {
   const [editForm, setEditForm] = useState<any>(null);
   const [editImages, setEditImages] = useState<ImageEntry[]>([]);
   const [saving, setSaving] = useState(false);
+  const [isDraggingEdit, setIsDraggingEdit] = useState(false);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
+  const editDragCounter = useRef(0);
 
   /* Tab from URL */
   const defaultTab = searchParams.get("tab") || "bookings";
@@ -109,7 +119,7 @@ export default function ManagePropertyPage() {
           rules: prop.rules || "", cancellationPolicy: prop.cancellationPolicy || "",
         });
         setEditImages(
-          (prop.images || []).map((img: any) => ({ url: img.url, isWideShot: img.isWideShot, previewError: false }))
+          (prop.images || []).map((img: any) => ({ id: Math.random().toString(36).slice(2), url: img.url, isWideShot: img.isWideShot, previewError: false }))
         );
         // Load pricing plans
         if (prop.pricingPlans && prop.pricingPlans.length > 0) {
@@ -137,8 +147,8 @@ export default function ManagePropertyPage() {
     const val = e.target.type === "checkbox" ? (e.target as HTMLInputElement).checked : e.target.value;
     setEditForm((p: any) => ({ ...p, [field]: val }));
   };
-  const addEditImage = () => setEditImages((p) => [...p, { url: "", isWideShot: false, previewError: false }]);
-  const removeEditImage = (idx: number) => setEditImages((p) => p.filter((_, i) => i !== idx));
+  const addEditImage = () => setEditImages((p) => [...p, { id: Math.random().toString(36).slice(2), url: "", isWideShot: false, previewError: false }]);
+  const removeEditImage = (idx: number) => setEditImages((p) => { const item = p[idx]; if (item?.file && item.url?.startsWith("blob:")) URL.revokeObjectURL(item.url); return p.filter((_, i) => i !== idx); });
   const updateEditImageUrl = (idx: number, url: string) =>
     setEditImages((p) => p.map((img, i) => i === idx ? { ...img, url, previewError: false } : img));
   const moveEditImage = (idx: number, dir: -1 | 1) => {
@@ -146,6 +156,37 @@ export default function ManagePropertyPage() {
     if (newIdx < 0 || newIdx >= editImages.length) return;
     setEditImages((p) => { const a = [...p]; [a[idx], a[newIdx]] = [a[newIdx], a[idx]]; return a; });
   };
+
+  /* Drag-drop for edit images */
+  const processEditFiles = useCallback((files: FileList | File[]) => {
+    const room = MAX_IMAGES - editImages.length;
+    if (room <= 0) { toast.error(`Maximum ${MAX_IMAGES} images`); return; }
+    const fileArr = Array.from(files).slice(0, room);
+    const newEntries: ImageEntry[] = [];
+    for (const file of fileArr) {
+      const isImage = ACCEPTED_IMAGE_TYPES.includes(file.type);
+      const isVideo = ACCEPTED_VIDEO_TYPES.includes(file.type);
+      if (!isImage && !isVideo) { toast.error(`Unsupported: ${file.name}`); continue; }
+      if (file.size > MAX_IMG_SIZE) { toast.error(`${file.name} exceeds 20 MB`); continue; }
+      newEntries.push({ id: Math.random().toString(36).slice(2), url: "", isWideShot: editImages.length === 0, previewError: false, uploading: true, file });
+    }
+    if (!newEntries.length) return;
+    setEditImages((prev) => [...prev, ...newEntries]);
+    for (const entry of newEntries) {
+      if (!entry.file) continue;
+      uploadFile(entry.file)
+        .then((url) => setEditImages((prev) => prev.map((m) => m.id === entry.id ? { ...m, url, uploading: false } : m)))
+        .catch((err: Error) => {
+          setEditImages((prev) => prev.map((m) => m.id === entry.id ? { ...m, uploading: false, previewError: true } : m));
+          toast.error(`Upload failed: ${err.message}`);
+        });
+    }
+  }, [editImages.length]);
+
+  const handleEditDragEnter = (e: DragEvent) => { e.preventDefault(); e.stopPropagation(); editDragCounter.current++; setIsDraggingEdit(true); };
+  const handleEditDragLeave = (e: DragEvent) => { e.preventDefault(); e.stopPropagation(); editDragCounter.current--; if (editDragCounter.current === 0) setIsDraggingEdit(false); };
+  const handleEditDragOver = (e: DragEvent) => { e.preventDefault(); e.stopPropagation(); };
+  const handleEditDrop = (e: DragEvent) => { e.preventDefault(); e.stopPropagation(); setIsDraggingEdit(false); editDragCounter.current = 0; if (e.dataTransfer.files?.length) processEditFiles(e.dataTransfer.files); };
 
   const handleSaveEdit = async () => {
     if (!editForm.name || !editForm.price || !editForm.address || !editForm.city) {
@@ -161,6 +202,10 @@ export default function ManagePropertyPage() {
         longitude: editForm.longitude ? parseFloat(editForm.longitude) : null,
 
       };
+      if (editImages.some((img) => img.uploading)) {
+        toast.error("Please wait — photos are still uploading");
+        setSaving(false); return;
+      }
       const validImages = editImages.filter((img) => img.url.trim());
       body.images = validImages.map((img) => ({ url: img.url.trim(), isWideShot: img.isWideShot }));
 
@@ -594,21 +639,79 @@ export default function ManagePropertyPage() {
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2"><ImageIcon className="h-5 w-5" />Service Photos</CardTitle>
-                    <CardDescription>Update your service images. First image is the cover photo.</CardDescription>
+                    <CardDescription>Drag & drop, browse, or paste a URL. First image is the cover photo.</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    {/* Hidden file input */}
+                    <input
+                      ref={editFileInputRef}
+                      type="file"
+                      multiple
+                      accept={[...ACCEPTED_IMAGE_TYPES, ...ACCEPTED_VIDEO_TYPES].join(",")}
+                      className="hidden"
+                      onChange={(e) => { if (e.target.files) processEditFiles(e.target.files); e.target.value = ""; }}
+                    />
+                    {/* Drag-drop zone */}
+                    <div
+                      onDragEnter={handleEditDragEnter}
+                      onDragLeave={handleEditDragLeave}
+                      onDragOver={handleEditDragOver}
+                      onDrop={handleEditDrop}
+                      onClick={() => editFileInputRef.current?.click()}
+                      className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${
+                        isDraggingEdit ? "border-primary bg-primary/5 scale-[1.01]" : "border-gray-200 hover:border-primary/50 hover:bg-gray-50"
+                      }`}
+                    >
+                      <div className="flex flex-col items-center gap-1.5">
+                        <div className={`h-10 w-10 rounded-full flex items-center justify-center ${isDraggingEdit ? "bg-primary/10" : "bg-gray-100"}`}>
+                          <Upload className={`h-5 w-5 ${isDraggingEdit ? "text-primary" : "text-gray-400"}`} />
+                        </div>
+                        <p className="text-sm font-medium text-gray-700">{isDraggingEdit ? "Drop files here!" : "Drag & drop or click to browse"}</p>
+                        <p className="text-xs text-gray-400">JPG, PNG, WEBP, MP4 • max 20 MB</p>
+                      </div>
+                    </div>
+
                     {editImages.map((img, idx) => (
-                      <div key={idx} className="flex gap-3 p-3 border border-gray-200 rounded-xl bg-white">
+                      <div key={img.id} className="flex gap-3 p-3 border border-gray-200 rounded-xl bg-white">
                         <div className="w-20 h-20 shrink-0 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 relative">
-                          {img.url.trim() && !img.previewError ? (
-                            <img src={img.url} alt="" className="w-full h-full object-cover" onError={() => setEditImages((p) => p.map((im, i) => i === idx ? { ...im, previewError: true } : im))} />
+                          {img.uploading ? (
+                            <div className="w-full h-full flex flex-col items-center justify-center bg-gray-900/60">
+                              <Loader2 className="h-6 w-6 text-white animate-spin" />
+                              <span className="text-[9px] text-white/70 mt-0.5">Uploading…</span>
+                            </div>
+                          ) : img.url.trim() && !img.previewError ? (
+                            <img src={img.url} alt="" className="w-full h-full object-cover" onError={() => setEditImages((p) => p.map((im) => im.id === img.id ? { ...im, previewError: true } : im))} />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-gray-300"><ImageIcon className="h-6 w-6" /></div>
                           )}
-                          {idx === 0 && <span className="absolute top-0.5 left-0.5 bg-primary text-white text-[8px] font-bold px-1 py-0.5 rounded">COVER</span>}
+                          {idx === 0 && !img.uploading && img.url.trim() && <span className="absolute top-0.5 left-0.5 bg-primary text-white text-[8px] font-bold px-1 py-0.5 rounded">COVER</span>}
                         </div>
                         <div className="flex-1 min-w-0 flex flex-col justify-between">
-                          <Input value={img.url} onChange={(e) => updateEditImageUrl(idx, e.target.value)} placeholder="Image URL" className="text-sm" />
+                          <div>
+                            {img.file ? (
+                              <div>
+                                <p className="text-sm font-medium text-gray-900 truncate">{img.file.name}</p>
+                                <p className="text-xs mt-0.5">
+                                  {img.uploading ? (
+                                    <span className="text-blue-500 flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" />Uploading…</span>
+                                  ) : img.url ? (
+                                    <span className="text-green-600">✓ Uploaded</span>
+                                  ) : (
+                                    <span className="text-red-500">Upload failed</span>
+                                  )}
+                                </p>
+                              </div>
+                            ) : (
+                              <Input value={img.url} onChange={(e) => updateEditImageUrl(idx, e.target.value)} placeholder="https://..." className="text-sm" />
+                            )}
+                            <div className="flex items-center gap-2 mt-1">
+                              <label className="flex items-center gap-1 text-xs text-gray-500 cursor-pointer">
+                                <input type="checkbox" checked={img.isWideShot}
+                                  onChange={() => setEditImages((p) => p.map((im) => im.id === img.id ? { ...im, isWideShot: !im.isWideShot } : im))}
+                                  className="rounded border-gray-300 h-3 w-3" />Wide shot
+                              </label>
+                            </div>
+                          </div>
                           <div className="flex items-center gap-1 mt-1">
                             <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => moveEditImage(idx, -1)} disabled={idx === 0}><ArrowUp className="h-3 w-3" /></Button>
                             <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => moveEditImage(idx, 1)} disabled={idx === editImages.length - 1}><ArrowDown className="h-3 w-3" /></Button>
@@ -617,9 +720,15 @@ export default function ManagePropertyPage() {
                         </div>
                       </div>
                     ))}
-                    <Button variant="outline" onClick={addEditImage} className="w-full border-dashed" disabled={editImages.length >= 10}>
-                      <Plus className="h-4 w-4 mr-2" />Add Image
-                    </Button>
+
+                    <div className="flex gap-2">
+                      <Button variant="outline" onClick={addEditImage} className="flex-1 border-dashed" disabled={editImages.length >= MAX_IMAGES}>
+                        <Plus className="h-4 w-4 mr-2" />Add by URL
+                      </Button>
+                      <Button variant="outline" onClick={() => editFileInputRef.current?.click()} disabled={editImages.length >= MAX_IMAGES}>
+                        <Upload className="h-4 w-4 mr-2" />Browse Files
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
 
