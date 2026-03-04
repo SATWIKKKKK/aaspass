@@ -12,7 +12,7 @@ import {
   Ticket, Users, User, Calendar, CheckCircle, XCircle, Phone, Mail,
   MousePointerClick, Heart, ShoppingCart, Bell, Upload, UserPlus,
   Minus, Activity, BookOpen, Armchair, AlertCircle,
-  Sparkles,
+  Sparkles, Crown,
 } from "lucide-react";
 import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { RouteGuard } from "@/components/route-guard";
+import { OwnerPremiumModal } from "@/components/owner-premium-modal";
+import { OwnerDashboardCharts } from "@/components/owner-dashboard-charts";
 import { cn, formatPrice } from "@/lib/utils";
 
 /* ═══════════════════ TYPES ═══════════════════ */
@@ -331,6 +333,8 @@ function AdminDashboardInner() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [showNotifs, setShowNotifs] = useState(false);
   const [contentReady, setContentReady] = useState(false);
+  const [ownerPremiumOpen, setOwnerPremiumOpen] = useState(false);
+  const [healthScore, setHealthScore] = useState<{ score: number; breakdown: { label: string; score: number; weight: number; weighted: number; icon: string }[]; tips: string[] } | null>(null);
 
   const userName = session?.user?.name ? session.user.name.split(" ")[0] : "Owner";
   const unreadCount = notifications.filter((n) => !n.isRead).length;
@@ -345,12 +349,14 @@ function AdminDashboardInner() {
       fetch("/api/bookings").then((r) => r.json()),
       fetch("/api/owner/visibility-stats").then((r) => r.json()),
       fetch("/api/notifications").then((r) => r.json()).catch(() => ({ notifications: [] })),
-    ]).then(([propData, statsData, bookingsData, visData, notifData]) => {
+      fetch("/api/owner/health-score").then((r) => r.json()).catch(() => null),
+    ]).then(([propData, statsData, bookingsData, visData, notifData, healthData]) => {
       setProperties(propData.properties || []);
       if (!statsData.error) setStats(statsData);
       setOwnerBookings(bookingsData.bookings || []);
       if (!visData.error) setVisibilityStats(visData);
       setNotifications(notifData.notifications || []);
+      if (healthData && !healthData.error) setHealthScore(healthData);
     }).catch(() => toast.error("Failed to load data"))
       .finally(() => { setLoading(false); setTimeout(() => setContentReady(true), 100); });
   }, [status]);
@@ -403,6 +409,7 @@ function AdminDashboardInner() {
     <div className="min-h-screen bg-gray-50/50">
       <AnnouncementModal open={!!announceProp} onClose={() => setAnnounceProp(null)} property={announceProp} />
       <SeatUpdateModal open={!!seatProp} onClose={() => setSeatProp(null)} property={seatProp} onUpdate={handleSeatUpdate} />
+      <OwnerPremiumModal open={ownerPremiumOpen} onClose={() => setOwnerPremiumOpen(false)} />
 
       {/* ── NAVBAR ── */}
       <header className="bg-white/95 backdrop-blur-md border-b border-gray-100 sticky top-0 z-50">
@@ -695,6 +702,11 @@ function AdminDashboardInner() {
           </Card>
         </section>
 
+        {/* ══════ ADVANCED ANALYTICS CHARTS ══════ */}
+        <section className={cn("mb-10 transition-all duration-600 delay-250", contentReady ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4")}>
+          <OwnerDashboardCharts />
+        </section>
+
         {/* ══════ SERVICE MANAGEMENT CARDS ══════ */}
         <section className={cn("mb-10 transition-all duration-600 delay-300", contentReady ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4")}>
           <div className="flex items-center justify-between mb-5">
@@ -801,9 +813,16 @@ function AdminDashboardInner() {
 
         {/* ══════ RECENT BOOKINGS ══════ */}
         <section className={cn("mb-10 transition-all duration-600 delay-400", contentReady ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4")}>
-          <h3 className="text-xl font-bold text-gray-900 mb-5 flex items-center gap-2">
-            <Calendar className="h-5 w-5 text-primary" />Recent Bookings
-          </h3>
+          <div className="flex items-center justify-between mb-5">
+            <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-primary" />Recent Bookings
+            </h3>
+            {ownerBookings.length > 6 && (
+              <Link href="/admin/bookings" className="flex items-center gap-1 text-sm font-medium text-primary hover:underline">
+                View All ({ownerBookings.length}) <ArrowRight className="h-4 w-4" />
+              </Link>
+            )}
+          </div>
 
           {ownerBookings.length === 0 ? (
             <Card className="border-2 border-dashed border-gray-200">
@@ -949,60 +968,59 @@ function AdminDashboardInner() {
         </section>
 
         {/* ══════ SERVICE HEALTH SCORE ══════ */}
-        {stats && properties.length > 0 && (
+        {healthScore && healthScore.score >= 0 && properties.length > 0 && (
           <section className={cn("mb-10 transition-all duration-600 delay-600", contentReady ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4")}>
             <Card className="bg-linear-to-br from-indigo-50 via-white to-purple-50 border-indigo-100">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <Activity className="h-5 w-5 text-indigo-600" />Your Service Health Score
                 </CardTitle>
-                <CardDescription>How well your services are positioned on AasPass</CardDescription>
+                <CardDescription>Weighted score based on photos, reviews, occupancy, engagement & recency</CardDescription>
               </CardHeader>
               <CardContent>
-                {(() => {
-                  const hasPhotos = properties.some((p) => p.images.length >= 3);
-                  const hasDescription = properties.every((p) => p.name);
-                  const hasReviews = (stats.totalReviews || 0) > 0;
-                  const hasGoodRating = (stats.avgRating || 0) >= 3.5;
-                  const hasCapacity = properties.some((p) => p.capacity);
-                  const checks = [hasPhotos, hasDescription, hasReviews, hasGoodRating, hasCapacity];
-                  const score = Math.round((checks.filter(Boolean).length / checks.length) * 100);
-                  const scoreColor = score >= 80 ? "text-green-700" : score >= 50 ? "text-yellow-700" : "text-red-700";
-                  const scoreBg = score >= 80 ? "bg-green-500" : score >= 50 ? "bg-yellow-500" : "bg-red-500";
-
-                  return (
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-4">
-                        <div className={cn("text-4xl font-black", scoreColor)}>{score}%</div>
-                        <div className="flex-1">
-                          <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
-                            <div className={cn("h-full rounded-full transition-all duration-1000", scoreBg)} style={{ width: `${score}%` }} />
-                          </div>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                        {[
-                          { ok: hasPhotos, label: "3+ quality photos uploaded", tip: "Add more photos to attract students" },
-                          { ok: hasDescription, label: "Service details completed", tip: "Fill in all service details" },
-                          { ok: hasReviews, label: "Has student reviews", tip: "Encourage students to leave reviews" },
-                          { ok: hasGoodRating, label: "Rating 3.5+ stars", tip: "Improve service quality for better ratings" },
-                          { ok: hasCapacity, label: "Capacity & seats configured", tip: "Set your total capacity and available seats" },
-                        ].map((item, i) => (
-                          <div key={i} className="flex items-center gap-2 py-1.5">
-                            {item.ok ? (
-                              <CheckCircle className="h-4 w-4 text-green-600 shrink-0" />
-                            ) : (
-                              <AlertCircle className="h-4 w-4 text-yellow-500 shrink-0" />
-                            )}
-                            <span className={item.ok ? "text-gray-700" : "text-yellow-700"}>
-                              {item.ok ? item.label : item.tip}
-                            </span>
-                          </div>
-                        ))}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4">
+                    <div className={cn("text-4xl font-black", healthScore.score >= 80 ? "text-green-700" : healthScore.score >= 50 ? "text-yellow-700" : "text-red-700")}>
+                      {healthScore.score}%
+                    </div>
+                    <div className="flex-1">
+                      <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
+                        <div className={cn("h-full rounded-full transition-all duration-1000", healthScore.score >= 80 ? "bg-green-500" : healthScore.score >= 50 ? "bg-yellow-500" : "bg-red-500")}
+                          style={{ width: `${healthScore.score}%` }} />
                       </div>
                     </div>
-                  );
-                })()}
+                  </div>
+
+                  {/* Breakdown */}
+                  <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
+                    {healthScore.breakdown.map((item) => {
+                      const barColor = item.score >= 80 ? "bg-green-500" : item.score >= 50 ? "bg-yellow-500" : "bg-red-500";
+                      return (
+                        <div key={item.label} className="bg-white/70 rounded-lg p-3 border border-indigo-100 text-center">
+                          <p className="text-xs font-semibold text-gray-600 mb-1">{item.label}</p>
+                          <p className="text-lg font-bold text-gray-900">{item.score}%</p>
+                          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mt-1.5">
+                            <div className={cn("h-full rounded-full transition-all duration-700", barColor)} style={{ width: `${item.score}%` }} />
+                          </div>
+                          <p className="text-[10px] text-gray-400 mt-1">Weight: {item.weight}%</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Tips */}
+                  {healthScore.tips.length > 0 && (
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-semibold text-indigo-600">Improvement Tips</p>
+                      {healthScore.tips.map((tip, i) => (
+                        <div key={i} className="flex items-center gap-2 text-sm py-1">
+                          <AlertCircle className="h-4 w-4 text-yellow-500 shrink-0" />
+                          <span className="text-yellow-700">{tip}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </section>

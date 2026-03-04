@@ -1,6 +1,7 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import { gsap } from "@/lib/gsap";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
@@ -57,7 +58,16 @@ export function PremiumModal({ open, onClose }: PremiumModalProps) {
   const [selectedPlan, setSelectedPlan] = useState("quarterly");
   const [processing, setProcessing] = useState(false);
   const [successData, setSuccessData] = useState<{ premiumExpiry: string } | null>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+  const backdropRef = useRef<HTMLDivElement>(null);
   const isPremium = (session?.user as { isPremium?: boolean })?.isPremium;
+
+  // GSAP entrance animation when modal opens
+  useEffect(() => {
+    if (!open || !modalRef.current || !backdropRef.current) return;
+    gsap.fromTo(backdropRef.current, { opacity: 0 }, { opacity: 1, duration: 0.25, ease: "power2.out" });
+    gsap.fromTo(modalRef.current, { opacity: 0, scale: 0.92, y: 20 }, { opacity: 1, scale: 1, y: 0, duration: 0.35, ease: "back.out(1.4)" });
+  }, [open]);
 
   if (!open && !successData) return null;
 
@@ -159,8 +169,8 @@ export function PremiumModal({ open, onClose }: PremiumModalProps) {
 
   return (
     <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
+      <div ref={backdropRef} className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} style={{ opacity: 0 }} />
+      <div ref={modalRef} className="relative bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto" style={{ opacity: 0 }}>
         <button onClick={onClose} className="absolute top-4 right-4 h-8 w-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center z-10 transition-colors">
           <X className="h-4 w-4 text-gray-500" />
         </button>

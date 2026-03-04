@@ -45,6 +45,15 @@ model User {
   razorpayPaymentId  String?
   razorpayOrderId    String?
   superCoins         Int       @default(0)
+
+  // Owner Premium (separate from student premium)
+  isOwnerPremium          Boolean   @default(false)
+  ownerPremiumExpiry      DateTime?
+  ownerSubscriptionPlan   String?   // 'monthly' | 'quarterly' | 'yearly'
+  ownerSubscriptionStart  DateTime?
+  ownerRazorpayPaymentId  String?
+  ownerRazorpayOrderId    String?
+
   isBlocked       Boolean   @default(false)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -64,6 +73,10 @@ model User {
   wishlist        Wishlist[]
   announcements   Announcement[]
   paymentLogs     PaymentLog[]
+  personalizedOffers PersonalizedOffer[]
+  premiumGrants   PremiumGrant[]
+  warnings        UserWarning[]
+  suspensions     UserSuspension[]
 
   @@map("users")
 }
@@ -555,4 +568,138 @@ model ServiceStudent {
   @@index([propertyId])
   @@index([userId])
   @@map("service_students")
+}
+
+// ==================== SUPER ADMIN ====================
+
+model SuperAdmin {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String
+  name          String
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  lastLogin     DateTime?
+
+  auditLogs     AuditLog[]
+  premiumGrants PremiumGrant[]
+  userWarnings  UserWarning[]
+  userSuspensions UserSuspension[]
+
+  @@map("superadmins")
+}
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  superadminId  String
+  actionType    String   // e.g. "EDIT_USER", "GRANT_PREMIUM", "SUSPEND_USER", "DELETE_REVIEW", etc.
+  targetType    String   // e.g. "USER", "SERVICE", "BOOKING", "REVIEW", "OFFER"
+  targetId      String
+  targetName    String?
+  beforeValue   String?  @db.Text // JSON string
+  afterValue    String?  @db.Text // JSON string
+  reason        String?  @db.Text
+
+  superadmin    SuperAdmin @relation(fields: [superadminId], references: [id])
+
+  createdAt     DateTime @default(now())
+
+  @@index([superadminId])
+  @@index([actionType])
+  @@index([targetType])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model PersonalizedOffer {
+  id                    String   @id @default(cuid())
+  assignedToUserId      String
+  title                 String
+  description           String   @db.Text
+  discountType          String   // "percentage" | "flat"
+  discountValue         Float
+  applicableServiceTypes String[] @default([])
+  startDate             DateTime @default(now())
+  expiryDate            DateTime
+  isStackable           Boolean  @default(false)
+  isActive              Boolean  @default(true)
+  isUsed                Boolean  @default(false)
+  createdAt             DateTime @default(now())
+  revokedAt             DateTime?
+
+  assignedTo            User     @relation(fields: [assignedToUserId], references: [id])
+
+  @@index([assignedToUserId])
+  @@index([isActive])
+  @@map("personalized_offers")
+}
+
+model PremiumGrant {
+  id          String    @id @default(cuid())
+  userId      String
+  grantedById String
+  grantType   String    // "manual" | "paid"
+  startDate   DateTime  @default(now())
+  expiryDate  DateTime? // null = lifetime
+  isActive    Boolean   @default(true)
+  revokedAt   DateTime?
+
+  user        User         @relation(fields: [userId], references: [id])
+  grantedBy   SuperAdmin   @relation(fields: [grantedById], references: [id])
+
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([isActive])
+  @@map("premium_grants")
+}
+
+model UserWarning {
+  id              String   @id @default(cuid())
+  userId          String
+  warningMessage  String   @db.Text
+  issuedById      String
+  isRead          Boolean  @default(false)
+  isDismissed     Boolean  @default(false)
+
+  user            User       @relation(fields: [userId], references: [id])
+  issuedBy        SuperAdmin @relation(fields: [issuedById], references: [id])
+
+  issuedAt        DateTime @default(now())
+
+  @@index([userId])
+  @@map("user_warnings")
+}
+
+model UserSuspension {
+  id            String    @id @default(cuid())
+  userId        String
+  reason        String    @db.Text
+  suspendedById String
+  suspendedAt   DateTime  @default(now())
+  expiresAt     DateTime? // null = permanent
+  isActive      Boolean   @default(true)
+  reinstatedAt  DateTime?
+
+  user          User       @relation(fields: [userId], references: [id])
+  suspendedBy   SuperAdmin @relation(fields: [suspendedById], references: [id])
+
+  @@index([userId])
+  @@index([isActive])
+  @@map("user_suspensions")
+}
+
+model PlatformAnalytics {
+  id              String   @id @default(cuid())
+  date            DateTime @unique
+  totalUsers      Int      @default(0)
+  totalOwners     Int      @default(0)
+  totalServices   Int      @default(0)
+  totalBookings   Int      @default(0)
+  totalRevenue    Float    @default(0)
+  newSignups      Int      @default(0)
+  activeUsers     Int      @default(0)
+
+  @@index([date])
+  @@map("platform_analytics")
 }

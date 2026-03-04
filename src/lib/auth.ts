@@ -52,6 +52,7 @@ export const authConfig: NextAuthConfig = {
           image: user.image && !user.image.startsWith('data:') ? user.image : null,
           role: user.role,
           isPremium: user.isPremium,
+          isOwnerPremium: user.isOwnerPremium,
         };
       },
     }),
@@ -82,6 +83,7 @@ export const authConfig: NextAuthConfig = {
             (user as any).id = existingUser.id;
             (user as any).role = existingUser.role;
             (user as any).isPremium = existingUser.isPremium;
+            (user as any).isOwnerPremium = existingUser.isOwnerPremium;
           }
         } catch (error) {
           console.error("Google sign-in DB error:", error);
@@ -99,10 +101,15 @@ export const authConfig: NextAuthConfig = {
       if (trigger === "update" && session?.isPremium !== undefined) {
         token.isPremium = session.isPremium;
       }
+      // Handle owner premium upgrade via client-side session update
+      if (trigger === "update" && session?.isOwnerPremium !== undefined) {
+        token.isOwnerPremium = session.isOwnerPremium;
+      }
       if (user) {
         token.id = (user as any).id || user.id;
         token.role = (user as any).role || "STUDENT";
         token.isPremium = (user as any).isPremium || false;
+        token.isOwnerPremium = (user as any).isOwnerPremium || false;
       }
       // Strip large image data from JWT to keep cookie small (prevents 431)
       if (token.picture && typeof token.picture === 'string' && token.picture.startsWith('data:')) {
@@ -116,7 +123,7 @@ export const authConfig: NextAuthConfig = {
         try {
           const dbUser = await prisma.user.findUnique({
             where: { email: token.email as string },
-            select: { id: true, role: true, isPremium: true, premiumExpiry: true },
+            select: { id: true, role: true, isPremium: true, premiumExpiry: true, isOwnerPremium: true, ownerPremiumExpiry: true },
           });
           if (dbUser) {
             token.id = dbUser.id;
@@ -126,6 +133,10 @@ export const authConfig: NextAuthConfig = {
               dbUser.isPremium &&
               !!dbUser.premiumExpiry &&
               new Date(dbUser.premiumExpiry) > new Date();
+            token.isOwnerPremium =
+              dbUser.isOwnerPremium &&
+              !!dbUser.ownerPremiumExpiry &&
+              new Date(dbUser.ownerPremiumExpiry) > new Date();
           }
         } catch {
           // Ignore DB errors in JWT callback
@@ -138,6 +149,7 @@ export const authConfig: NextAuthConfig = {
         (session.user as any).id = token.id;
         (session.user as any).role = token.role;
         (session.user as any).isPremium = token.isPremium;
+        (session.user as any).isOwnerPremium = token.isOwnerPremium;
       }
       return session;
     },

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { gsap, ScrollTrigger } from "@/lib/gsap";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
@@ -283,6 +284,37 @@ export default function HomePage() {
     return () => observer.disconnect();
   }, []);
 
+  // GSAP hero entrance + scroll-triggered section animations
+  useEffect(() => {
+    if (!heroRef.current) return;
+    const ctx = gsap.context(() => {
+      // Hero entrance timeline
+      const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
+      tl.fromTo("[data-gsap='hero-heading']", { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.6 })
+        .fromTo("[data-gsap='hero-subtext']", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.4 }, "-=0.3")
+        .fromTo("[data-gsap='hero-cat']", { opacity: 0, y: 16, scale: 0.9 }, { opacity: 1, y: 0, scale: 1, duration: 0.3, stagger: 0.06 }, "-=0.15")
+        .fromTo("[data-gsap='hero-search']", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.4 }, "-=0.2");
+    }, heroRef);
+
+    // Scroll-triggered animations (document-level, not scoped to heroRef)
+    // AI Chatbox + Tagline
+    gsap.fromTo("[data-gsap='ai-chatbox']", { opacity: 0, x: -40 }, { opacity: 1, x: 0, duration: 0.6, ease: "power3.out", scrollTrigger: { trigger: "[data-gsap='ai-chatbox']", start: "top 85%", once: true } });
+    gsap.fromTo("[data-gsap='tagline']", { opacity: 0, x: 40 }, { opacity: 1, x: 0, duration: 0.6, ease: "power3.out", scrollTrigger: { trigger: "[data-gsap='tagline']", start: "top 85%", once: true } });
+
+    // Offers section
+    gsap.fromTo("[data-gsap='offers-title']", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out", scrollTrigger: { trigger: "[data-gsap='offers-title']", start: "top 88%", once: true } });
+    gsap.fromTo("[data-gsap='offer-card']", { opacity: 0, y: 30, scale: 0.95 }, { opacity: 1, y: 0, scale: 1, duration: 0.4, stagger: 0.08, ease: "power3.out", scrollTrigger: { trigger: "[data-gsap='offers-grid']", start: "top 85%", once: true } });
+
+    // Benefits section
+    gsap.fromTo("[data-gsap='benefits-title']", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out", scrollTrigger: { trigger: "[data-gsap='benefits-title']", start: "top 88%", once: true } });
+    gsap.fromTo("[data-gsap='benefit-card']", { opacity: 0, y: 30, scale: 0.95 }, { opacity: 1, y: 0, scale: 1, duration: 0.4, stagger: 0.1, ease: "power3.out", scrollTrigger: { trigger: "[data-gsap='benefits-grid']", start: "top 85%", once: true } });
+
+    return () => {
+      ctx.revert();
+      ScrollTrigger.getAll().forEach(st => st.kill());
+    };
+  }, []);
+
   // Close profile dropdown on outside click
   useEffect(() => {
     const handler = () => setProfileOpen(false);
@@ -517,10 +549,10 @@ export default function HomePage() {
 
         {/* AasPass Logo Text (medium-big, not full viewport) */}
         <div className="text-center pt-6 pb-4">
-          <h1 className="font-black tracking-tight text-primary text-6xl sm:text-7xl md:text-8xl lg:text-9xl leading-none select-none">
+          <h1 data-gsap="hero-heading" className="font-black tracking-tight text-primary text-6xl sm:text-7xl md:text-8xl lg:text-9xl leading-none select-none" style={{ opacity: 0 }}>
             Aas<span className="text-premium">Pass</span>
           </h1>
-          <p className="mt-3 text-gray-500 text-sm sm:text-base">Find accommodation, mess, libraries, laundry & more</p>
+          <p data-gsap="hero-subtext" className="mt-3 text-gray-500 text-sm sm:text-base" style={{ opacity: 0 }}>Find accommodation, mess, libraries, laundry & more</p>
         </div>
 
         {/* ── HORIZONTAL SERVICE CATEGORY BAR ── */}
@@ -529,6 +561,7 @@ export default function HomePage() {
             {serviceCategories.map((cat) => (
               <button
                 key={cat.value}
+                data-gsap="hero-cat"
                 onClick={() => handleCategoryClick(cat)}
                 className={cn(
                   "flex items-center gap-2 px-4 py-2.5 rounded-full border-2 text-sm font-medium transition-all hover:shadow-md",
@@ -545,7 +578,7 @@ export default function HomePage() {
         </div>
 
         {/* ── COMBO SEARCH BAR (in hero, visible on initial load) ── */}
-        <div className="max-w-5xl mx-auto px-4">
+        <div data-gsap="hero-search" className="max-w-5xl mx-auto px-4" style={{ opacity: 0 }}>
           {/* Desktop: single row with border */}
           <div className="hidden lg:flex items-center gap-2 bg-white border-2 border-gray-200 rounded-full px-4 py-2.5 shadow-lg hover:shadow-xl transition-shadow">
             {/* Service selector */}
@@ -690,7 +723,9 @@ export default function HomePage() {
               if (u(session)?.isPremium) router.push("/chat");
               else setPremiumOpen(true);
             }}
+            data-gsap="ai-chatbox"
             className="w-full md:w-auto md:max-w-xs bg-linear-to-br bg-amber-300/10 border border-primary/20 rounded-2xl p-5 flex items-start gap-4 hover:shadow-lg hover:border-primary/40 transition-all cursor-pointer group shrink-0"
+            style={{ opacity: 0 }}
           >
             <div className="h-11 w-11 rounded-xl bg-linear-to-br from-primary to-premium flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
               <MessageCircle className="h-5 w-5 text-white" />
@@ -714,7 +749,7 @@ export default function HomePage() {
           </div>
 
           {/* Tagline — right side */}
-          <div className="flex-1 flex flex-col justify-center px-0 md:px-6 ">
+          <div data-gsap="tagline" className="flex-1 flex flex-col justify-center px-0 md:px-6" style={{ opacity: 0 }}>
             <p className="md:mt-6      text-3xl sm:text-4xl lg:text-5xl font-black text-gray-900 leading-tight">
               Get all the services to<br className="hidden sm:block " />{" "}
               <span className="text-primary">make it feel</span>{" "}
@@ -731,12 +766,12 @@ export default function HomePage() {
       {/* Offers */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">Offers & Coupons</h2>
+          <h2 data-gsap="offers-title" className="text-2xl font-bold text-gray-900" style={{ opacity: 0 }}>Offers & Coupons</h2>
          
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5 stagger-enter">
+        <div data-gsap="offers-grid" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
           {offers.map((offer, i) => (
-            <Card key={i} className="overflow-hidden cursor-pointer hover:shadow-lg transition-all border-0 bg-transparent card-hover-lift">
+            <Card key={i} data-gsap="offer-card" className="overflow-hidden cursor-pointer hover:shadow-lg transition-all border-0 bg-transparent card-hover-lift" style={{ opacity: 0 }}>
               <div className={cn("h-full w-full rounded-lg bg-linear-to-br text-white p-6", offer.gradient)}>
                 <offer.icon className="h-8 w-8 mb-3 opacity-90" />
                 <h3 className="font-bold text-lg">{offer.title}</h3>
@@ -751,10 +786,10 @@ export default function HomePage() {
       <section className="bg-gray-50 py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900">Why Choose AasPass?</h2>
-            <p className="text-gray-600 mt-2">Trusted by thousands of students across India</p>
+            <h2 data-gsap="benefits-title" className="text-3xl font-bold text-gray-900" style={{ opacity: 0 }}>Why Choose AasPass?</h2>
+            <p data-gsap="benefits-title" className="text-gray-600 mt-2" style={{ opacity: 0 }}>Trusted by thousands of students across India</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 stagger-enter">
+          <div data-gsap="benefits-grid" className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
               { title: "Verified Services", description: "Every service is manually verified for quality and safety standards", icon: "🏠" },
               { title: "Best Prices", description: "Transparent pricing with no hidden charges. GST inclusive.", icon: "💰" },
@@ -763,7 +798,7 @@ export default function HomePage() {
               { title: "Student Reviews", description: "Read genuine reviews from verified students before booking", icon: "⭐" },
               { title: "Premium Perks", description: "AI chat, pre-booking access, and late fee waivers for premium users", icon: "👑" },
             ].map((b, i) => (
-              <div key={i} className="bg-white rounded-xl p-6 shadow-sm border card-hover-lift">
+              <div key={i} data-gsap="benefit-card" className="bg-white rounded-xl p-6 shadow-sm border card-hover-lift" style={{ opacity: 0 }}>
                 <div className="text-3xl mb-3">{b.icon}</div>
                 <h3 className="font-semibold text-gray-900 mb-2">{b.title}</h3>
                 <p className="text-sm text-gray-500">{b.description}</p>

@@ -46,6 +46,7 @@ export function Navbar({ variant = "public", showSearch = true, autoHide = false
   const isOwner = variant === "admin" || variant === "minimal-admin";
   const isStudent = variant === "student" || variant === "minimal-student";
   const isPremium = (session?.user as any)?.isPremium;
+  const isOwnerPremium = (session?.user as any)?.isOwnerPremium;
 
   // Fetch notification + cart counts
   useEffect(() => {
@@ -140,6 +141,7 @@ export function Navbar({ variant = "public", showSearch = true, autoHide = false
     { icon: User, label: "Personal Details", href: "/settings/profile" },
     { icon: LayoutDashboard, label: "Dashboard", href: "/admin/dashboard" },
     { icon: Building2, label: "My Services", href: "/admin/properties" },
+    ...(!isOwnerPremium ? [{ icon: Crown, label: "Upgrade to Premium", ownerPremium: true, action: () => { setProfileOpen(false); if (onPremiumClick) { onPremiumClick(); } else { router.push("/admin/dashboard"); } } }] : []),
     { icon: Settings, label: "Settings", href: "/settings/edit" },
   ] : [
     { icon: User, label: "Personal Details", href: "/settings/profile" },
@@ -309,6 +311,7 @@ export function Navbar({ variant = "public", showSearch = true, autoHide = false
                       <span className="text-sm font-bold text-primary">{session.user?.name?.[0]?.toUpperCase() || "U"}</span>
                     </div>
                     {isPremium && <Crown className="h-3.5 w-3.5 text-amber-500" />}
+                    {isOwnerPremium && <Crown className="h-3.5 w-3.5 text-green-600" />}
                     <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
                   </button>
 
@@ -320,6 +323,7 @@ export function Navbar({ variant = "public", showSearch = true, autoHide = false
                         <div className="flex items-center gap-1.5 mt-1.5">
                           <Badge variant="outline" className="text-[10px] text-gray-600 border-gray-200">{isOwner ? "Owner" : "Student"}</Badge>
                           {isPremium && <Badge className="bg-amber-100 text-amber-700 text-[10px]"><Crown className="h-2.5 w-2.5 mr-0.5" />Premium</Badge>}
+                          {isOwnerPremium && <Badge className="bg-green-100 text-green-700 text-[10px]"><Crown className="h-2.5 w-2.5 mr-0.5" />Premium</Badge>}
                         </div>
                       </div>
                       {dropdownItems.map((item: any) =>
@@ -328,7 +332,7 @@ export function Navbar({ variant = "public", showSearch = true, autoHide = false
                             <item.icon className="h-4 w-4 text-gray-400" />{item.label}
                           </Link>
                         ) : (
-                          <button key={item.label} onClick={item.action} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-amber-600 hover:bg-amber-50 transition-colors">
+                          <button key={item.label} onClick={item.action} className={cn("w-full flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors", item.ownerPremium ? "text-green-700 hover:bg-green-50" : "text-amber-600 hover:bg-amber-50")}>
                             <item.icon className="h-4 w-4" />{item.label}
                           </button>
                         )

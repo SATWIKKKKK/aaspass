@@ -2,11 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-// GET /api/bookings — get user's bookings
+// GET /api/bookings — get user's bookings (supports pagination)
 export async function GET(req: NextRequest) {
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const url = new URL(req.url);
+    const page = parseInt(url.searchParams.get("page") || "0");
+    const limit = Math.min(parseInt(url.searchParams.get("limit") || "0"), 100);
+    const statusFilter = url.searchParams.get("status") || "";
 
     const where: any = {};
     const role = (session.user as any)?.role;
@@ -16,16 +21,29 @@ export async function GET(req: NextRequest) {
       where.property = { ownerId: session.user.id! };
     }
 
-    const bookings = await prisma.booking.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      include: {
-        property: { select: { name: true, slug: true, city: true, serviceType: true, images: { take: 1 } } },
-        student: { select: { name: true, email: true, phone: true } },
-      },
-    });
+    if (statusFilter) {
+      where.status = statusFilter;
+    }
 
-    return NextResponse.json({ bookings });
+    const isPaginated = page > 0 && limit > 0;
+
+    const [bookings, total] = await Promise.all([
+      prisma.booking.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        ...(isPaginated ? { skip: (page - 1) * limit, take: limit } : {}),
+        include: {
+          property: { select: { name: true, slug: true, city: true, serviceType: true, images: { take: 1 } } },
+          student: { select: { name: true, email: true, phone: true } },
+        },
+      }),
+      isPaginated ? prisma.booking.count({ where }) : Promise.resolve(0),
+    ]);
+
+    return NextResponse.json({
+      bookings,
+      ...(isPaginated ? { pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } } : {}),
+    });
   } catch (error) {
     console.error("GET /api/bookings error:", error);
     return NextResponse.json({ error: "Failed to fetch bookings" }, { status: 500 });

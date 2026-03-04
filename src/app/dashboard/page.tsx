@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { gsap } from "@/lib/gsap";
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import toast from "react-hot-toast";
@@ -195,6 +196,16 @@ function StudentDashboardInner() {
       .finally(() => setLoading(false));
   }, [status]);
 
+  // GSAP entrance animations after data loads
+  useEffect(() => {
+    if (loading) return;
+    const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
+    tl.fromTo("[data-gsap='dash-hero']", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.5 })
+      .fromTo("[data-gsap='dash-greeting']", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.4 }, "-=0.2")
+      .fromTo("[data-gsap='dash-section']", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.4, stagger: 0.12 }, "-=0.1")
+      .fromTo("[data-gsap='dash-card']", { opacity: 0, y: 16, scale: 0.97 }, { opacity: 1, y: 0, scale: 1, duration: 0.35, stagger: 0.06 }, "-=0.2");
+  }, [loading]);
+
   // Close profile dropdown on outside click
   useEffect(() => {
     const handler = () => setProfileOpen(false);
@@ -315,7 +326,7 @@ function StudentDashboardInner() {
       </header>
 
       {/* --- AASPASS HERO TEXT --- */}
-      <div className="text-center pt-8 pb-4">
+      <div data-gsap="dash-hero" className="text-center pt-8 pb-4" style={{ opacity: 0 }}>
         <Link href="/home">
           <h1 className="font-black tracking-tight text-primary text-6xl sm:text-7xl md:text-8xl lg:text-9xl leading-none select-none hover:opacity-80 transition-opacity">
             Aas<span className="text-premium">Pass</span>
@@ -329,13 +340,13 @@ function StudentDashboardInner() {
         {isPremium && <div className="mb-4"><ExpiryWarningBanner /></div>}
 
         {/* Greeting */}
-        <div className="mb-8">
+        <div data-gsap="dash-greeting" className="mb-8" style={{ opacity: 0 }}>
           <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Hello {userName} </h2>
           <p className="text-gray-600 mt-1">Get all your things done at one place.</p>
         </div>
 
         {/* --- YOUR BOOKINGS --- */}
-        <section className="mb-12">
+        <section data-gsap="dash-section" className="mb-12" style={{ opacity: 0 }}>
           <h3 className="text-xl font-bold text-gray-900 mb-6">Your Bookings</h3>
 
           {bookings.length === 0 ? (
@@ -402,11 +413,11 @@ function StudentDashboardInner() {
         </section>
 
         {/* --- SPECIAL FOR YOU --- */}
-        <section className="mb-12">
+        <section data-gsap="dash-section" className="mb-12" style={{ opacity: 0 }}>
           <h3 className="text-xl font-bold text-gray-900 mb-6">Special For You</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* SuperCoins */}
-            <Card className="bg-linear-to-br from-yellow-50 to-amber-50 border-yellow-100 hover:shadow-md transition-shadow">
+            <Card data-gsap="dash-card" className="bg-linear-to-br from-yellow-50 to-amber-50 border-yellow-100 hover:shadow-md transition-shadow" style={{ opacity: 0 }}>
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-lg"><Coins className="h-5 w-5 text-yellow-600" />SuperCoins</CardTitle>
                 <CardDescription>Earn & redeem on every booking</CardDescription>
@@ -418,7 +429,7 @@ function StudentDashboardInner() {
             </Card>
 
             {/* Rewards */}
-            <Card className="bg-linear-to-br from-green-50 to-emerald-50 border-green-100 hover:shadow-md transition-shadow">
+            <Card data-gsap="dash-card" className="bg-linear-to-br from-green-50 to-emerald-50 border-green-100 hover:shadow-md transition-shadow" style={{ opacity: 0 }}>
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-lg"><Award className="h-5 w-5 text-green-600" />Rewards</CardTitle>
                 <CardDescription>Unlock badges and perks</CardDescription>
@@ -447,7 +458,7 @@ function StudentDashboardInner() {
             </Card>
 
             {/* Coupons */}
-            <Card className="bg-linear-to-br from-purple-50 to-indigo-50 border-purple-100 hover:shadow-md transition-shadow">
+            <Card data-gsap="dash-card" className="bg-linear-to-br from-purple-50 to-indigo-50 border-purple-100 hover:shadow-md transition-shadow" style={{ opacity: 0 }}>
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-lg"><Ticket className="h-5 w-5 text-purple-600" />Coupons</CardTitle>
                 <CardDescription>Available discount codes</CardDescription>

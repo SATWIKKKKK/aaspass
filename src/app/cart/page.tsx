@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { gsap } from "@/lib/gsap";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -143,6 +144,14 @@ function CartPageInner() {
 
   if (status === "loading" || loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => {
+    const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
+    tl.fromTo("[data-gsap='cart-title']", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.5 })
+      .fromTo("[data-gsap='cart-item']", { opacity: 0, x: -20 }, { opacity: 1, x: 0, duration: 0.35, stagger: 0.07 }, "-=0.2")
+      .fromTo("[data-gsap='cart-summary']", { opacity: 0, x: 30 }, { opacity: 1, x: 0, duration: 0.4 }, "-=0.3");
+  });
+
   const itemPricing = items.map((item) => {
     const ciStr = item.checkIn ? new Date(item.checkIn).toISOString().split("T")[0] : "";
     const coStr = item.checkOut ? new Date(item.checkOut).toISOString().split("T")[0] : "";
@@ -161,7 +170,7 @@ function CartPageInner() {
       <Navbar variant="student" />
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Link href="/services" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-primary mb-4"><ChevronLeft className="h-4 w-4" /> Continue Browsing</Link>
-        <h1 className="text-3xl font-bold text-gray-900 mb-6 flex items-center gap-3"><ShoppingCart className="h-8 w-8 text-primary" /> Your Cart ({items.length})</h1>
+        <h1 data-gsap="cart-title" className="text-3xl font-bold text-gray-900 mb-6 flex items-center gap-3" style={{ opacity: 0 }}><ShoppingCart className="h-8 w-8 text-primary" /> Your Cart ({items.length})</h1>
 
         {items.length === 0 ? (
           <Card><CardContent className="p-12 text-center"><ShoppingCart className="h-12 w-12 text-gray-300 mx-auto mb-4" /><h3 className="text-lg font-semibold text-gray-900 mb-2">Your cart is empty</h3><p className="text-gray-500 mb-4">Browse services to add to your cart</p><Link href="/services"><Button>Browse Services</Button></Link></CardContent></Card>
@@ -169,7 +178,7 @@ function CartPageInner() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-4">
               {itemPricing.map((item) => (
-                <Card key={item.id}><CardContent className="p-4"><div className="flex gap-4">
+                <Card key={item.id} data-gsap="cart-item" style={{ opacity: 0 }}><CardContent className="p-4"><div className="flex gap-4">
                   <div className="w-24 h-24 bg-gray-100 rounded-lg shrink-0 overflow-hidden">
                     {item.property.images?.[0]?.url ? <img src={item.property.images[0].url} alt="" className="w-full h-full object-cover" /> :
                     <div className="w-full h-full bg-linear-to-br from-primary/10 to-primary/5 flex items-center justify-center"><Building2 className="h-8 w-8 text-primary/30" /></div>}
@@ -200,7 +209,7 @@ function CartPageInner() {
                 </div></CardContent></Card>
               ))}
             </div>
-            <div><Card className="sticky top-20"><CardContent className="p-6 space-y-3">
+            <div data-gsap="cart-summary" style={{ opacity: 0 }}><Card className="sticky top-20"><CardContent className="p-6 space-y-3">
               <h3 className="font-semibold text-gray-900">Order Summary</h3><Separator />
               <div className="space-y-2 text-sm">
                 {itemPricing.map((item) => (

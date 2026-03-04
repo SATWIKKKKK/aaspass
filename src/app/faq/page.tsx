@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { gsap } from "@/lib/gsap";
 import { ChevronDown } from "lucide-react";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
@@ -22,16 +23,23 @@ const faqs = [
 export default function FAQPage() {
   const [open, setOpen] = useState<number | null>(0);
 
+  // GSAP entrance
+  useEffect(() => {
+    const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
+    tl.fromTo("[data-gsap='faq-title']", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.5 })
+      .fromTo("[data-gsap='faq-item']", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.3, stagger: 0.05 }, "-=0.2");
+  }, []);
+
   return (
     <div className="min-h-screen bg-white">
       <Navbar variant="public" />
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <h1 className="text-4xl font-bold text-gray-900 mb-4 text-center">Frequently Asked Questions</h1>
-        <p className="text-gray-500 text-center mb-12">Everything you need to know about AasPass</p>
+        <h1 data-gsap="faq-title" className="text-4xl font-bold text-gray-900 mb-4 text-center" style={{ opacity: 0 }}>Frequently Asked Questions</h1>
+        <p data-gsap="faq-title" className="text-gray-500 text-center mb-12" style={{ opacity: 0 }}>Everything you need to know about AasPass</p>
 
         <div className="space-y-3">
           {faqs.map((faq, i) => (
-            <div key={i} className="border rounded-lg overflow-hidden">
+            <div key={i} data-gsap="faq-item" className="border rounded-lg overflow-hidden" style={{ opacity: 0 }}>
               <button
                 onClick={() => setOpen(open === i ? null : i)}
                 className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50"

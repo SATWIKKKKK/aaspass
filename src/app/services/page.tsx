@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, Suspense, useCallback } from "react";
+import { gsap, ScrollTrigger } from "@/lib/gsap";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
@@ -335,6 +336,25 @@ function ServicesContent() {
     return () => observer.disconnect();
   }, []);
 
+  // GSAP hero entrance
+  useEffect(() => {
+    if (!heroRef.current) return;
+    const ctx = gsap.context(() => {
+      const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
+      tl.fromTo("[data-gsap='svc-heading']", { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.6 })
+        .fromTo("[data-gsap='svc-subtext']", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.4 }, "-=0.3");
+    }, heroRef);
+    return () => ctx.revert();
+  }, []);
+
+  // GSAP stagger service cards after load
+  useEffect(() => {
+    if (loading || properties.length === 0) return;
+    const cards = document.querySelectorAll("[data-gsap='svc-card']");
+    if (cards.length === 0) return;
+    gsap.fromTo(cards, { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.4, stagger: 0.07, ease: "power3.out" });
+  }, [loading, properties]);
+
   // Close profile dropdown on outside click
   useEffect(() => {
     const handler = () => setProfileOpen(false);
@@ -501,8 +521,8 @@ function ServicesContent() {
       <section ref={heroRef} className="relative pt-8 pb-4 bg-white">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_30%,rgba(var(--primary-rgb,59,130,246),0.05),transparent)] pointer-events-none" />
         <div className="text-center pt-6 pb-8">
-          <Link href="/home"><h1 className="font-black tracking-tight text-primary text-6xl sm:text-7xl md:text-8xl lg:text-9xl leading-none select-none hover:opacity-80 transition-opacity">Aas<span className="text-premium">Pass</span></h1></Link>
-          <p className="mt-3 text-gray-500 text-sm sm:text-base">Find accommodation, mess, libraries, laundry & more</p>
+          <Link href="/home"><h1 data-gsap="svc-heading" className="font-black tracking-tight text-primary text-6xl sm:text-7xl md:text-8xl lg:text-9xl leading-none select-none hover:opacity-80 transition-opacity" style={{ opacity: 0 }}>Aas<span className="text-premium">Pass</span></h1></Link>
+          <p data-gsap="svc-subtext" className="mt-3 text-gray-500 text-sm sm:text-base" style={{ opacity: 0 }}>Find accommodation, mess, libraries, laundry & more</p>
         </div>
         <div className="max-w-5xl mx-auto px-4">
           {/* Desktop combo bar */}
@@ -693,11 +713,13 @@ function ServicesContent() {
             <Button variant="outline" className="mt-4" onClick={clearFilters}>Clear Filters</Button>
           </div>
         ) : (
-          <div className="space-y-5 stagger-enter">
-            {filtered.map((property) => (
+          <div className="space-y-5">
+            {filtered.map((property, idx) => (
               <Card
                 key={property.id}
+                data-gsap="svc-card"
                 className="overflow-hidden hover:shadow-lg transition-all cursor-pointer card-hover-lift"
+                style={{ opacity: 0, transform: "translateY(20px)" }}
                 onClick={() => router.push(`/services/${property.slug}${checkIn || checkOut ? `?from=${checkIn}&to=${checkOut}` : ''}`)}
               >
                 <div className="flex flex-col md:flex-row">

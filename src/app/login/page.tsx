@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { gsap } from "@/lib/gsap";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
@@ -19,6 +20,13 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+
+  // GSAP entrance
+  useEffect(() => {
+    const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
+    tl.fromTo("[data-gsap='login-brand']", { opacity: 0, x: -40 }, { opacity: 1, x: 0, duration: 0.6 })
+      .fromTo("[data-gsap='login-form']", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.5 }, "-=0.3");
+  }, []);
 
   const {
     register,
@@ -68,12 +76,19 @@ export default function LoginPage() {
     catch { toast.error("Google sign-in failed"); setGoogleLoading(false); }
   };
 
+  // GSAP entrance
+  useEffect(() => {
+    const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
+    tl.fromTo("[data-gsap='login-brand']", { opacity: 0, x: -40 }, { opacity: 1, x: 0, duration: 0.6 })
+      .fromTo("[data-gsap='login-form']", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.5 }, "-=0.3");
+  }, []);
+
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden flex flex-col lg:flex-row bg-white">
 
         {/* Left — AasPass branding */}
-        <div className="lg:w-5/12 bg-linear-to-br from-primary/8 to-primary/15 flex items-center justify-center px-10 py-14 lg:py-0">
+        <div data-gsap="login-brand" className="lg:w-5/12 bg-linear-to-br from-primary/8 to-primary/15 flex items-center justify-center px-10 py-14 lg:py-0" style={{ opacity: 0 }}>
           <div className="text-center">
             <Link href="/home" className="inline-block group">
               <h1 className="text-6xl font-black tracking-tight text-primary leading-none mb-4 group-hover:opacity-80 transition-opacity">
@@ -92,7 +107,7 @@ export default function LoginPage() {
         </div>
 
         {/* Right — form */}
-        <div className="lg:w-7/12 px-6 sm:px-10 py-10">
+        <div data-gsap="login-form" className="lg:w-7/12 px-6 sm:px-10 py-10" style={{ opacity: 0 }}>
           <Card className="border-0 shadow-none">
             <CardHeader className="pb-4 space-y-1 px-0">
               <CardTitle className="text-2xl font-bold">Sign In</CardTitle>

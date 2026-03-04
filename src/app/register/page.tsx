@@ -1,6 +1,7 @@
 ﻿"use client";
 
-import { Suspense, useState, useRef, useCallback } from "react";
+import { Suspense, useState, useRef, useCallback, useEffect } from "react";
+import { gsap } from "@/lib/gsap";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
@@ -113,13 +114,20 @@ function RegisterFormInner() {
 
   const isOwner = form.role === "OWNER";
 
+  // GSAP entrance
+  useEffect(() => {
+    const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
+    tl.fromTo("[data-gsap='reg-brand']", { opacity: 0, x: -40 }, { opacity: 1, x: 0, duration: 0.6 })
+      .fromTo("[data-gsap='reg-form']", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.5 }, "-=0.3");
+  }, []);
+
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-8">
       {/* Single outer rounded card containing both branding + form */}
       <div className="w-full max-w-5xl rounded-3xl shadow-2xl overflow-hidden flex flex-col lg:flex-row bg-white">
 
         {/* Left — AasPass branding, perfectly centred */}
-        <div className="lg:w-5/12 bg-linear-to-br from-primary/8 to-primary/15 flex items-center justify-center px-10 py-14 lg:py-0">
+        <div data-gsap="reg-brand" className="lg:w-5/12 bg-linear-to-br from-primary/8 to-primary/15 flex items-center justify-center px-10 py-14 lg:py-0" style={{ opacity: 0 }}>
           <div className="text-center">
             <Link href="/home" className="inline-block group">
               <h1 className="text-6xl font-black tracking-tight text-primary leading-none mb-4 group-hover:opacity-80 transition-opacity">
@@ -138,7 +146,7 @@ function RegisterFormInner() {
         </div>
 
         {/* Right — form */}
-        <div className="lg:w-7/12 overflow-y-auto px-6 sm:px-10 py-8">
+        <div data-gsap="reg-form" className="lg:w-7/12 overflow-y-auto px-6 sm:px-10 py-8" style={{ opacity: 0 }}>
           <Card className="border-0 shadow-none">
             <CardHeader className="pb-3 space-y-1 px-0">
               <CardTitle className="text-2xl font-bold">Create Account</CardTitle>
