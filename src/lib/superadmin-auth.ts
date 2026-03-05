@@ -38,7 +38,7 @@ export async function setSuperAdminCookie(token: string) {
   cookieStore.set(COOKIE_NAME, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
+    sameSite: "lax", // lax allows first-party navigation after form POST / fetch
     maxAge: 2 * 60 * 60, // 2 hours
     path: "/",
   });

@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { gsap } from "@/lib/gsap";
-import { useRouter } from "next/navigation";
 import { Shield, Eye, EyeOff, Lock, Mail, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +10,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import toast from "react-hot-toast";
 
 export default function SuperAdminLoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -39,7 +37,9 @@ export default function SuperAdminLoginPage() {
       }
 
       toast.success("Welcome back!");
-      router.push("/superadmin");
+      // Hard redirect so the browser re-sends all cookies in the first request
+      // (soft router.push can race with cookie propagation in production)
+      window.location.href = "/superadmin";
     } catch {
       toast.error("Something went wrong. Please try again.");
     } finally {

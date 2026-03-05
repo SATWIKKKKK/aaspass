@@ -21,9 +21,13 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import dynamic from "next/dynamic";
 import { RouteGuard } from "@/components/route-guard";
 import { OwnerPremiumModal } from "@/components/owner-premium-modal";
-import { OwnerDashboardCharts } from "@/components/owner-dashboard-charts";
+const OwnerDashboardCharts = dynamic(
+  () => import("@/components/owner-dashboard-charts").then((m) => ({ default: m.OwnerDashboardCharts })),
+  { ssr: false, loading: () => <div className="h-64 flex items-center justify-center text-sm text-muted-foreground">Loading charts…</div> }
+);
 import { cn, formatPrice } from "@/lib/utils";
 
 /* ═══════════════════ TYPES ═══════════════════ */

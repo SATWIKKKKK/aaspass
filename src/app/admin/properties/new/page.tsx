@@ -11,9 +11,13 @@ import {
   ArrowUp, ArrowDown, ImageIcon, Star as StarIcon, LocateFixed,
   DollarSign, Film,
 } from "lucide-react";
+import dynamic from "next/dynamic";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
-import { GoogleMap } from "@/components/google-map";
+const GoogleMap = dynamic(
+  () => import("@/components/google-map").then((m) => ({ default: m.GoogleMap })),
+  { ssr: false, loading: () => <div className="h-48 bg-gray-100 rounded-xl animate-pulse" /> }
+);
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";

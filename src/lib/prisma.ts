@@ -41,6 +41,8 @@ function createPrismaClient() {
 
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+// Always cache the client globally so Vercel Lambda instances reuse the
+// existing connection pool between warm invocations.
+globalForPrisma.prisma = prisma;
 
 export default prisma;
