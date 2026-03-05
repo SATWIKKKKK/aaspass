@@ -90,6 +90,15 @@ export default function SuperAdminDashboard() {
       .finally(() => setLoading(false));
   }, []);
 
+  // GSAP entrance animations — must be declared before any early return
+  useEffect(() => {
+    if (loading || !data) return;
+    const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
+    tl.fromTo("[data-gsap='sa-header']", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.4 })
+      .fromTo("[data-gsap='sa-metric']", { opacity: 0, y: 16, scale: 0.96 }, { opacity: 1, y: 0, scale: 1, duration: 0.35, stagger: 0.05 }, "-=0.2")
+      .fromTo("[data-gsap='sa-section']", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.4, stagger: 0.1 }, "-=0.1");
+  }, [loading, data]);
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -109,15 +118,6 @@ export default function SuperAdminDashboard() {
   }
 
   const { metrics, health, recentActivity } = data;
-
-  // GSAP entrance animations
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  useEffect(() => {
-    const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
-    tl.fromTo("[data-gsap='sa-header']", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.4 })
-      .fromTo("[data-gsap='sa-metric']", { opacity: 0, y: 16, scale: 0.96 }, { opacity: 1, y: 0, scale: 1, duration: 0.35, stagger: 0.05 }, "-=0.2")
-      .fromTo("[data-gsap='sa-section']", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.4, stagger: 0.1 }, "-=0.1");
-  }, []);
 
   return (
     <div className="space-y-6">

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import {
   Plus, ChevronDown, ChevronLeft, ChevronRight, Loader2,
@@ -321,6 +321,8 @@ function SeatIndicator({ capacity, available }: { capacity: number | null | unde
 function AdminDashboardInner() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isOwnerPremium = (session?.user as any)?.isOwnerPremium;
   const [properties, setProperties] = useState<PropertyData[]>([]);
   const [stats, setStats] = useState<OwnerStats | null>(null);
   const [ownerBookings, setOwnerBookings] = useState<OwnerBooking[]>([]);
@@ -343,6 +345,11 @@ function AdminDashboardInner() {
 
   useEffect(() => {
     if (status !== "authenticated") return;
+    // Auto-open premium modal if redirected from another page with ?premium=1
+    if (searchParams.get("premium") === "1") {
+      setTimeout(() => setOwnerPremiumOpen(true), 400);
+    }
+
     Promise.all([
       fetch("/api/properties?owner=me").then((r) => r.json()),
       fetch("/api/owner/stats").then((r) => r.json()),
@@ -464,6 +471,7 @@ function AdminDashboardInner() {
                     <div className="h-7 w-7 bg-primary/10 rounded-full flex items-center justify-center">
                       <span className="text-sm font-bold text-primary">{session.user?.name?.[0]?.toUpperCase() || "O"}</span>
                     </div>
+                    {isOwnerPremium && <Crown className="h-3.5 w-3.5 text-green-600" />}
                     <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
                   </button>
                   {profileOpen && (
@@ -471,10 +479,21 @@ function AdminDashboardInner() {
                       <div className="px-4 py-3 border-b border-gray-100">
                         <p className="text-sm font-semibold text-gray-900">{session.user?.name}</p>
                         <p className="text-xs text-gray-500">{session.user?.email}</p>
+                        {isOwnerPremium && (
+                          <div className="flex items-center gap-1 mt-1.5">
+                            <Badge className="bg-green-100 text-green-700 text-[10px]"><Crown className="h-2.5 w-2.5 mr-0.5" />Premium</Badge>
+                          </div>
+                        )}
                       </div>
                       <Link href="/settings/profile" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"><User className="h-4 w-4 text-gray-400" /> Profile</Link>
                       <Link href="/admin/dashboard" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"><LayoutDashboard className="h-4 w-4 text-gray-400" /> Dashboard</Link>
                       <Link href="/admin/properties" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"><Building2 className="h-4 w-4 text-gray-400" /> My Services</Link>
+                      {!isOwnerPremium && (
+                        <button onClick={() => { setProfileOpen(false); setOwnerPremiumOpen(true); }}
+                          className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-green-700 hover:bg-green-50 transition-colors">
+                          <Crown className="h-4 w-4" /> Upgrade to Premium
+                        </button>
+                      )}
                       <Link href="/settings/edit" className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"><Settings className="h-4 w-4 text-gray-400" /> Settings</Link>
                       <div className="border-t border-gray-100 mt-1 pt-1">
                         <button onClick={() => signOut({ callbackUrl: "/home" })} className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50">
@@ -499,11 +518,9 @@ function AdminDashboardInner() {
 
         {/* ── TRUST BANNER ── */}
         {visibilityStats && (visibilityStats.allTime.totalClicks > 0 || (stats?.totalBookings ?? 0) > 0) && (
-          <div className={cn("mb-6 bg-linear-to-r from-primary/5 via-blue-50 to-indigo-50 border border-primary/10 rounded-2xl p-4 sm:p-5 transition-all duration-700", contentReady ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4")}>
+          <div className={cn("mb-6 bg-linear-to-r bg-blue-50 border border-primary/10 rounded-2xl p-4 sm:p-5 transition-all duration-700", contentReady ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4")}>
             <div className="flex items-start gap-3">
-              <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                <Sparkles className="h-5 w-5 text-primary" />
-              </div>
+              
               <div>
                 <p className="font-semibold text-gray-900">AasPass is actively working for you</p>
                 <p className="text-sm text-gray-600 mt-1">
@@ -570,7 +587,7 @@ function AdminDashboardInner() {
                     <MousePointerClick className="h-5 w-5 text-blue-700" />
                   </div>
                   <Badge className="text-[10px] bg-white/70 text-blue-600 border border-blue-200">
-                    {thisMonthVis?.clicks ?? 0} this mo
+                    {thisMonthVis?.clicks ?? 0} this month
                   </Badge>
                 </div>
                 <p className="text-3xl font-black text-blue-700">
@@ -587,7 +604,7 @@ function AdminDashboardInner() {
                     <Users className="h-5 w-5 text-purple-700" />
                   </div>
                   <Badge className="text-[10px] bg-white/70 text-purple-600 border border-purple-200">
-                    {thisMonthVis?.uniqueVisitors ?? 0} this mo
+                    {thisMonthVis?.uniqueVisitors ?? 0} this month
                   </Badge>
                 </div>
                 <p className="text-3xl font-black text-purple-700">
@@ -604,7 +621,7 @@ function AdminDashboardInner() {
                     <Heart className="h-5 w-5 text-rose-700" />
                   </div>
                   <Badge className="text-[10px] bg-white/70 text-rose-600 border border-rose-200">
-                    {thisMonthVis?.wishlistAdds ?? 0} this mo
+                    {thisMonthVis?.wishlistAdds ?? 0} this month
                   </Badge>
                 </div>
                 <p className="text-3xl font-black text-rose-700">
@@ -622,7 +639,7 @@ function AdminDashboardInner() {
                     <ShoppingCart className="h-5 w-5 text-orange-700" />
                   </div>
                   <Badge className="text-[10px] bg-white/70 text-orange-600 border border-orange-200">
-                    {thisMonthVis?.cartAdds ?? 0} this mo
+                    {thisMonthVis?.cartAdds ?? 0} this month
                   </Badge>
                 </div>
                 <p className="text-3xl font-black text-orange-700">
