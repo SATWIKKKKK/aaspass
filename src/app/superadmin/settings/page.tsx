@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import {
-  Shield, Plus, Loader2, X, Eye, EyeOff, UserCog,
+  Shield, Plus, Loader2, X, Eye, EyeOff, UserCog, KeyRound,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,10 @@ export default function SuperAdminSettingsPage() {
   const [createLoading, setCreateLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", password: "", confirmPassword: "" });
+  const [pwForm, setPwForm] = useState({ currentPassword: "", newPassword: "", confirmNewPassword: "" });
+  const [pwLoading, setPwLoading] = useState(false);
+  const [showPwCurrent, setShowPwCurrent] = useState(false);
+  const [showPwNew, setShowPwNew] = useState(false);
 
   const fetchAdmins = async () => {
     setLoading(true);
@@ -67,6 +71,37 @@ export default function SuperAdminSettingsPage() {
       toast.error(err.message || "Failed to create admin");
     } finally {
       setCreateLoading(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!pwForm.currentPassword || !pwForm.newPassword) {
+      toast.error("All password fields are required");
+      return;
+    }
+    if (pwForm.newPassword.length < 12) {
+      toast.error("New password must be at least 12 characters");
+      return;
+    }
+    if (pwForm.newPassword !== pwForm.confirmNewPassword) {
+      toast.error("New passwords don't match");
+      return;
+    }
+    setPwLoading(true);
+    try {
+      const res = await fetch("/api/superadmin/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword: pwForm.currentPassword, newPassword: pwForm.newPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed");
+      toast.success("Password changed successfully");
+      setPwForm({ currentPassword: "", newPassword: "", confirmNewPassword: "" });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to change password");
+    } finally {
+      setPwLoading(false);
     }
   };
 
@@ -123,6 +158,68 @@ export default function SuperAdminSettingsPage() {
       </Card>
 
       {/* Security Info */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base font-semibold flex items-center gap-2">
+            <KeyRound className="h-4 w-4" />Change Password
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div>
+            <Label>Current Password *</Label>
+            <div className="relative">
+              <Input
+                type={showPwCurrent ? "text" : "password"}
+                value={pwForm.currentPassword}
+                onChange={(e) => setPwForm({ ...pwForm, currentPassword: e.target.value })}
+                placeholder="Enter current password"
+                className="pr-10"
+              />
+              <Button type="button" variant="ghost" size="sm" className="absolute right-0 top-0 h-full px-3" onClick={() => setShowPwCurrent(!showPwCurrent)}>
+                {showPwCurrent ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </Button>
+            </div>
+          </div>
+          <div>
+            <Label>New Password * (min 12 characters)</Label>
+            <div className="relative">
+              <Input
+                type={showPwNew ? "text" : "password"}
+                value={pwForm.newPassword}
+                onChange={(e) => setPwForm({ ...pwForm, newPassword: e.target.value })}
+                placeholder="Enter new password"
+                className="pr-10"
+              />
+              <Button type="button" variant="ghost" size="sm" className="absolute right-0 top-0 h-full px-3" onClick={() => setShowPwNew(!showPwNew)}>
+                {showPwNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </Button>
+            </div>
+            {pwForm.newPassword && pwForm.newPassword.length < 12 && (
+              <p className="text-[10px] text-red-500 mt-1">Must be at least 12 characters</p>
+            )}
+          </div>
+          <div>
+            <Label>Confirm New Password *</Label>
+            <Input
+              type="password"
+              value={pwForm.confirmNewPassword}
+              onChange={(e) => setPwForm({ ...pwForm, confirmNewPassword: e.target.value })}
+              placeholder="Confirm new password"
+            />
+            {pwForm.confirmNewPassword && pwForm.newPassword !== pwForm.confirmNewPassword && (
+              <p className="text-[10px] text-red-500 mt-1">Passwords don&apos;t match</p>
+            )}
+          </div>
+          <div className="flex justify-end pt-1">
+            <Button size="sm" onClick={handleChangePassword} disabled={pwLoading}>
+              {pwLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <KeyRound className="h-3.5 w-3.5 mr-1" />}
+              Change Password
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Security Details */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base font-semibold">Security Information</CardTitle>

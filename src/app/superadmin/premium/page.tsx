@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import {
   Search, Filter, ChevronLeft, ChevronRight, Crown, Plus, Loader2, X,
 } from "lucide-react";
@@ -132,16 +133,19 @@ export default function SuperAdminPremiumPage() {
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           {[
-            { label: "Total Active Premium", value: stats.totalActivePremium, color: "text-green-600" },
-            { label: "Manual Grants", value: stats.manualGrants, color: "text-blue-600" },
-            { label: "Expiring in 7d", value: stats.expiringIn7Days, color: "text-orange-600" },
+            { label: "Total Active Premium", value: stats.totalActivePremium, color: "text-green-600", href: "/superadmin/premium/active" },
+            { label: "Manual Grants", value: stats.manualGrants, color: "text-blue-600", href: "/superadmin/premium/manual-grants" },
+            { label: "Expiring in 7d", value: stats.expiringIn7Days, color: "text-orange-600", href: "/superadmin/premium/expiring" },
           ].map((s, i) => (
-            <Card key={i}>
-              <CardContent className="p-4 text-center">
-                <p className="text-xs text-muted-foreground">{s.label}</p>
-                <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
-              </CardContent>
-            </Card>
+            <Link key={i} href={s.href}>
+              <Card className="hover:shadow-md transition-shadow cursor-pointer hover:border-blue-200">
+                <CardContent className="p-4 text-center">
+                  <p className="text-xs text-muted-foreground">{s.label}</p>
+                  <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
+                  <p className="text-[10px] text-primary mt-1">View Details →</p>
+                </CardContent>
+              </Card>
+            </Link>
           ))}
         </div>
       )}

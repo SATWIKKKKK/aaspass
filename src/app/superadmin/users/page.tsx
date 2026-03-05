@@ -71,19 +71,12 @@ export default function SuperAdminUsersPage() {
   };
 
   const exportCSV = () => {
-    const headers = ["Name", "Email", "Phone", "Role", "Plan", "Status", "Joined"];
-    const rows = users.map((u) => [
-      u.name, u.email, u.phone || "", u.role,
-      u.isPremium ? "Premium" : "Free",
-      u.isBlocked ? "Suspended" : "Active",
-      formatDate(u.createdAt),
-    ]);
-    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = "users-export.csv"; a.click();
-    URL.revokeObjectURL(url);
+    const params = new URLSearchParams();
+    if (search) params.set("search", search);
+    if (role) params.set("role", role);
+    if (plan) params.set("plan", plan);
+    if (status) params.set("status", status);
+    window.open(`/api/superadmin/users/export?${params}`, "_blank");
   };
 
   return (

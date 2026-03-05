@@ -82,6 +82,8 @@ export default function SuperAdminDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
+
+
   useEffect(() => {
     fetch("/api/superadmin/dashboard")
       .then((r) => r.json())
@@ -90,14 +92,15 @@ export default function SuperAdminDashboard() {
       .finally(() => setLoading(false));
   }, []);
 
-  // GSAP entrance animations — must be declared before any early return
   useEffect(() => {
     if (loading || !data) return;
     const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
     tl.fromTo("[data-gsap='sa-header']", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.4 })
       .fromTo("[data-gsap='sa-metric']", { opacity: 0, y: 16, scale: 0.96 }, { opacity: 1, y: 0, scale: 1, duration: 0.35, stagger: 0.05 }, "-=0.2")
       .fromTo("[data-gsap='sa-section']", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.4, stagger: 0.1 }, "-=0.1");
+    return () => { tl.kill(); };
   }, [loading, data]);
+   
 
   if (loading) {
     return (
@@ -112,6 +115,8 @@ export default function SuperAdminDashboard() {
       </div>
     );
   }
+
+ 
 
   if (!data) {
     return <p className="text-red-500">Failed to load dashboard data.</p>;

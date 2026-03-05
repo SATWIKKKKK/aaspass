@@ -29,12 +29,14 @@ const navItems = [
 export default function SuperAdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const isLoginRoute = pathname === "/superadmin/login";
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [adminName, setAdminName] = useState("");
   const [sessionWarning, setSessionWarning] = useState(false);
 
-  // Fetch admin info
+  // Fetch admin info (skip on login page)
   useEffect(() => {
+    if (isLoginRoute) return;
     fetch("/api/superadmin/auth/me")
       .then((r) => r.json())
       .then((data) => {
@@ -42,10 +44,11 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
         else router.push("/superadmin/login");
       })
       .catch(() => router.push("/superadmin/login"));
-  }, [router]);
+  }, [router, isLoginRoute]);
 
-  // Session expiry warning (1h45m = 6300s after page load, warn 15m before 2h expiry)
+  // Session expiry warning (skip on login page)
   useEffect(() => {
+    if (isLoginRoute) return;
     const warningTimer = setTimeout(() => {
       setSessionWarning(true);
     }, 105 * 60 * 1000); // 1h 45m
@@ -59,12 +62,13 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
       clearTimeout(warningTimer);
       clearTimeout(expiryTimer);
     };
-  }, [router]);
+  }, [router, isLoginRoute]);
 
-  // GSAP sidebar nav stagger on mount
+  // GSAP sidebar nav stagger on mount (skip on login page)
   useEffect(() => {
+    if (isLoginRoute) return;
     gsap.fromTo("[data-gsap='sa-nav']", { opacity: 0, x: -16 }, { opacity: 1, x: 0, duration: 0.3, stagger: 0.04, ease: "power3.out", delay: 0.1 });
-  }, []);
+  }, [isLoginRoute]);
 
   const handleLogout = useCallback(async () => {
     await fetch("/api/superadmin/auth/logout", { method: "POST" });
@@ -75,6 +79,11 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
     if (href === "/superadmin") return pathname === "/superadmin";
     return pathname.startsWith(href);
   };
+
+  // If this is the login route, render children without the sidebar/layout chrome
+  if (isLoginRoute) {
+    return <div className="min-h-screen">{children}</div>;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50/50 flex">

@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSuperAdmin, createAuditLog } from "@/lib/superadmin-auth";
 import { prisma } from "@/lib/prisma";
+import {
+  sendEmail, accountSuspendedEmail, accountReinstatedEmail,
+  premiumGrantedEmail, premiumRevokedEmail, warningIssuedEmail,
+} from "@/lib/email";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const authResult = await requireSuperAdmin(req);
@@ -88,8 +92,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         targetId: id,
         targetName: user.name,
         afterValue: { suspended: true, reason, expiresAt },
-        reason,
+        reason: reason || undefined,
       });
+      const emailData = accountSuspendedEmail(user.name, reason);
+      sendEmail({ to: user.email, ...emailData }).catch(() => {});
       return NextResponse.json({ success: true, message: "User suspended" });
     }
 
@@ -107,16 +113,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         targetType: "USER",
         targetId: id,
         targetName: user.name,
-        reason,
+        reason: reason || undefined,
       });
+      const emailData = accountReinstatedEmail(user.name);
+      sendEmail({ to: user.email, ...emailData }).catch(() => {});
       return NextResponse.json({ success: true, message: "User reinstated" });
     }
 
     if (action === "warn") {
+      const msg = body.warningMessage || reason || "Warning issued by admin";
       await prisma.userWarning.create({
         data: {
           userId: id,
-          warningMessage: body.warningMessage || reason || "Warning issued by admin",
+          warningMessage: msg,
           issuedById: authResult.admin.id,
         },
       });
@@ -126,13 +135,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         targetType: "USER",
         targetId: id,
         targetName: user.name,
-        afterValue: { warningMessage: body.warningMessage },
-        reason,
+        afterValue: { warningMessage: msg },
+        reason: reason || undefined,
       });
+      const emailData = warningIssuedEmail(user.name, msg);
+      sendEmail({ to: user.email, ...emailData }).catch(() => {});
       return NextResponse.json({ success: true, message: "Warning issued" });
     }
 
     if (action === "grant-premium") {
+      if (user.isBlocked) {
+        return NextResponse.json({ error: "Cannot grant premium to a suspended user" }, { status: 400 });
+      }
       const expiryDate = body.expiryDate ? new Date(body.expiryDate) : null;
       await prisma.$transaction([
         prisma.user.update({
@@ -155,8 +169,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         targetId: id,
         targetName: user.name,
         afterValue: { premiumGranted: true, expiryDate },
-        reason,
+        reason: reason || undefined,
       });
+      const emailData = premiumGrantedEmail(user.name, expiryDate?.toISOString());
+      sendEmail({ to: user.email, ...emailData }).catch(() => {});
       return NextResponse.json({ success: true, message: "Premium granted" });
     }
 
@@ -177,8 +193,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         targetType: "USER",
         targetId: id,
         targetName: user.name,
-        reason,
+        reason: reason || undefined,
       });
+      const emailData = premiumRevokedEmail(user.name);
+      sendEmail({ to: user.email, ...emailData }).catch(() => {});
       return NextResponse.json({ success: true, message: "Premium revoked" });
     }
 
@@ -195,7 +213,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         targetId: id,
         targetName: user.name,
         beforeValue: { name: user.name, email: user.email },
-        reason,
+        reason: reason || undefined,
       });
       return NextResponse.json({ success: true, message: "User deleted" });
     }
@@ -224,7 +242,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         targetName: user.name,
         beforeValue,
         afterValue: filteredUpdate,
-        reason,
+        reason: reason || undefined,
       });
     }
 

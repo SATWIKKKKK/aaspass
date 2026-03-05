@@ -46,7 +46,7 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navbar variant={isOwner ? "admin" : "student"} onPremiumClick={() => setPremiumOpen(true)} />
+      <Navbar variant={isOwner ? "admin" : "student"} showSearch={!isOwner} onPremiumClick={() => setPremiumOpen(true)} />
       <PremiumModal open={premiumOpen} onClose={() => setPremiumOpen(false)} />
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -94,7 +94,7 @@ export default function ProfilePage() {
         {/* Premium Status Section */}
         {!isOwner && (
           <Card className={`mb-6 overflow-hidden ${isPremium ? "border-yellow-200" : "border-gray-200"}`}>
-            <div className={isPremium ? "bg-gradient-to-r from-yellow-50 to-amber-50" : "bg-gradient-to-r from-indigo-50 to-purple-50"}>
+            <div className={isPremium ? "bg-linear-to-r from-yellow-50 to-amber-50" : "bg-gradient-to-r from-indigo-50 to-purple-50"}>
               <CardContent className="p-6">
                 {isPremium ? (
                   <>
@@ -177,7 +177,7 @@ export default function ProfilePage() {
             { href: "/settings/edit", icon: User, label: "Personal Information", desc: "Name, email, phone, profile photo" },
             { href: "/settings/edit", icon: Shield, label: "Security", desc: "Password, two-factor authentication" },
             { href: "/notifications", icon: Bell, label: "Notifications", desc: "View your notifications" },
-            { href: "/dashboard", icon: CreditCard, label: "Bookings & Payments", desc: "View bookings, payment history" },
+            { href: "/admin/dashboard", icon: CreditCard, label: "Bookings & Payments", desc: "View bookings, payment history" },
           ].map((item) => (
             <Link key={item.label} href={item.href}>
               <Card className="hover:bg-gray-50 transition-colors cursor-pointer">

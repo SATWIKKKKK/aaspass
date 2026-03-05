@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSuperAdmin, createAuditLog } from "@/lib/superadmin-auth";
 import { prisma } from "@/lib/prisma";
+import { sendEmail, premiumGrantedEmail, premiumRevokedEmail } from "@/lib/email";
 
 export async function GET(req: NextRequest) {
   const authResult = await requireSuperAdmin(req);
@@ -69,32 +70,35 @@ export async function POST(req: NextRequest) {
   try {
     const { userId, expiryDate, reason } = await req.json();
 
-    const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true } });
-    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+      const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true, email: true, isBlocked: true } });
+      if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+      if (user.isBlocked) return NextResponse.json({ error: "Cannot grant premium to a suspended user" }, { status: 400 });
 
-    const expiry = expiryDate ? new Date(expiryDate) : null;
+      const expiry = expiryDate ? new Date(expiryDate) : null;
 
-    await prisma.$transaction([
-      prisma.user.update({
-        where: { id: userId },
-        data: { isPremium: true, premiumExpiry: expiry, subscriptionPlan: "manual" },
-      }),
-      prisma.premiumGrant.create({
-        data: { userId, grantedById: authResult.admin.id, grantType: "manual", expiryDate: expiry },
-      }),
-    ]);
+      await prisma.$transaction([
+        prisma.user.update({
+          where: { id: userId },
+          data: { isPremium: true, premiumExpiry: expiry, subscriptionPlan: "manual" },
+        }),
+        prisma.premiumGrant.create({
+          data: { userId, grantedById: authResult.admin.id, grantType: "manual", expiryDate: expiry },
+        }),
+      ]);
 
-    await createAuditLog({
-      superadminId: authResult.admin.id,
-      actionType: "GRANT_PREMIUM",
-      targetType: "USER",
-      targetId: userId,
-      targetName: user.name,
-      afterValue: { premiumGranted: true, expiryDate: expiry },
-      reason,
-    });
+      await createAuditLog({
+        superadminId: authResult.admin.id,
+        actionType: "GRANT_PREMIUM",
+        targetType: "USER",
+        targetId: userId,
+        targetName: user.name,
+        afterValue: { premiumGranted: true, expiryDate: expiry },
+        reason: reason || undefined,
+      });
 
-    return NextResponse.json({ success: true, message: "Premium granted" });
+      // Send email notification (fire-and-forget)
+      const emailData = premiumGrantedEmail(user.name, expiry?.toISOString());
+      sendEmail({ to: user.email, ...emailData }).catch(() => {});
   } catch (error) {
     console.error("Premium grant error:", error);
     return NextResponse.json({ error: "Failed to grant premium" }, { status: 500 });
@@ -108,22 +112,24 @@ export async function PATCH(req: NextRequest) {
   try {
     const { userId, action, reason, expiryDate } = await req.json();
 
-    const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true } });
-    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true, email: true } });
+      if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-    if (action === "revoke") {
-      await prisma.$transaction([
-        prisma.user.update({ where: { id: userId }, data: { isPremium: false, premiumExpiry: null, subscriptionPlan: null } }),
-        prisma.premiumGrant.updateMany({ where: { userId, isActive: true }, data: { isActive: false, revokedAt: new Date() } }),
-      ]);
-      await createAuditLog({
-        superadminId: authResult.admin.id,
-        actionType: "REVOKE_PREMIUM",
-        targetType: "USER",
-        targetId: userId,
-        targetName: user.name,
-        reason,
-      });
+      if (action === "revoke") {
+        await prisma.$transaction([
+          prisma.user.update({ where: { id: userId }, data: { isPremium: false, premiumExpiry: null, subscriptionPlan: null } }),
+          prisma.premiumGrant.updateMany({ where: { userId, isActive: true }, data: { isActive: false, revokedAt: new Date() } }),
+        ]);
+        await createAuditLog({
+          superadminId: authResult.admin.id,
+          actionType: "REVOKE_PREMIUM",
+          targetType: "USER",
+          targetId: userId,
+          targetName: user.name,
+          reason: reason || undefined,
+        });
+        const emailData = premiumRevokedEmail(user.name);
+        sendEmail({ to: user.email, ...emailData }).catch(() => {});
       return NextResponse.json({ success: true, message: "Premium revoked" });
     }
 

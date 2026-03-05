@@ -99,9 +99,16 @@ export default function SuperAdminUserDetailPage({ params }: { params: Promise<{
           <p className="text-sm text-muted-foreground">{user.email}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setShowPremiumModal(true)}>
-            <Crown className="h-3.5 w-3.5" />{user.isPremium ? "Revoke Premium" : "Grant Premium"}
-          </Button>
+            {!user.isBlocked && (
+              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setShowPremiumModal(true)}>
+                <Crown className="h-3.5 w-3.5" />{user.isPremium ? "Revoke Premium" : "Grant Premium"}
+              </Button>
+            )}
+            {user.isPremium && user.isBlocked && (
+              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setShowPremiumModal(true)}>
+                <Crown className="h-3.5 w-3.5" />Revoke Premium
+              </Button>
+            )}
           <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setShowWarningModal(true)}>
             <ShieldAlert className="h-3.5 w-3.5" />Warn
           </Button>
@@ -357,7 +364,7 @@ export default function SuperAdminUserDetailPage({ params }: { params: Promise<{
                     : null;
                   performAction("suspend", { reason: suspendReason, expiresAt });
                 }}
-                disabled={!suspendReason || actionLoading === "suspend"}
+                  disabled={actionLoading === "suspend"}
                 className="flex-1"
               >
                 {actionLoading === "suspend" && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
@@ -459,7 +466,7 @@ export default function SuperAdminUserDetailPage({ params }: { params: Promise<{
               <Button
                 variant="destructive"
                 onClick={() => performAction("delete", { reason: deleteReason })}
-                disabled={deleteConfirm !== "DELETE" || !deleteReason || actionLoading === "delete"}
+                  disabled={deleteConfirm !== "DELETE" || actionLoading === "delete"}
                 className="flex-1"
               >
                 {actionLoading === "delete" && <Loader2 className="h-4 w-4 animate-spin mr-2" />}

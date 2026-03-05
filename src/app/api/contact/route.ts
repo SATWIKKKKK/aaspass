@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { sendEmail, contactNotificationEmail, contactReceivedEmail } from "@/lib/email";
 
 // POST /api/contact — handle contact form submission
 export async function POST(req: NextRequest) {
@@ -59,6 +60,23 @@ export async function POST(req: NextRequest) {
         },
       });
     }
+
+    // Send real email to AasPass team
+    const notifEmail = contactNotificationEmail(name, email, subject, message);
+    sendEmail({
+      to: "aaspass001@gmail.com",
+      subject: notifEmail.subject,
+      html: notifEmail.html,
+      replyTo: email,
+    }).catch((err) => console.error("Failed to send contact notification email:", err));
+
+    // Send confirmation email to the user
+    const confirmEmail = contactReceivedEmail(name);
+    sendEmail({
+      to: email,
+      subject: confirmEmail.subject,
+      html: confirmEmail.html,
+    }).catch((err) => console.error("Failed to send contact confirmation email:", err));
 
     return NextResponse.json({
       success: true,
