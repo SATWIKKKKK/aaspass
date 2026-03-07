@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Search, Filter, Download, ChevronLeft, ChevronRight,
   Eye, Edit, ShieldAlert, AlertTriangle, Trash2, Loader2,
-  Crown, Users as UsersIcon,
+  Crown, Users as UsersIcon, Building2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,10 +27,11 @@ interface UserRow {
   image: string | null;
   createdAt: string;
   updatedAt: string;
-  _count: { bookings: number; reviews: number };
+  _count: { bookings: number; reviews: number; properties: number };
 }
 
 export default function SuperAdminUsersPage() {
+  const router = useRouter();
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -151,6 +153,7 @@ export default function SuperAdminUsersPage() {
                   <th className="text-left p-3 font-medium text-gray-600">Plan</th>
                   <th className="text-left p-3 font-medium text-gray-600">Status</th>
                   <th className="text-left p-3 font-medium text-gray-600 hidden lg:table-cell">Bookings</th>
+                  <th className="text-left p-3 font-medium text-gray-600 hidden lg:table-cell">Services</th>
                   <th className="text-left p-3 font-medium text-gray-600 hidden lg:table-cell">Joined</th>
                   <th className="text-right p-3 font-medium text-gray-600">Actions</th>
                 </tr>
@@ -178,7 +181,7 @@ export default function SuperAdminUsersPage() {
                   </tr>
                 ) : (
                   users.map((user) => (
-                    <tr key={user.id} className="border-b hover:bg-gray-50/50 transition-colors">
+                    <tr key={user.id} className="border-b hover:bg-gray-50/50 transition-colors cursor-pointer" onClick={() => router.push(`/superadmin/users/${user.id}`)}>
                       <td className="p-3">
                         <div>
                           <p className="font-medium text-gray-900">{user.name}</p>
@@ -208,6 +211,13 @@ export default function SuperAdminUsersPage() {
                       </td>
                       <td className="p-3 hidden lg:table-cell text-gray-600">
                         {user._count.bookings}
+                      </td>
+                      <td className="p-3 hidden lg:table-cell text-gray-600">
+                        {user.role === "OWNER" ? (
+                          <Badge variant="outline" className="text-[10px] gap-1">
+                            <Building2 className="h-2.5 w-2.5" />{user._count.properties}
+                          </Badge>
+                        ) : "—"}
                       </td>
                       <td className="p-3 hidden lg:table-cell text-gray-600 text-xs">
                         {formatDate(user.createdAt)}

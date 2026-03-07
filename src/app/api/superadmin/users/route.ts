@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
           createdAt: true,
           updatedAt: true,
           _count: {
-            select: { bookings: true, reviews: true },
+            select: { bookings: true, reviews: true, properties: true },
           },
         },
       }),

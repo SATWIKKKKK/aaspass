@@ -40,6 +40,7 @@ model User {
   aadharNo        String?
   isPremium          Boolean   @default(false)
   premiumExpiry      DateTime?
+  premiumGrantType   String?   // 'paid' | 'free_launch' | 'manual'
   subscriptionPlan   String?   // 'monthly' | 'quarterly' | 'yearly'
   subscriptionStart  DateTime?
   razorpayPaymentId  String?
@@ -49,10 +50,18 @@ model User {
   // Owner Premium (separate from student premium)
   isOwnerPremium          Boolean   @default(false)
   ownerPremiumExpiry      DateTime?
+  ownerPremiumGrantType   String?   // 'paid' | 'free_launch' | 'manual'
   ownerSubscriptionPlan   String?   // 'monthly' | 'quarterly' | 'yearly'
   ownerSubscriptionStart  DateTime?
   ownerRazorpayPaymentId  String?
   ownerRazorpayOrderId    String?
+
+  // Commission (Owners only)
+  commissionPercentage  Float?    // Owner-specific commission rate
+  bankAccountName       String?   // Account holder name
+  bankAccountNumber     String?   // Bank account number (encrypted)
+  bankIfscCode          String?   // IFSC code
+  bankAccountType       String?   // 'savings' | 'current'
 
   isBlocked       Boolean   @default(false)
   createdAt       DateTime  @default(now())
@@ -77,6 +86,8 @@ model User {
   premiumGrants   PremiumGrant[]
   warnings        UserWarning[]
   suspensions     UserSuspension[]
+  commissionLogs  CommissionChangeLog[]
+  payoutsReceived OwnerPayout[]
 
   @@map("users")
 }
@@ -134,6 +145,7 @@ enum ServiceType {
 }
 
 enum PropertyStatus {
+  DRAFT
   PENDING
   VERIFIED
   REJECTED
@@ -289,6 +301,12 @@ model Booking {
   planLabel     String?       // Pricing plan label (e.g. "Monthly", "Quarterly")
   notes         String?       @db.Text
 
+  // Commission & Payout
+  commissionPercentage  Float?    // Rate at time of booking
+  commissionAmount      Float?    // Platform commission
+  ownerPayoutAmount     Float?    // Amount to owner
+  payoutStatus          String    @default("pending") // pending | processed | failed
+
   // Razorpay payment details
   razorpayOrderId   String?
   razorpayPaymentId String?   @unique
@@ -298,6 +316,7 @@ model Booking {
   student       User          @relation("StudentBookings", fields: [studentId], references: [id])
   property      Property      @relation(fields: [propertyId], references: [id])
   complaints    Complaint[]
+  payout        OwnerPayout?
 
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
@@ -391,6 +410,66 @@ model Announcement {
   createdAt  DateTime @default(now())
 
   @@map("announcements")
+}
+
+// ==================== SUPERADMIN ANNOUNCEMENTS ====================
+
+enum AnnouncementType {
+  OFFER
+  UPDATE
+  WARNING
+  PROMOTION
+  COMMISSION
+}
+
+enum AnnouncementTargetType {
+  ALL_USERS
+  ALL_OWNERS
+  SELECTED_USERS
+  SELECTED_OWNERS
+  ALL
+}
+
+model SuperAdminAnnouncement {
+  id               String                  @id @default(cuid())
+  title            String
+  message          String                  @db.Text
+  type             AnnouncementType
+  targetType       AnnouncementTargetType
+  targetIds        String[]                @default([])
+  createdById      String
+  expiresAt        DateTime?
+  isActive         Boolean                 @default(true)
+  deliveryChannels String[]                @default(["notification"])
+  reachCount       Int                     @default(0)
+  commissionValue  Float?                  // For COMMISSION type
+
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+
+  readReceipts     AnnouncementReadReceipt[]
+
+  @@index([isActive])
+  @@index([type])
+  @@index([createdAt])
+  @@map("superadmin_announcements")
+}
+
+model AnnouncementReadReceipt {
+  id             String   @id @default(cuid())
+  announcementId String
+  userId         String
+  isRead         Boolean  @default(false)
+  isDismissed    Boolean  @default(false)
+  readAt         DateTime?
+
+  announcement   SuperAdminAnnouncement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+
+  createdAt      DateTime @default(now())
+
+  @@unique([announcementId, userId])
+  @@index([userId])
+  @@map("announcement_read_receipts")
 }
 
 // ==================== CHAT / AI ====================
@@ -702,4 +781,62 @@ model PlatformAnalytics {
 
   @@index([date])
   @@map("platform_analytics")
+}
+
+// ==================== COMMISSION CHANGE LOG ====================
+
+model CommissionChangeLog {
+  id              String   @id @default(cuid())
+  ownerId         String
+  previousRate    Float
+  newRate         Float
+  changedBy       String   // superadmin ID
+  reason          String?
+
+  owner           User     @relation(fields: [ownerId], references: [id])
+
+  createdAt       DateTime @default(now())
+
+  @@index([ownerId])
+  @@map("commission_change_logs")
+}
+
+// ==================== OWNER PAYOUTS ====================
+
+model OwnerPayout {
+  id                String   @id @default(cuid())
+  bookingId         String   @unique
+  ownerId           String
+  bookingAmount     Float
+  commissionAmount  Float
+  payoutAmount      Float
+  payoutStatus      String   @default("pending") // pending | processed | failed
+  razorpayPayoutId  String?
+  failureReason     String?
+  processedAt       DateTime?
+
+  booking           Booking  @relation(fields: [bookingId], references: [id])
+  owner             User     @relation(fields: [ownerId], references: [id])
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([ownerId])
+  @@index([payoutStatus])
+  @@index([createdAt])
+  @@map("owner_payouts")
+}
+
+// ==================== PLATFORM CONFIG ====================
+
+model PlatformConfig {
+  id                       String   @id @default(cuid())
+  key                      String   @unique
+  value                    String
+  description              String?
+
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@map("platform_config")
 }

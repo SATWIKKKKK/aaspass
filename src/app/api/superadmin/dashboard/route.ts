@@ -32,6 +32,8 @@ export async function GET() {
       pendingProperties,
       failedPayments24h,
       fullyBookedServices,
+      activeAnnouncements,
+      commissionResult,
     ] = await Promise.all([
       prisma.user.count(),
       prisma.user.count({ where: { role: "OWNER" } }),
@@ -82,6 +84,11 @@ export async function GET() {
       prisma.property.count({
         where: { availableRooms: { lte: 0 }, status: "VERIFIED" },
       }),
+      prisma.superAdminAnnouncement.count({ where: { isActive: true } }),
+      prisma.ownerPayout.aggregate({
+        _sum: { commissionAmount: true },
+        where: { payoutStatus: "processed" },
+      }),
     ]);
 
     return NextResponse.json({
@@ -97,6 +104,8 @@ export async function GET() {
         signupsMonth,
         activePremium,
         totalViolations: totalWarnings + totalSuspensions,
+        activeAnnouncements,
+        totalCommission: commissionResult._sum.commissionAmount || 0,
       },
       health: {
         pendingProperties,

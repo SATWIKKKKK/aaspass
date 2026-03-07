@@ -180,3 +180,69 @@ export function contactNotificationEmail(name: string, email: string, subject: s
     `),
   };
 }
+
+const ANNOUNCEMENT_TYPE_LABELS: Record<string, { label: string; color: string; icon: string }> = {
+  OFFER: { label: "Special Offer", color: "#16a34a", icon: "🎁" },
+  UPDATE: { label: "Platform Update", color: "#2563eb", icon: "📢" },
+  WARNING: { label: "Important Notice", color: "#ea580c", icon: "⚠️" },
+  PROMOTION: { label: "Promotion", color: "#7c3aed", icon: "🎉" },
+  COMMISSION: { label: "Commission Update", color: "#0891b2", icon: "💰" },
+};
+
+export function announcementEmail(userName: string, title: string, message: string, type: string) {
+  const typeInfo = ANNOUNCEMENT_TYPE_LABELS[type] || ANNOUNCEMENT_TYPE_LABELS.UPDATE;
+  return {
+    subject: `${typeInfo.icon} ${title} — AasPass`,
+    html: baseTemplate(`
+      <div style="background: ${typeInfo.color}10; border-left: 4px solid ${typeInfo.color}; padding: 12px 16px; margin: 0 0 16px; border-radius: 4px;">
+        <p style="margin: 0; color: ${typeInfo.color}; font-size: 12px; font-weight: 600; text-transform: uppercase;">${typeInfo.label}</p>
+      </div>
+      <h2 style="color: #111827; margin: 0 0 16px; font-size: 20px;">${title}</h2>
+      <p style="color: #374151; line-height: 1.6;">Hi <strong>${userName}</strong>,</p>
+      <div style="color: #374151; line-height: 1.8; margin: 16px 0; white-space: pre-wrap;">${message}</div>
+      <p style="color: #6b7280; font-size: 13px; margin-top: 24px;">
+        This announcement was sent to you by the AasPass team. If you have questions, reply to this email.
+      </p>
+    `),
+  };
+}
+
+export function premiumExpiryReminderEmail(userName: string, daysLeft: number, price: string) {
+  const urgency = daysLeft <= 1;
+  return {
+    subject: urgency ? "⚠️ Your Free Premium Expires Tomorrow — AasPass" : `Your Free Premium Expires in ${daysLeft} Days — AasPass`,
+    html: baseTemplate(`
+      <h2 style="color: ${urgency ? '#dc2626' : '#ea580c'}; margin: 0 0 16px; font-size: 20px;">${urgency ? '⚠️' : '⏰'} Premium Expiring ${urgency ? 'Tomorrow' : `in ${daysLeft} Days`}</h2>
+      <p style="color: #374151; line-height: 1.6;">Hi <strong>${userName}</strong>,</p>
+      <p style="color: #374151; line-height: 1.6;">
+        Your free premium access on AasPass ${urgency ? 'expires tomorrow' : `will expire in ${daysLeft} days`}. 
+        Subscribe now to continue enjoying premium benefits at ${price}.
+      </p>
+      <div style="text-align: center; margin: 24px 0;">
+        <a href="${process.env.NEXTAUTH_URL || 'https://aaspass.vercel.app'}/dashboard" 
+           style="display: inline-block; background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: 600;">
+          Upgrade Now
+        </a>
+      </div>
+    `),
+  };
+}
+
+export function payoutEmail(ownerName: string, amount: number, bookingNo: string) {
+  return {
+    subject: `Payout Processed — ₹${amount.toLocaleString("en-IN")} — AasPass`,
+    html: baseTemplate(`
+      <h2 style="color: #16a34a; margin: 0 0 16px; font-size: 20px;">💰 Payout Processed!</h2>
+      <p style="color: #374151; line-height: 1.6;">Hi <strong>${ownerName}</strong>,</p>
+      <p style="color: #374151; line-height: 1.6;">
+        Your payout for booking <strong>#${bookingNo}</strong> has been processed.
+      </p>
+      <div style="background: #f0fdf4; border-left: 4px solid #16a34a; padding: 12px 16px; margin: 16px 0; border-radius: 4px;">
+        <p style="margin: 0; color: #166534; font-size: 16px; font-weight: 600;">Amount: ₹${amount.toLocaleString("en-IN")}</p>
+      </div>
+      <p style="color: #374151; line-height: 1.6;">
+        The amount will be credited to your registered bank account within 2-3 business days.
+      </p>
+    `),
+  };
+}

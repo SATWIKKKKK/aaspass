@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Crown, ShieldAlert, Ban, Undo2, Trash2, Star,
-  CalendarCheck, Gift, Edit, Loader2, User,
+  CalendarCheck, Gift, Edit, Loader2, User, Building2, Eye, MapPin,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -293,6 +293,53 @@ export default function SuperAdminUserDetailPage({ params }: { params: Promise<{
                     </Badge>
                   </div>
                 ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Owner Services (Feature 8) */}
+          {user.role === "OWNER" && user.properties && user.properties.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3 flex flex-row items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Building2 className="h-4 w-4 text-green-600" />Services ({user.properties.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-gray-50/50">
+                        <th className="text-left p-3 font-medium text-gray-600">Service Name</th>
+                        <th className="text-left p-3 font-medium text-gray-600 hidden sm:table-cell">City</th>
+                        <th className="text-left p-3 font-medium text-gray-600 hidden md:table-cell">Views</th>
+                        <th className="text-left p-3 font-medium text-gray-600 hidden md:table-cell">Bookings</th>
+                        <th className="text-left p-3 font-medium text-gray-600">Status</th>
+                        <th className="text-left p-3 font-medium text-gray-600 hidden lg:table-cell">Created</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {user.properties.map((p: any) => (
+                        <tr key={p.id} className="border-b last:border-0 hover:bg-gray-50/50">
+                          <td className="p-3 font-medium text-gray-900">{p.name}</td>
+                          <td className="p-3 hidden sm:table-cell text-gray-600 text-xs">
+                            <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{p.city || "—"}</span>
+                          </td>
+                          <td className="p-3 hidden md:table-cell text-gray-600">
+                            <span className="flex items-center gap-1"><Eye className="h-3 w-3" />{p.totalViews ?? 0}</span>
+                          </td>
+                          <td className="p-3 hidden md:table-cell text-gray-600">{p._count?.bookings ?? 0}</td>
+                          <td className="p-3">
+                            <Badge variant={p.status === "APPROVED" ? "success" : p.status === "REJECTED" ? "destructive" : "secondary"} className="text-[10px]">
+                              {p.status}
+                            </Badge>
+                          </td>
+                          <td className="p-3 hidden lg:table-cell text-gray-600 text-xs">{formatDate(p.createdAt)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </CardContent>
             </Card>
           )}

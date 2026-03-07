@@ -9,8 +9,9 @@ export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url);
     const range = url.searchParams.get("range") || "30"; // days
+    const granularity = url.searchParams.get("granularity") || "day"; // day|week|month|quarter|year
 
-    const days = parseInt(range);
+    const days = range === "all" ? 3650 : parseInt(range);
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
@@ -27,6 +28,7 @@ export async function GET(req: NextRequest) {
         roleBreakdown,
         bookingStatusBreakdown,
         cumulativeRevenue,
+        allTimeRevenue,
       ] = await Promise.all([
         // New signups per day
         prisma.$queryRawUnsafe(`
@@ -120,7 +122,31 @@ export async function GET(req: NextRequest) {
           GROUP BY DATE("createdAt")
           ORDER BY date
         `, startDate),
+
+        // All-time revenue
+        prisma.booking.aggregate({
+          _sum: { grandTotal: true },
+          where: { paymentStatus: "paid" },
+        }),
       ]);
+
+      // User growth query based on granularity
+      let userGrowthData: any[] = [];
+      const dateFormat = {
+        day: `DATE("createdAt")`,
+        week: `DATE_TRUNC('week', "createdAt")`,
+        month: `DATE_TRUNC('month', "createdAt")`,
+        quarter: `DATE_TRUNC('quarter', "createdAt")`,
+        year: `DATE_TRUNC('year', "createdAt")`,
+      }[granularity] || `DATE("createdAt")`;
+
+      userGrowthData = await prisma.$queryRawUnsafe(`
+        SELECT ${dateFormat} as period, COUNT(*)::int as count
+        FROM users
+        WHERE "createdAt" >= $1
+        GROUP BY ${dateFormat}
+        ORDER BY period
+      `, startDate) as any[];
 
       // Build cumulative revenue
       const cumulativeData: { date: any; total: number }[] = [];
@@ -145,6 +171,7 @@ export async function GET(req: NextRequest) {
           roleBreakdown,
           bookingStatusBreakdown,
           cumulativeRevenue: cumulativeData,
+          userGrowth: userGrowthData,
         },
         premiumConversion: {
           totalStudents: premiumRate[0],
@@ -156,6 +183,7 @@ export async function GET(req: NextRequest) {
           services: totalStats[1],
           bookings: totalStats[2],
           revenue: totalStats[3]._sum.grandTotal || 0,
+          allTimeRevenue: (allTimeRevenue as any)._sum.grandTotal || 0,
         },
       });
     } catch (error) {

@@ -7,7 +7,7 @@ import toast from "react-hot-toast";
 import { gsap } from "@/lib/gsap";
 import {
   Crown, Check, TrendingUp, Eye, BarChart3, Shield,
-  X, Loader2, Sparkles, Star,
+  X, Loader2, Sparkles, Star, Gift,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -59,6 +59,34 @@ export function OwnerPremiumModal({ open, onClose }: OwnerPremiumModalProps) {
   const [showSuccess, setShowSuccess] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
+
+  // Free launch premium
+  const [freePremium, setFreePremium] = useState<{ active: boolean; daysRemaining: number } | null>(null);
+  const [activatingFree, setActivatingFree] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    fetch("/api/payment/free-premium")
+      .then((r) => r.json())
+      .then((d) => { if (d.active) setFreePremium(d); })
+      .catch(() => {});
+  }, [open]);
+
+  const handleActivateFree = async () => {
+    setActivatingFree(true);
+    try {
+      const res = await fetch("/api/payment/free-premium", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      await updateSession({ isOwnerPremium: true });
+      router.refresh();
+      setShowSuccess(true);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to activate free premium");
+    } finally {
+      setActivatingFree(false);
+    }
+  };
 
   // GSAP entrance animation
   useEffect(() => {
@@ -200,6 +228,26 @@ export function OwnerPremiumModal({ open, onClose }: OwnerPremiumModalProps) {
           </div>
 
           {/* Plan Selection */}
+          {/* Free Launch Period Banner */}
+          {freePremium?.active && (
+            <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4 text-center">
+              <Gift className="h-6 w-6 text-green-600 mx-auto mb-1" />
+              <p className="text-sm font-bold text-green-800">Free Owner Premium Available!</p>
+              <p className="text-xs text-green-600 mt-1">
+                Get 3 months of Owner Premium free during our launch. {freePremium.daysRemaining} days left to claim!
+              </p>
+              <Button
+                size="sm"
+                className="mt-3 bg-green-600 hover:bg-green-700 text-white"
+                onClick={handleActivateFree}
+                disabled={activatingFree}
+              >
+                {activatingFree ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Gift className="h-4 w-4 mr-2" />}
+                {activatingFree ? "Activating..." : "Activate Free Premium"}
+              </Button>
+            </div>
+          )}
+
           <div className="space-y-2">
             {OWNER_PLANS.map((plan) => (
               <button

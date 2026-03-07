@@ -25,7 +25,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           include: { property: { select: { name: true, slug: true } } },
         },
         properties: {
-          select: { id: true, name: true, slug: true, serviceType: true, status: true },
+          select: {
+            id: true, name: true, slug: true, serviceType: true, status: true,
+            city: true, createdAt: true, totalViews: true,
+            _count: { select: { bookings: true } },
+          },
+          orderBy: { createdAt: "desc" },
         },
         personalizedOffers: { orderBy: { createdAt: "desc" } },
         warnings: {
@@ -41,7 +46,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           include: { grantedBy: { select: { name: true } } },
         },
         _count: {
-          select: { bookings: true, reviews: true, wishlist: true, cart: true },
+          select: { bookings: true, reviews: true, wishlist: true, cart: true, properties: true },
         },
       },
     });

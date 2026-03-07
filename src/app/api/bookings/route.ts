@@ -60,10 +60,19 @@ export async function POST(req: NextRequest) {
 
     const { propertyId, checkIn, checkOut, totalPrice, gstAmount } = await req.json();
 
-    const property = await prisma.property.findUnique({ where: { id: propertyId } });
+    const property = await prisma.property.findUnique({
+      where: { id: propertyId },
+      include: { owner: { select: { commissionPercentage: true } } },
+    });
     if (!property) return NextResponse.json({ error: "Property not found" }, { status: 404 });
 
     const grandTotal = parseFloat(totalPrice) + parseFloat(gstAmount);
+
+    // Calculate commission from owner's individual rate
+    const defaultConfig = await prisma.platformConfig.findUnique({ where: { key: "default_commission_rate" } });
+    const commissionRate = property.owner.commissionPercentage ?? (defaultConfig ? parseFloat(defaultConfig.value) : 10);
+    const commissionAmount = Math.round(grandTotal * commissionRate / 100 * 100) / 100;
+    const ownerPayoutAmount = Math.round((grandTotal - commissionAmount) * 100) / 100;
 
     const booking = await prisma.booking.create({
       data: {
@@ -74,6 +83,9 @@ export async function POST(req: NextRequest) {
         totalPrice: parseFloat(totalPrice),
         gstAmount: parseFloat(gstAmount),
         grandTotal,
+        commissionPercentage: commissionRate,
+        commissionAmount,
+        ownerPayoutAmount,
         status: "PENDING",
       },
     });

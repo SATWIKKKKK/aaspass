@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   BarChart3, TrendingUp, Users, Home, Crown, MapPin, PieChart as PieChartIcon,
+  IndianRupee, UserPlus,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -72,15 +74,17 @@ function SimpleTrendChart({ data, labelKey, valueKey, color = "bg-blue-500" }: {
 }
 
 export default function SuperAdminAnalyticsPage() {
+  const router = useRouter();
   const [analytics, setAnalytics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState("30");
+  const [granularity, setGranularity] = useState("day");
 
   useEffect(() => {
     const fetchAnalytics = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`/api/superadmin/analytics?range=${range}`);
+        const res = await fetch(`/api/superadmin/analytics?range=${range}&granularity=${granularity}`);
         const raw = await res.json();
         // Normalize API response for components
         setAnalytics({
@@ -98,6 +102,11 @@ export default function SuperAdminAnalyticsPage() {
             date: String(d.date).split("T")[0],
             total: Number(d.total),
           })),
+          allTimeRevenue: raw.allTimeRevenue ?? 0,
+          userGrowth: (raw.userGrowth ?? []).map((d: any) => ({
+            period: String(d.period).split("T")[0],
+            count: Number(d.count),
+          })),
         });
       } catch {
         toast.error("Failed to load analytics");
@@ -106,7 +115,7 @@ export default function SuperAdminAnalyticsPage() {
       }
     };
     fetchAnalytics();
-  }, [range]);
+  }, [range, granularity]);
 
   if (loading) {
     return (
@@ -131,38 +140,59 @@ export default function SuperAdminAnalyticsPage() {
           <h2 className="text-xl font-bold text-gray-900">Platform Analytics</h2>
           <p className="text-sm text-muted-foreground">Trends and insights</p>
         </div>
-        <select
-          value={range}
-          onChange={(e) => setRange(e.target.value)}
-          className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-        >
-          <option value="7">Last 7 days</option>
-          <option value="30">Last 30 days</option>
-          <option value="90">Last 90 days</option>
-        </select>
+        <div className="flex gap-2">
+          <select
+            value={range}
+            onChange={(e) => setRange(e.target.value)}
+            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+          >
+            <option value="7">Last 7 days</option>
+            <option value="30">Last 30 days</option>
+            <option value="90">Last 90 days</option>
+            <option value="all">All Time</option>
+          </select>
+          <select
+            value={granularity}
+            onChange={(e) => setGranularity(e.target.value)}
+            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+          >
+            <option value="day">Daily</option>
+            <option value="week">Weekly</option>
+            <option value="month">Monthly</option>
+            <option value="quarter">Quarterly</option>
+            <option value="year">Yearly</option>
+          </select>
+        </div>
       </div>
 
       {/* Premium Conversion */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className="cursor-pointer hover:ring-2 hover:ring-primary/20 transition-all" onClick={() => router.push("/superadmin/premium")}>
           <CardContent className="p-5 text-center">
             <Crown className="h-8 w-8 mx-auto mb-2 text-yellow-500" />
             <p className="text-xs text-muted-foreground">Premium Conversion</p>
             <p className="text-3xl font-bold text-gray-900">{analytics?.premiumConversion ?? "—"}%</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="cursor-pointer hover:ring-2 hover:ring-primary/20 transition-all" onClick={() => router.push("/superadmin/users")}>
           <CardContent className="p-5 text-center">
-            <Users className="h-8 w-8 mx-auto mb-2 text-blue-500" />
-            <p className="text-xs text-muted-foreground">New Users ({range}d)</p>
+            <UserPlus className="h-8 w-8 mx-auto mb-2 text-blue-500" />
+            <p className="text-xs text-muted-foreground">New Users ({range === "all" ? "All" : `${range}d`})</p>
             <p className="text-3xl font-bold text-gray-900">{analytics?.dailyUsers?.reduce((a: number, d: any) => a + Number(d.count), 0)?.toLocaleString() ?? "—"}</p>
+          </CardContent>
+        </Card>
+        <Card className="cursor-pointer hover:ring-2 hover:ring-primary/20 transition-all" onClick={() => router.push("/superadmin/bookings")}>
+          <CardContent className="p-5 text-center">
+            <TrendingUp className="h-8 w-8 mx-auto mb-2 text-green-500" />
+            <p className="text-xs text-muted-foreground">Revenue ({range === "all" ? "All" : `${range}d`})</p>
+            <p className="text-3xl font-bold text-gray-900">{formatPrice(analytics?.dailyRevenue?.reduce((a: number, d: any) => a + Number(d.total), 0) ?? 0)}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-5 text-center">
-            <TrendingUp className="h-8 w-8 mx-auto mb-2 text-green-500" />
-            <p className="text-xs text-muted-foreground">Revenue ({range}d)</p>
-            <p className="text-3xl font-bold text-gray-900">{formatPrice(analytics?.dailyRevenue?.reduce((a: number, d: any) => a + Number(d.total), 0) ?? 0)}</p>
+            <IndianRupee className="h-8 w-8 mx-auto mb-2 text-emerald-600" />
+            <p className="text-xs text-muted-foreground">All-Time Revenue</p>
+            <p className="text-3xl font-bold text-gray-900">{formatPrice(analytics?.allTimeRevenue ?? 0)}</p>
           </CardContent>
         </Card>
       </div>
@@ -411,6 +441,34 @@ export default function SuperAdminAnalyticsPage() {
             </ChartContainer>
           </CardContent>
         </Card>
+
+        {/* User Growth Chart */}
+        {analytics?.userGrowth?.length > 0 && (
+          <Card className="md:col-span-2">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <UserPlus className="h-4 w-4 text-cyan-500" />User Growth ({granularity})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ChartContainer config={{ count: { label: "New Users", color: "#06b6d4" } } satisfies ChartConfig} className="h-[280px] w-full">
+                <AreaChart data={analytics.userGrowth} margin={{ top: 5, right: 10, left: 10, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorUserGrowth" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis dataKey="period" tick={{ fontSize: 10 }} tickFormatter={(v) => v.slice(5)} />
+                  <YAxis tick={{ fontSize: 10 }} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Area type="monotone" dataKey="count" stroke="#06b6d4" fill="url(#colorUserGrowth)" strokeWidth={2} />
+                </AreaChart>
+              </ChartContainer>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

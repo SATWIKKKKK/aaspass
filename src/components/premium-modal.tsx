@@ -62,6 +62,34 @@ export function PremiumModal({ open, onClose }: PremiumModalProps) {
   const backdropRef = useRef<HTMLDivElement>(null);
   const isPremium = (session?.user as { isPremium?: boolean })?.isPremium;
 
+  // Free launch premium
+  const [freePremium, setFreePremium] = useState<{ active: boolean; daysRemaining: number } | null>(null);
+  const [activatingFree, setActivatingFree] = useState(false);
+
+  useEffect(() => {
+    if (!open || isPremium) return;
+    fetch("/api/payment/free-premium")
+      .then((r) => r.json())
+      .then((d) => { if (d.active) setFreePremium(d); })
+      .catch(() => {});
+  }, [open, isPremium]);
+
+  const handleActivateFree = async () => {
+    setActivatingFree(true);
+    try {
+      const res = await fetch("/api/payment/free-premium", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      await updateSession({ isPremium: true });
+      router.refresh();
+      setSuccessData({ premiumExpiry: data.premiumExpiry });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to activate free premium");
+    } finally {
+      setActivatingFree(false);
+    }
+  };
+
   // GSAP entrance animation when modal opens
   useEffect(() => {
     if (!open || !modalRef.current || !backdropRef.current) return;
@@ -211,6 +239,25 @@ export function PremiumModal({ open, onClose }: PremiumModalProps) {
             </div>
           ) : (
             <>
+              {/* Free Launch Period Banner */}
+              {freePremium?.active && (
+                <div className="mb-5 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4 text-center">
+                  <Gift className="h-6 w-6 text-green-600 mx-auto mb-1" />
+                  <p className="text-sm font-bold text-green-800">Free Premium Available!</p>
+                  <p className="text-xs text-green-600 mt-1">
+                    Get 3 months of Premium free during our launch. {freePremium.daysRemaining} days left to claim!
+                  </p>
+                  <Button
+                    size="sm"
+                    className="mt-3 bg-green-600 hover:bg-green-700 text-white"
+                    onClick={handleActivateFree}
+                    disabled={activatingFree}
+                  >
+                    {activatingFree ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Gift className="h-4 w-4 mr-2" />}
+                    {activatingFree ? "Activating..." : "Activate Free Premium"}
+                  </Button>
+                </div>
+              )}
               <div className="grid grid-cols-3 gap-2 mb-5">
                 {PLANS.map((plan) => (
                   <button

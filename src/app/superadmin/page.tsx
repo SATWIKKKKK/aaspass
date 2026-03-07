@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { gsap } from "@/lib/gsap";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Users, Building2, CalendarCheck, IndianRupee, UserPlus, Crown,
   ShieldAlert, TrendingUp, Clock, Star, AlertTriangle, CreditCard,
@@ -41,11 +42,11 @@ interface DashboardData {
   };
 }
 
-function MetricCard({ title, value, icon: Icon, color, subtext }: {
-  title: string; value: string | number; icon: any; color: string; subtext?: string;
+function MetricCard({ title, value, icon: Icon, color, subtext, href }: {
+  title: string; value: string | number; icon: any; color: string; subtext?: string; href?: string;
 }) {
-  return (
-    <Card className="hover:shadow-md transition-shadow duration-200" data-gsap="sa-metric" style={{ opacity: 0 }}>
+  const content = (
+    <Card className={cn("hover:shadow-md transition-shadow duration-200", href && "cursor-pointer hover:ring-2 hover:ring-primary/20")} data-gsap="sa-metric" style={{ opacity: 0 }}>
       <CardContent className="p-5">
         <div className="flex items-start justify-between">
           <div>
@@ -60,6 +61,8 @@ function MetricCard({ title, value, icon: Icon, color, subtext }: {
       </CardContent>
     </Card>
   );
+  if (href) return <Link href={href}>{content}</Link>;
+  return content;
 }
 
 function SkeletonCard() {
@@ -134,14 +137,14 @@ export default function SuperAdminDashboard() {
 
       {/* Top Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard title="Total Users" value={metrics.totalUsers.toLocaleString()} icon={Users} color="bg-blue-500" subtext={`${metrics.totalStudents} students · ${metrics.totalOwners} owners`} />
-        <MetricCard title="Active Services" value={metrics.totalServices.toLocaleString()} icon={Building2} color="bg-green-500" />
-        <MetricCard title="Total Bookings" value={metrics.totalBookings.toLocaleString()} icon={CalendarCheck} color="bg-purple-500" />
-        <MetricCard title="Total Revenue" value={formatPrice(metrics.totalRevenue)} icon={IndianRupee} color="bg-emerald-600" />
-        <MetricCard title="New Signups" value={metrics.signupsToday} icon={UserPlus} color="bg-cyan-500" subtext={`${metrics.signupsWeek} this week · ${metrics.signupsMonth} this month`} />
-        <MetricCard title="Premium Users" value={metrics.activePremium} icon={Crown} color="bg-yellow-500" />
-        <MetricCard title="Violations" value={metrics.totalViolations} icon={ShieldAlert} color="bg-red-500" />
-        <MetricCard title="Growth" value={`+${metrics.signupsMonth}`} icon={TrendingUp} color="bg-indigo-500" subtext="New users this month" />
+        <MetricCard title="Total Users" value={metrics.totalUsers.toLocaleString()} icon={Users} color="bg-blue-500" subtext={`${metrics.totalStudents} students · ${metrics.totalOwners} owners`} href="/superadmin/users" />
+        <MetricCard title="Active Services" value={metrics.totalServices.toLocaleString()} icon={Building2} color="bg-green-500" href="/superadmin/services" />
+        <MetricCard title="Total Bookings" value={metrics.totalBookings.toLocaleString()} icon={CalendarCheck} color="bg-purple-500" href="/superadmin/bookings" />
+        <MetricCard title="Total Revenue" value={formatPrice(metrics.totalRevenue)} icon={IndianRupee} color="bg-emerald-600" href="/superadmin/analytics" />
+        <MetricCard title="New Signups" value={metrics.signupsToday} icon={UserPlus} color="bg-cyan-500" subtext={`${metrics.signupsWeek} this week · ${metrics.signupsMonth} this month`} href="/superadmin/users" />
+        <MetricCard title="Premium Users" value={metrics.activePremium} icon={Crown} color="bg-yellow-500" href="/superadmin/premium" />
+        <MetricCard title="Violations" value={metrics.totalViolations} icon={ShieldAlert} color="bg-red-500" href="/superadmin/violations" />
+        <MetricCard title="Growth" value={`+${metrics.signupsMonth}`} icon={TrendingUp} color="bg-indigo-500" subtext="New users this month" href="/superadmin/analytics" />
       </div>
 
       {/* Quick Actions */}

@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { PremiumModal } from "@/components/premium-modal";
 import { ExpiryWarningBanner } from "@/components/expiry-warning-banner";
+import { AnnouncementBanner } from "@/components/announcement-banner";
 import { RouteGuard } from "@/components/route-guard";
 import { cn, formatDate, formatPrice } from "@/lib/utils";
 
@@ -338,6 +339,9 @@ function StudentDashboardInner() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Expiry warning for premium users nearing end */}
         {isPremium && <div className="mb-4"><ExpiryWarningBanner /></div>}
+
+        {/* Announcement banner */}
+        <div className="mb-4"><AnnouncementBanner /></div>
 
         {/* Greeting */}
         <div data-gsap="dash-greeting" className="mb-8" style={{ opacity: 0 }}>

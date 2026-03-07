@@ -7,7 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Users, Building2, CalendarCheck, Gift, Crown,
   ShieldAlert, BarChart3, FileText, Settings, LogOut, Menu, X,
-  ChevronRight, Shield,
+  ChevronRight, Shield, Megaphone, Percent, Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,9 @@ const navItems = [
   { href: "/superadmin/offers", label: "Offers", icon: Gift },
   { href: "/superadmin/premium", label: "Premium", icon: Crown },
   { href: "/superadmin/violations", label: "Violations", icon: ShieldAlert },
+  { href: "/superadmin/announcements", label: "Announcements", icon: Megaphone },
+  { href: "/superadmin/commission", label: "Commission", icon: Percent },
+  { href: "/superadmin/payouts", label: "Payouts", icon: Wallet },
   { href: "/superadmin/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/superadmin/audit", label: "Audit Logs", icon: FileText },
   { href: "/superadmin/settings", label: "Settings", icon: Settings },

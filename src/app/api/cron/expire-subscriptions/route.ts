@@ -1,42 +1,125 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { sendEmail, premiumExpiryReminderEmail } from "@/lib/email";
 
 /**
  * GET /api/cron/expire-subscriptions
  *
- * Daily cron job that auto-expires premium subscriptions past their end date.
+ * Daily cron job that:
+ * 1. Auto-expires premium subscriptions past their end date
+ * 2. Sends reminders 7 days and 1 day before expiry
+ * 3. Handles both student and owner premium
  * Protected by CRON_SECRET env var so only Vercel Cron can call it.
- *
- * Add to vercel.json:
- *   { "crons": [{ "path": "/api/cron/expire-subscriptions", "schedule": "0 0 * * *" }] }
  */
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
 
-  // In production, require the cron secret
   if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    // Find all users who are marked premium but whose subscription has expired
-    const result = await prisma.user.updateMany({
-      where: {
-        isPremium: true,
-        premiumExpiry: { lt: new Date() },
-      },
-      data: {
-        isPremium: false,
-      },
+    const now = new Date();
+    const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const oneDayFromNow = new Date(now.getTime() + 1 * 24 * 60 * 60 * 1000);
+
+    // 1. Expire student premium
+    const expiredStudents = await prisma.user.updateMany({
+      where: { isPremium: true, premiumExpiry: { lt: now } },
+      data: { isPremium: false },
     });
 
-    console.log(`[Cron] Expired ${result.count} premium subscriptions`);
+    // 2. Expire owner premium
+    const expiredOwners = await prisma.user.updateMany({
+      where: { isOwnerPremium: true, ownerPremiumExpiry: { lt: now } },
+      data: { isOwnerPremium: false },
+    });
+
+    // 3. Send 7-day reminder for student premium
+    const sevenDayStudents = await prisma.user.findMany({
+      where: {
+        isPremium: true,
+        premiumExpiry: { gt: now, lte: sevenDaysFromNow },
+      },
+      select: { id: true, name: true, email: true, premiumExpiry: true },
+    });
+
+    for (const user of sevenDayStudents) {
+      const daysLeft = Math.ceil((user.premiumExpiry!.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+      if (daysLeft === 7 || daysLeft === 1) {
+        await prisma.notification.create({
+          data: {
+            userId: user.id,
+            title: daysLeft === 1 ? "⚠️ Premium Expires Tomorrow!" : `Premium Expires in ${daysLeft} Days`,
+            message: `Your free premium expires ${daysLeft === 1 ? 'tomorrow' : `in ${daysLeft} days`}. Subscribe now to continue enjoying premium benefits.`,
+            type: "premium_expiry",
+          },
+        });
+
+        const emailContent = premiumExpiryReminderEmail(user.name, daysLeft, "₹99/month");
+        sendEmail({ to: user.email, ...emailContent }).catch(console.error);
+      }
+    }
+
+    // 4. Send 7-day reminder for owner premium
+    const sevenDayOwners = await prisma.user.findMany({
+      where: {
+        isOwnerPremium: true,
+        ownerPremiumExpiry: { gt: now, lte: sevenDaysFromNow },
+      },
+      select: { id: true, name: true, email: true, ownerPremiumExpiry: true },
+    });
+
+    for (const owner of sevenDayOwners) {
+      const daysLeft = Math.ceil((owner.ownerPremiumExpiry!.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+      if (daysLeft === 7 || daysLeft === 1) {
+        await prisma.notification.create({
+          data: {
+            userId: owner.id,
+            title: daysLeft === 1 ? "⚠️ Owner Premium Expires Tomorrow!" : `Owner Premium Expires in ${daysLeft} Days`,
+            message: `Your owner premium expires ${daysLeft === 1 ? 'tomorrow' : `in ${daysLeft} days`}. Renew to keep boosted visibility and promotion.`,
+            type: "premium_expiry",
+          },
+        });
+
+        const emailContent = premiumExpiryReminderEmail(owner.name, daysLeft, "₹99/month");
+        sendEmail({ to: owner.email, ...emailContent }).catch(console.error);
+      }
+    }
+
+    // 5. Create expiry notifications for users who just lost premium
+    if (expiredStudents.count > 0 || expiredOwners.count > 0) {
+      const justExpired = await prisma.user.findMany({
+        where: {
+          OR: [
+            { isPremium: false, premiumExpiry: { gte: new Date(now.getTime() - 24 * 60 * 60 * 1000), lt: now } },
+            { isOwnerPremium: false, ownerPremiumExpiry: { gte: new Date(now.getTime() - 24 * 60 * 60 * 1000), lt: now } },
+          ],
+        },
+        select: { id: true },
+      });
+
+      if (justExpired.length > 0) {
+        await prisma.notification.createMany({
+          data: justExpired.map((u) => ({
+            userId: u.id,
+            title: "Premium Expired",
+            message: "Your free premium has expired. Upgrade now to continue enjoying premium benefits.",
+            type: "premium_expiry",
+          })),
+        });
+      }
+    }
+
+    console.log(`[Cron] Expired ${expiredStudents.count} student + ${expiredOwners.count} owner subscriptions, sent ${sevenDayStudents.length + sevenDayOwners.length} reminders`);
 
     return NextResponse.json({
       success: true,
-      expiredCount: result.count,
-      timestamp: new Date().toISOString(),
+      expiredStudents: expiredStudents.count,
+      expiredOwners: expiredOwners.count,
+      remindersSent: sevenDayStudents.length + sevenDayOwners.length,
+      timestamp: now.toISOString(),
     });
   } catch (err) {
     console.error("[Cron] expire-subscriptions error:", err);

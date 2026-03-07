@@ -29,6 +29,7 @@ const OwnerDashboardCharts = dynamic(
   { ssr: false, loading: () => <div className="h-64 flex items-center justify-center text-sm text-muted-foreground">Loading charts…</div> }
 );
 import { cn, formatPrice } from "@/lib/utils";
+import { AnnouncementBanner } from "@/components/announcement-banner";
 
 /* ═══════════════════ TYPES ═══════════════════ */
 interface PropertyImage { id: string; url: string; isWideShot: boolean; order: number }
@@ -514,6 +515,9 @@ function AdminDashboardInner() {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* ── ANNOUNCEMENT BANNER ── */}
+        <div className="mb-4"><AnnouncementBanner /></div>
+
         {/* ── GREETING + TRUST BANNER ── */}
         <div className={cn("mb-6 transition-all duration-500", contentReady ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4")}>
           <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Hello {userName}! </h2>
