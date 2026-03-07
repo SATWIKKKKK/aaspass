@@ -68,7 +68,7 @@ export function OwnerPremiumModal({ open, onClose }: OwnerPremiumModalProps) {
     if (!open) return;
     fetch("/api/payment/free-premium")
       .then((r) => r.json())
-      .then((d) => { if (d.active) setFreePremium(d); })
+      .then((d) => { if (d.isFreePeriod) setFreePremium({ active: true, daysRemaining: d.daysRemaining }); })
       .catch(() => {});
   }, [open]);
 
