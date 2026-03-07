@@ -105,12 +105,15 @@ export async function POST(req: NextRequest) {
       isAC, hasWifi, forGender, occupancy, foodIncluded, laundryIncluded,
       hasMedical, nearbyMess, nearbyLaundry, cancellationPolicy, rules, images,
       capacity, availableRooms, closingTime, pricingPlans, customAmenities,
+      saveAsDraft,
     } = body;
 
     const slug = name
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/(^-|-$)/g, "");
+
+    const propertyStatus = saveAsDraft ? "DRAFT" : "VERIFIED";
 
     const property = await prisma.property.create({
       data: {
@@ -130,7 +133,7 @@ export async function POST(req: NextRequest) {
         capacity: capacity ? parseInt(capacity) : null,
         availableRooms: availableRooms ? parseInt(availableRooms) : null,
         closingTime: closingTime || null,
-        status: "VERIFIED",
+        status: propertyStatus,
         ownerId: session.user.id!,
         images: images?.length
           ? { create: images.map((img: any) => ({ url: img.url, isWideShot: img.isWideShot || false })) }
@@ -149,7 +152,33 @@ export async function POST(req: NextRequest) {
       include: { pricingPlans: true },
     });
 
-    return NextResponse.json({ property }, { status: 201 });
+    // If publishing (not draft), create a publishing fee record
+    if (!saveAsDraft) {
+      const user = await prisma.user.findUnique({
+        where: { id: session.user.id! },
+        select: { createdAt: true },
+      });
+
+      const FREE_QUOTA_DAYS = 90;
+      const createdAt = user!.createdAt;
+      const expiryDate = new Date(createdAt.getTime() + FREE_QUOTA_DAYS * 24 * 60 * 60 * 1000);
+      const isFreePublish = new Date() < expiryDate;
+
+      await prisma.servicePublishingFee.create({
+        data: {
+          propertyId: property.id,
+          ownerId: session.user.id!,
+          serviceType,
+          amount: isFreePublish ? 0 : 0, // Amount set on actual payment
+          isFreePublish,
+          paidAt: isFreePublish ? new Date() : null,
+          expiresAt: isFreePublish ? expiryDate : null,
+          status: isFreePublish ? "active" : "active",
+        },
+      });
+    }
+
+    return NextResponse.json({ property, isDraft: saveAsDraft || false }, { status: 201 });
   } catch (error) {
     console.error("POST /api/properties error:", error);
     return NextResponse.json({ error: "Failed to create property" }, { status: 500 });

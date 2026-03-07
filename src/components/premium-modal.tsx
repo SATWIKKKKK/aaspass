@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import {
   Crown, Check, Zap, Shield, MessageSquare, Gift, Clock, Star,
-  X, Loader2, Sparkles,
+  X, Loader2, Sparkles, CalendarClock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +28,14 @@ const FEATURES = [
   { icon: Clock,         title: "24/7 Support",        desc: "Priority help" },
   { icon: Star,          title: "Exclusive Deals",     desc: "Members-only offers" },
 ];
+
+interface FreePremiumData {
+  isFreePeriod: boolean;
+  alreadyClaimed: boolean;
+  daysRemaining: number;
+  freeQuotaExpiryDate: string;
+  isWithinFreeQuota: boolean;
+}
 
 interface PremiumModalProps {
   open: boolean;
@@ -62,15 +70,17 @@ export function PremiumModal({ open, onClose }: PremiumModalProps) {
   const backdropRef = useRef<HTMLDivElement>(null);
   const isPremium = (session?.user as { isPremium?: boolean })?.isPremium;
 
-  // Free launch premium
-  const [freePremium, setFreePremium] = useState<{ active: boolean; daysRemaining: number } | null>(null);
+  // Free launch premium — per-user data from DB
+  const [freePremium, setFreePremium] = useState<FreePremiumData | null>(null);
   const [activatingFree, setActivatingFree] = useState(false);
+
+  const isFreeEligible = freePremium?.isFreePeriod === true;
 
   useEffect(() => {
     if (!open || isPremium) return;
     fetch("/api/payment/free-premium")
       .then((r) => r.json())
-      .then((d) => { if (d.isFreePeriod) setFreePremium({ active: true, daysRemaining: d.daysRemaining }); })
+      .then((d: FreePremiumData) => setFreePremium(d))
       .catch(() => {});
   }, [open, isPremium]);
 
@@ -83,8 +93,9 @@ export function PremiumModal({ open, onClose }: PremiumModalProps) {
       await updateSession({ isPremium: true });
       router.refresh();
       setSuccessData({ premiumExpiry: data.premiumExpiry });
-    } catch (err: any) {
-      toast.error(err.message || "Failed to activate free premium");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to activate free premium";
+      toast.error(message);
     } finally {
       setActivatingFree(false);
     }
@@ -111,6 +122,10 @@ export function PremiumModal({ open, onClose }: PremiumModalProps) {
       />
     );
   }
+
+  const expiryLabel = freePremium?.freeQuotaExpiryDate
+    ? new Date(freePremium.freeQuotaExpiryDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+    : null;
 
   const handleUpgrade = async () => {
     if (!session?.user) { router.push("/login"); onClose(); return; }
@@ -169,7 +184,6 @@ export function PremiumModal({ open, onClose }: PremiumModalProps) {
               const verifyData = await verifyRes.json();
               await updateSession({ isPremium: true });
               router.refresh();
-              // Show the success popup with confetti
               setSuccessData({ premiumExpiry: verifyData.premiumExpiry });
             } else {
               const data = await verifyRes.json();
@@ -239,53 +253,71 @@ export function PremiumModal({ open, onClose }: PremiumModalProps) {
             </div>
           ) : (
             <>
-              {/* Free Launch Period Banner */}
-              {freePremium?.active && (
-                <div className="mb-5 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4 text-center">
-                  <Gift className="h-6 w-6 text-green-600 mx-auto mb-1" />
-                  <p className="text-sm font-bold text-green-800">Free Premium Available!</p>
-                  <p className="text-xs text-green-600 mt-1">
-                    Get 3 months of Premium free during our launch. {freePremium.daysRemaining} days left to claim!
+              {/* Free Launch Offer Banner */}
+              {isFreeEligible && (
+                <div className="mb-5 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <Gift className="h-5 w-5 text-green-600" />
+                    <p className="text-sm font-bold text-green-800">FREE for your first 3 months!</p>
+                  </div>
+                  <p className="text-xs text-green-700 text-center">
+                    All premium features at <span className="font-bold">₹0</span> — original prices apply after your free period ends
+                    {expiryLabel && <> on <span className="font-semibold">{expiryLabel}</span></>}.
                   </p>
-                  <Button
-                    size="sm"
-                    className="mt-3 bg-green-600 hover:bg-green-700 text-white"
-                    onClick={handleActivateFree}
-                    disabled={activatingFree}
-                  >
-                    {activatingFree ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Gift className="h-4 w-4 mr-2" />}
-                    {activatingFree ? "Activating..." : "Activate Free Premium"}
-                  </Button>
+                  {freePremium.daysRemaining > 0 && (
+                    <div className="flex items-center justify-center gap-1.5 mt-2">
+                      <CalendarClock className="h-3.5 w-3.5 text-green-600" />
+                      <span className="text-xs font-semibold text-green-700">
+                        {freePremium.daysRemaining} day{freePremium.daysRemaining !== 1 ? "s" : ""} left to claim
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
+
+              {/* Plan Cards with Strikethrough during free period */}
               <div className="grid grid-cols-3 gap-2 mb-5">
                 {PLANS.map((plan) => (
                   <button
                     key={plan.id}
-                    onClick={() => setSelectedPlan(plan.id)}
+                    onClick={() => !isFreeEligible && setSelectedPlan(plan.id)}
                     className={cn(
                       "relative p-3 rounded-xl border-2 text-center transition-all",
-                      selectedPlan === plan.id
-                        ? "border-amber-400 bg-amber-50 shadow-sm"
-                        : "border-gray-200 hover:border-gray-300"
+                      isFreeEligible
+                        ? "border-green-300 bg-green-50/50 cursor-default"
+                        : selectedPlan === plan.id
+                          ? "border-amber-400 bg-amber-50 shadow-sm"
+                          : "border-gray-200 hover:border-gray-300"
                     )}
                   >
-                    {plan.popular && (
+                    {plan.popular && !isFreeEligible && (
                       <div className="absolute -top-2 left-1/2 -translate-x-1/2">
                         <Badge className="bg-amber-500 text-white text-[9px] px-1.5 py-0">
                           <Sparkles className="h-2.5 w-2.5 mr-0.5" /> Best
                         </Badge>
                       </div>
                     )}
+                    {isFreeEligible && plan.popular && (
+                      <div className="absolute -top-2 left-1/2 -translate-x-1/2">
+                        <Badge className="bg-green-600 text-white text-[9px] px-1.5 py-0">FREE</Badge>
+                      </div>
+                    )}
                     <p className="text-xs font-medium text-gray-600">{plan.name}</p>
-                    <p className="text-lg font-bold text-gray-900 mt-1">{formatPrice(plan.price)}</p>
+                    {isFreeEligible ? (
+                      <div className="mt-1">
+                        <p className="text-sm text-gray-400 line-through">{formatPrice(plan.price)}</p>
+                        <p className="text-lg font-bold text-green-600">₹0</p>
+                      </div>
+                    ) : (
+                      <p className="text-lg font-bold text-gray-900 mt-1">{formatPrice(plan.price)}</p>
+                    )}
                     <p className="text-[10px] text-gray-400">/{plan.period}</p>
-                    {plan.save && (
+                    {!isFreeEligible && plan.save && (
                       <Badge variant="outline" className="text-[9px] text-green-600 border-green-200 mt-1 px-1.5">
                         Save {plan.save}
                       </Badge>
                     )}
-                    {selectedPlan === plan.id && (
+                    {!isFreeEligible && selectedPlan === plan.id && (
                       <div className="absolute top-2 right-2 h-4 w-4 bg-amber-500 rounded-full flex items-center justify-center">
                         <Check className="h-2.5 w-2.5 text-white" />
                       </div>
@@ -294,23 +326,42 @@ export function PremiumModal({ open, onClose }: PremiumModalProps) {
                 ))}
               </div>
 
-              <Button
-                size="lg"
-                className="w-full bg-linear-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white h-12"
-                onClick={handleUpgrade}
-                disabled={processing}
-              >
-                {processing ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Crown className="h-4 w-4 mr-2" />
-                )}
-                {processing
-                  ? "Opening Payment..."
-                  : `Get Premium – ${formatPrice(PLANS.find((p) => p.id === selectedPlan)?.price ?? 0)}`}
-              </Button>
+              {/* CTA Button — free activation or paid upgrade */}
+              {isFreeEligible ? (
+                <Button
+                  size="lg"
+                  className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white h-12"
+                  onClick={handleActivateFree}
+                  disabled={activatingFree}
+                >
+                  {activatingFree ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Gift className="h-4 w-4 mr-2" />
+                  )}
+                  {activatingFree ? "Activating..." : "Activate Free Premium — ₹0"}
+                </Button>
+              ) : (
+                <Button
+                  size="lg"
+                  className="w-full bg-linear-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white h-12"
+                  onClick={handleUpgrade}
+                  disabled={processing}
+                >
+                  {processing ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Crown className="h-4 w-4 mr-2" />
+                  )}
+                  {processing
+                    ? "Opening Payment..."
+                    : `Get Premium – ${formatPrice(PLANS.find((p) => p.id === selectedPlan)?.price ?? 0)}`}
+                </Button>
+              )}
               <p className="text-[10px] text-gray-400 text-center mt-2">
-                Secure payment via Razorpay · Cancel anytime
+                {isFreeEligible
+                  ? "No payment required · Premium features free until " + (expiryLabel ?? "end of free period")
+                  : "Secure payment via Razorpay · Cancel anytime"}
               </p>
             </>
           )}

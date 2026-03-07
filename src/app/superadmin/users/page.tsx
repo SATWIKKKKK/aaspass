@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   Search, Filter, Download, ChevronLeft, ChevronRight,
   Eye, Edit, ShieldAlert, AlertTriangle, Trash2, Loader2,
-  Crown, Users as UsersIcon, Building2,
+  Crown, Users as UsersIcon, Building2, Clock,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,14 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn, formatDate } from "@/lib/utils";
 import toast from "react-hot-toast";
+
+const FREE_QUOTA_DAYS = 90;
+function getFreeDaysLeft(createdAt: string): { daysLeft: number; color: string } {
+  const expiry = new Date(new Date(createdAt).getTime() + FREE_QUOTA_DAYS * 24 * 60 * 60 * 1000);
+  const daysLeft = Math.max(0, Math.ceil((expiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+  const color = daysLeft === 0 ? "text-gray-400" : daysLeft <= 7 ? "text-red-600" : daysLeft <= 30 ? "text-amber-600" : "text-green-600";
+  return { daysLeft, color };
+}
 
 interface UserRow {
   id: string;
@@ -155,6 +163,7 @@ export default function SuperAdminUsersPage() {
                   <th className="text-left p-3 font-medium text-gray-600 hidden lg:table-cell">Bookings</th>
                   <th className="text-left p-3 font-medium text-gray-600 hidden lg:table-cell">Services</th>
                   <th className="text-left p-3 font-medium text-gray-600 hidden lg:table-cell">Joined</th>
+                  <th className="text-left p-3 font-medium text-gray-600 hidden lg:table-cell">Free Days</th>
                   <th className="text-right p-3 font-medium text-gray-600">Actions</th>
                 </tr>
               </thead>
@@ -169,12 +178,13 @@ export default function SuperAdminUsersPage() {
                       <td className="p-3"><Skeleton className="h-5 w-16" /></td>
                       <td className="p-3 hidden lg:table-cell"><Skeleton className="h-5 w-12" /></td>
                       <td className="p-3 hidden lg:table-cell"><Skeleton className="h-5 w-20" /></td>
+                      <td className="p-3 hidden lg:table-cell"><Skeleton className="h-5 w-14" /></td>
                       <td className="p-3"><Skeleton className="h-5 w-20" /></td>
                     </tr>
                   ))
                 ) : users.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="p-8 text-center text-gray-500">
+                    <td colSpan={10} className="p-8 text-center text-gray-500">
                       <UsersIcon className="h-8 w-8 mx-auto mb-2 text-gray-300" />
                       No users found
                     </td>
@@ -221,6 +231,17 @@ export default function SuperAdminUsersPage() {
                       </td>
                       <td className="p-3 hidden lg:table-cell text-gray-600 text-xs">
                         {formatDate(user.createdAt)}
+                      </td>
+                      <td className="p-3 hidden lg:table-cell">
+                        {(() => {
+                          const { daysLeft, color } = getFreeDaysLeft(user.createdAt);
+                          return (
+                            <div className={cn("flex items-center gap-1 text-xs font-medium", color)}>
+                              <Clock className="h-3 w-3" />
+                              {daysLeft > 0 ? `${daysLeft}d` : "Expired"}
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="p-3 text-right">
                         <div className="flex items-center justify-end gap-1">

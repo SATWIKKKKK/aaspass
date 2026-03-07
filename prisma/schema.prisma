@@ -230,6 +230,7 @@ model Property {
   visits            PropertyVisit[]
   serviceStudents   ServiceStudent[]
   engagementEvents  EngagementEvent[]
+  publishingFees    ServicePublishingFee[]
 
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
@@ -839,4 +840,31 @@ model PlatformConfig {
   updatedAt                DateTime @updatedAt
 
   @@map("platform_config")
+}
+
+// ==================== SERVICE PUBLISHING FEES ====================
+
+model ServicePublishingFee {
+  id                  String       @id @default(cuid())
+  propertyId          String
+  property            Property     @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  ownerId             String
+  serviceType         ServiceType
+  amount              Float        // Amount charged (₹0 during free period)
+  commissionRate      Float        @default(0) // Platform commission %
+  commissionAmount    Float        @default(0) // Calculated commission amount
+  isFreePublish       Boolean      @default(false) // Was it published during free period?
+  razorpayOrderId     String?
+  razorpayPaymentId   String?
+  paidAt              DateTime?
+  expiresAt           DateTime?    // When the publishing fee validity expires
+  status              String       @default("active") // 'active' | 'expired' | 'pending_payment'
+
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  @@index([ownerId])
+  @@index([propertyId])
+  @@index([status])
+  @@map("service_publishing_fees")
 }

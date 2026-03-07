@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const now = new Date();
+    const fourteenDaysFromNow = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
     const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
     const oneDayFromNow = new Date(now.getTime() + 1 * 24 * 60 * 60 * 1000);
 
@@ -36,18 +37,18 @@ export async function GET(req: NextRequest) {
       data: { isOwnerPremium: false },
     });
 
-    // 3. Send 7-day reminder for student premium
-    const sevenDayStudents = await prisma.user.findMany({
+    // 3. Send 14/7/1-day reminder for student premium
+    const reminderStudents = await prisma.user.findMany({
       where: {
         isPremium: true,
-        premiumExpiry: { gt: now, lte: sevenDaysFromNow },
+        premiumExpiry: { gt: now, lte: fourteenDaysFromNow },
       },
       select: { id: true, name: true, email: true, premiumExpiry: true },
     });
 
-    for (const user of sevenDayStudents) {
+    for (const user of reminderStudents) {
       const daysLeft = Math.ceil((user.premiumExpiry!.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
-      if (daysLeft === 7 || daysLeft === 1) {
+      if (daysLeft === 14 || daysLeft === 7 || daysLeft === 1) {
         await prisma.notification.create({
           data: {
             userId: user.id,
@@ -62,18 +63,18 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // 4. Send 7-day reminder for owner premium
-    const sevenDayOwners = await prisma.user.findMany({
+    // 4. Send 14/7/1-day reminder for owner premium
+    const reminderOwners = await prisma.user.findMany({
       where: {
         isOwnerPremium: true,
-        ownerPremiumExpiry: { gt: now, lte: sevenDaysFromNow },
+        ownerPremiumExpiry: { gt: now, lte: fourteenDaysFromNow },
       },
       select: { id: true, name: true, email: true, ownerPremiumExpiry: true },
     });
 
-    for (const owner of sevenDayOwners) {
+    for (const owner of reminderOwners) {
       const daysLeft = Math.ceil((owner.ownerPremiumExpiry!.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
-      if (daysLeft === 7 || daysLeft === 1) {
+      if (daysLeft === 14 || daysLeft === 7 || daysLeft === 1) {
         await prisma.notification.create({
           data: {
             userId: owner.id,
@@ -112,13 +113,13 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    console.log(`[Cron] Expired ${expiredStudents.count} student + ${expiredOwners.count} owner subscriptions, sent ${sevenDayStudents.length + sevenDayOwners.length} reminders`);
+    console.log(`[Cron] Expired ${expiredStudents.count} student + ${expiredOwners.count} owner subscriptions, sent ${reminderStudents.length + reminderOwners.length} reminders`);
 
     return NextResponse.json({
       success: true,
       expiredStudents: expiredStudents.count,
       expiredOwners: expiredOwners.count,
-      remindersSent: sevenDayStudents.length + sevenDayOwners.length,
+      remindersSent: reminderStudents.length + reminderOwners.length,
       timestamp: now.toISOString(),
     });
   } catch (err) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, DragEvent } from "react";
+import { useState, useRef, useCallback, useEffect, DragEvent } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -9,7 +9,7 @@ import {
   Building2, ChevronLeft, ChevronRight, Upload, MapPin, Wifi, Wind,
   Utensils, Shirt, ShieldCheck, Users, Check, Loader2, Plus, X,
   ArrowUp, ArrowDown, ImageIcon, Star as StarIcon, LocateFixed,
-  DollarSign, Film,
+  DollarSign, Film, Save, Gift,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { Navbar } from "@/components/navbar";
@@ -41,6 +41,17 @@ const ACCEPTED_VIDEO_TYPES = ["video/mp4", "video/quicktime"];
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const MAX_FILES = 15;
 
+const PUBLISHING_CHARGES: Record<string, { label: string; price: number }> = {
+  HOSTEL:    { label: "Hostel / PG / Accommodation", price: 399 },
+  PG:        { label: "Hostel / PG / Accommodation", price: 399 },
+  LIBRARY:   { label: "Library", price: 199 },
+  COACHING:  { label: "Coaching", price: 199 },
+  GYM:       { label: "Gym", price: 99 },
+  MESS:      { label: "Mess / Tiffin", price: 199 },
+  LAUNDRY:   { label: "Laundry", price: 99 },
+  COWORKING: { label: "Coworking", price: 199 },
+};
+
 interface MediaEntry {
   id: string; url: string; file?: File; type: "image" | "video";
   isWideShot: boolean; previewUrl: string; error: string | null;
@@ -58,6 +69,26 @@ export default function NewPropertyPage() {
   const [media, setMedia] = useState<MediaEntry[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Publishing flow state
+  const [showPublishPopup, setShowPublishPopup] = useState(false);
+  const [isFreePublish, setIsFreePublish] = useState(false);
+  const [freeDaysLeft, setFreeDaysLeft] = useState(0);
+  const [freeExpiryDate, setFreeExpiryDate] = useState("");
+
+  // Check free publishing eligibility on mount
+  useEffect(() => {
+    fetch("/api/payment/free-premium")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.isWithinFreeQuota) {
+          setIsFreePublish(true);
+          setFreeDaysLeft(d.daysRemaining);
+          setFreeExpiryDate(d.freeQuotaExpiryDate || "");
+        }
+      })
+      .catch(() => {});
+  }, []);
   const dragCounter = useRef(0);
   const [pricingPlans, setPricingPlans] = useState<PlanEntry[]>([]);
   const [customAmenities, setCustomAmenities] = useState<string[]>([]);
@@ -157,7 +188,7 @@ export default function NewPropertyPage() {
       .catch(() => { setGeocoding(false); toast.error("Network error during geocoding"); });
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (asDraft = false) => {
     if (!form.name || !form.description || !form.price || !form.address || !form.city || !form.state || !form.pincode) {
       toast.error("Please fill all required fields"); return;
     }
@@ -180,6 +211,7 @@ export default function NewPropertyPage() {
         isAC: form.isAC, hasWifi: form.hasWifi, foodIncluded: form.foodIncluded,
         laundryIncluded: form.laundryIncluded, hasMedical: form.hasMedical,
         rules: form.rules || null, cancellationPolicy: form.cancellationPolicy || null,
+        saveAsDraft: asDraft,
       };
       if (form.latitude) body.latitude = parseFloat(form.latitude);
       if (form.longitude) body.longitude = parseFloat(form.longitude);
@@ -202,10 +234,17 @@ export default function NewPropertyPage() {
 
       const res = await fetch("/api/properties", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const data = await res.json();
-      if (res.ok) { toast.success("Service listed successfully!"); router.push("/admin/dashboard"); }
+      if (res.ok) {
+        if (asDraft) {
+          toast.success("Service saved as draft!");
+        } else {
+          toast.success("Service published successfully!");
+        }
+        router.push("/admin/dashboard");
+      }
       else toast.error(data.error || "Failed to create service");
     } catch { toast.error("Failed to create service"); }
-    finally { setSubmitting(false); }
+    finally { setSubmitting(false); setShowPublishPopup(false); }
   };
 
   if (status === "loading") return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -499,12 +538,106 @@ export default function NewPropertyPage() {
               <Button variant="outline" onClick={() => setStep((s) => Math.max(1, s - 1))} disabled={step === 1}><ChevronLeft className="h-4 w-4 mr-1" /> Previous</Button>
               {step < totalSteps
                 ? <Button onClick={() => setStep((s) => Math.min(totalSteps, s + 1))}>Next <ChevronRight className="h-4 w-4 ml-1" /></Button>
-                : <Button onClick={handleSubmit} disabled={submitting}>{submitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Publishing...</> : <><Check className="h-4 w-4 mr-1" />Publish Service</>}</Button>
+                : (
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => handleSubmit(true)} disabled={submitting}>
+                      {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
+                      Save as Draft
+                    </Button>
+                    <Button onClick={() => setShowPublishPopup(true)} disabled={submitting}>
+                      <Check className="h-4 w-4 mr-1" /> Publish Service
+                    </Button>
+                  </div>
+                )
               }
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Publishing Charges Popup */}
+      {showPublishPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowPublishPopup(false)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <button onClick={() => setShowPublishPopup(false)} className="absolute top-3 right-3 h-8 w-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center">
+              <X className="h-4 w-4 text-gray-500" />
+            </button>
+
+            <div className="text-center mb-5">
+              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center mx-auto mb-3">
+                <Building2 className="h-6 w-6 text-white" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900">Publish Your Service</h3>
+              <p className="text-sm text-gray-500 mt-1">
+                {PUBLISHING_CHARGES[form.serviceType]?.label || form.serviceType} — Publishing Fee
+              </p>
+            </div>
+
+            {/* Price Display */}
+            <div className="bg-gray-50 rounded-xl p-4 text-center mb-4">
+              {isFreePublish ? (
+                <>
+                  <p className="text-sm text-gray-400 line-through">
+                    ₹{PUBLISHING_CHARGES[form.serviceType]?.price || 199} / 3 months
+                  </p>
+                  <p className="text-3xl font-bold text-green-600 mt-1">₹0</p>
+                  <div className="flex items-center justify-center gap-1.5 mt-2">
+                    <Gift className="h-4 w-4 text-green-600" />
+                    <span className="text-xs font-semibold text-green-700">
+                      FREE during your launch period — {freeDaysLeft} day{freeDaysLeft !== 1 ? "s" : ""} remaining
+                    </span>
+                  </div>
+                  {freeExpiryDate && (
+                    <p className="text-[10px] text-gray-400 mt-1">
+                      Free publishing until {new Date(freeExpiryDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p className="text-3xl font-bold text-gray-900">
+                    ₹{PUBLISHING_CHARGES[form.serviceType]?.price || 199}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">per 3 months</p>
+                </>
+              )}
+            </div>
+
+            {/* Info */}
+            <div className="space-y-2 mb-5 text-xs text-gray-600">
+              <div className="flex items-start gap-2">
+                <Check className="h-3.5 w-3.5 text-green-600 mt-0.5 shrink-0" />
+                <span>Your service will be visible to all students immediately</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <Check className="h-3.5 w-3.5 text-green-600 mt-0.5 shrink-0" />
+                <span>Students can search, view, and book your service</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <Check className="h-3.5 w-3.5 text-green-600 mt-0.5 shrink-0" />
+                <span>{isFreePublish ? "No payment required during free period" : "Secure payment via Razorpay"}</span>
+              </div>
+            </div>
+
+            {/* CTA */}
+            <Button
+              className="w-full h-11 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
+              onClick={() => handleSubmit(false)}
+              disabled={submitting}
+            >
+              {submitting ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Publishing...</>
+              ) : isFreePublish ? (
+                <><Gift className="h-4 w-4 mr-2" /> Publish Free</>
+              ) : (
+                <><Check className="h-4 w-4 mr-2" /> Pay & Publish — ₹{PUBLISHING_CHARGES[form.serviceType]?.price || 199}</>
+              )}
+            </Button>
+          </div>
+        </div>
+      )}
+
       <Footer />
     </div>
   );

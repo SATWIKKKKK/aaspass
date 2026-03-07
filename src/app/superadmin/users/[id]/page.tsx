@@ -194,6 +194,59 @@ export default function SuperAdminUserDetailPage({ params }: { params: Promise<{
             </Card>
           </div>
 
+          {/* Free Quota Status */}
+          {(() => {
+            const FREE_QUOTA_DAYS = 90;
+            const regDate = new Date(user.createdAt);
+            const expiryDate = new Date(regDate.getTime() + FREE_QUOTA_DAYS * 24 * 60 * 60 * 1000);
+            const daysLeft = Math.max(0, Math.ceil((expiryDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+            const isActive = daysLeft > 0;
+            const pct = Math.round(((FREE_QUOTA_DAYS - daysLeft) / FREE_QUOTA_DAYS) * 100);
+            return (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Gift className="h-4 w-4 text-green-600" /> Free Quota Status
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Registered</span>
+                    <span className="font-medium">{formatDate(user.createdAt)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Free Period Expires</span>
+                    <span className="font-medium">{formatDate(expiryDate.toISOString())}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Days Remaining</span>
+                    <Badge variant={isActive ? (daysLeft <= 7 ? "destructive" : "success") : "secondary"} className="text-[10px]">
+                      {isActive ? `${daysLeft} days` : "Expired"}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Status</span>
+                    <Badge variant={isActive ? "success" : "secondary"} className="text-[10px]">
+                      {isActive ? "Active" : "Expired"}
+                    </Badge>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">Usage</span>
+                      <span>{pct}%</span>
+                    </div>
+                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div
+                        className={cn("h-full rounded-full transition-all", isActive ? "bg-green-500" : "bg-gray-400")}
+                        style={{ width: `${Math.min(100, pct)}%` }}
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })()}
+
           {/* Bookings Table */}
           <Card>
             <CardHeader className="pb-3">
