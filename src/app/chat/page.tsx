@@ -55,6 +55,15 @@ interface Conversation {
 
 // ==================== MARKDOWN RENDERER ====================
 
+// Regex constants outside JSX to avoid SWC parser confusion with ) inside []
+const BULLET_RE = /^[-\u2022]\s+/;
+const STAR_BULLET_RE = /^\*\s+/;
+const BULLET_STRIP_RE = /^[-\u2022*]\s+/;
+const NUMBERED_RE = /^\d+[.)]\s+/;
+const NUMBERED_STRIP_RE = /^\d+[.)]\s+/;
+const NUMBERED_PREFIX_RE = /^\d+[.)]/;
+const INLINE_RE = /(\*\*(.+?)\*\*|\*(.+?)\*)/g;
+
 function renderMarkdown(text: string) {
   // Split into lines and process
   const lines = text.split("\n");
@@ -72,7 +81,7 @@ function renderMarkdown(text: string) {
   const formatInline = (line: string): React.ReactNode[] => {
     const parts: React.ReactNode[] = [];
     // Process **bold**, then *italic*, then remaining text
-    const regex = /(\*\*(.+?)\*\*|\*(.+?)\*)/g;
+    const regex = new RegExp(INLINE_RE.source, "g");
     let lastIndex = 0;
     let match;
     let key = 0;
@@ -98,17 +107,18 @@ function renderMarkdown(text: string) {
     const trimmed = line.trim();
 
     // Bullet list items: - item or • item or * item (but not *italic*)
-    if (/^[-•]\s+/.test(trimmed) || /^\*\s+/.test(trimmed)) {
-      const content = trimmed.replace(/^[-•*]\s+/, "");
+    if (BULLET_RE.test(trimmed) || STAR_BULLET_RE.test(trimmed)) {
+      const content = trimmed.replace(BULLET_STRIP_RE, "");
       listItems.push(<li key={`li-${i}`}>{formatInline(content)}</li>);
       continue;
     }
 
     // Numbered list items: 1. item
-    if (/^\d+[.)]\s+/.test(trimmed)) {
+    if (NUMBERED_RE.test(trimmed)) {
       flushList();
-      const content = trimmed.replace(/^\d+[.)]\s+/, "");
-      elements.push(<div key={`num-${i}`} className="flex gap-2 my-0.5"><span className="text-gray-400 shrink-0">{trimmed.match(/^\d+[.)]/)![0]}</span><span>{formatInline(content)}</span></div>);
+      const content = trimmed.replace(NUMBERED_STRIP_RE, "");
+      const prefix = NUMBERED_PREFIX_RE.exec(trimmed)?.[0] ?? "";
+      elements.push(<div key={`num-${i}`} className="flex gap-2 my-0.5"><span className="text-gray-400 shrink-0">{prefix}</span><span>{formatInline(content)}</span></div>);
       continue;
     }
 
@@ -166,7 +176,6 @@ function PropertyCard({ property }: { property: PropertyResult }) {
             {property.hasWifi && <Wifi className="h-3 w-3 text-blue-400" />}
             {property.foodIncluded && <UtensilsCrossed className="h-3 w-3 text-orange-400" />}
             {property.isAC && <Wind className="h-3 w-3 text-cyan-400" />}
-          </div>
           </div>
         </div>
         <ChevronRight className="h-4 w-4 text-gray-300 self-center flex-shrink-0" />
