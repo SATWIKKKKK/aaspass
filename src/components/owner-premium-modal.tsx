@@ -264,27 +264,29 @@ export function OwnerPremiumModal({ open, onClose }: OwnerPremiumModalProps) {
             </div>
           )}
 
-          {/* Plan Selection with Strikethrough during free period */}
+          {/* Plan Selection — selectable during free period too */}
           <div className="space-y-2">
             {OWNER_PLANS.map((plan) => (
               <button
                 key={plan.id}
-                onClick={() => !isFreeEligible && setSelectedPlan(plan.id)}
+                onClick={() => setSelectedPlan(plan.id)}
                 className={cn(
-                  "w-full flex items-center justify-between p-3.5 rounded-xl border-2 transition-all",
-                  isFreeEligible
-                    ? "border-green-300 bg-green-50/50 cursor-default"
-                    : selectedPlan === plan.id
-                      ? "border-emerald-500 bg-emerald-50/60"
-                      : "border-gray-200 hover:border-emerald-300 hover:bg-emerald-50/30"
+                  "w-full flex items-center justify-between p-3.5 rounded-xl border-2 transition-all cursor-pointer",
+                  selectedPlan === plan.id
+                    ? isFreeEligible
+                      ? "border-green-500 bg-green-50/60"
+                      : "border-emerald-500 bg-emerald-50/60"
+                    : "border-gray-200 hover:border-emerald-300 hover:bg-emerald-50/30"
                 )}
               >
                 <div className="flex items-center gap-3">
                   <div className={cn(
                     "h-4 w-4 rounded-full border-2 flex items-center justify-center",
-                    isFreeEligible ? "border-green-500" : selectedPlan === plan.id ? "border-emerald-500" : "border-gray-300"
+                    selectedPlan === plan.id
+                      ? isFreeEligible ? "border-green-500" : "border-emerald-500"
+                      : "border-gray-300"
                   )}>
-                    {(isFreeEligible || selectedPlan === plan.id) && (
+                    {selectedPlan === plan.id && (
                       <div className={cn("h-2 w-2 rounded-full", isFreeEligible ? "bg-green-500" : "bg-emerald-500")} />
                     )}
                   </div>

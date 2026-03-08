@@ -659,45 +659,54 @@ function AdminDashboardInner() {
             </Card>
           </div>
 
-          {/* Booking & Occupancy Metrics */}
+          {/* Booking & Occupancy Metrics — Clickable */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-            <Card className="hover:shadow-md transition-shadow">
-              <CardContent className="p-5 flex items-center gap-4">
-                <div className="h-12 w-12 rounded-xl bg-green-100 flex items-center justify-center shrink-0">
-                  <Calendar className="h-6 w-6 text-green-700" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-green-700"><AnimatedCounter value={confirmedThisMonth} /></p>
-                  <p className="text-xs text-gray-500">Confirmed bookings this month</p>
-                </div>
-              </CardContent>
-            </Card>
+            <Link href="/admin/bookings/analytics">
+              <Card className="hover:shadow-md transition-shadow cursor-pointer group">
+                <CardContent className="p-5 flex items-center gap-4">
+                  <div className="h-12 w-12 rounded-xl bg-green-100 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <Calendar className="h-6 w-6 text-green-700" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-green-700"><AnimatedCounter value={confirmedThisMonth} /></p>
+                    <p className="text-xs text-gray-500">Confirmed bookings this month</p>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-gray-300 ml-auto group-hover:text-primary transition-colors" />
+                </CardContent>
+              </Card>
+            </Link>
 
-            <Card className="hover:shadow-md transition-shadow">
-              <CardContent className="p-5 flex items-center gap-4">
-                <div className="h-12 w-12 rounded-xl bg-indigo-100 flex items-center justify-center shrink-0">
-                  <Armchair className="h-6 w-6 text-indigo-700" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-indigo-700">
-                    <AnimatedCounter value={stats?.totalAvailable ?? 0} /> / <AnimatedCounter value={stats?.totalCapacity ?? 0} />
-                  </p>
-                  <p className="text-xs text-gray-500">Available seats / Total capacity</p>
-                </div>
-              </CardContent>
-            </Card>
+            <Link href="/admin/seats/analytics">
+              <Card className="hover:shadow-md transition-shadow cursor-pointer group">
+                <CardContent className="p-5 flex items-center gap-4">
+                  <div className="h-12 w-12 rounded-xl bg-indigo-100 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <Armchair className="h-6 w-6 text-indigo-700" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-indigo-700">
+                      <AnimatedCounter value={stats?.totalAvailable ?? 0} /> / <AnimatedCounter value={stats?.totalCapacity ?? 0} />
+                    </p>
+                    <p className="text-xs text-gray-500">Available seats / Total capacity</p>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-gray-300 ml-auto group-hover:text-primary transition-colors" />
+                </CardContent>
+              </Card>
+            </Link>
 
-            <Card className="hover:shadow-md transition-shadow">
-              <CardContent className="p-5 flex items-center gap-4">
-                <div className="h-12 w-12 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
-                  <Users className="h-6 w-6 text-amber-700" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-amber-700"><AnimatedCounter value={stats?.totalStudents ?? 0} /></p>
-                  <p className="text-xs text-gray-500">Registered students</p>
-                </div>
-              </CardContent>
-            </Card>
+            <Link href="/admin/students/analytics">
+              <Card className="hover:shadow-md transition-shadow cursor-pointer group">
+                <CardContent className="p-5 flex items-center gap-4">
+                  <div className="h-12 w-12 rounded-xl bg-amber-100 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <Users className="h-6 w-6 text-amber-700" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-amber-700"><AnimatedCounter value={stats?.totalStudents ?? 0} /></p>
+                    <p className="text-xs text-gray-500">Registered students</p>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-gray-300 ml-auto group-hover:text-primary transition-colors" />
+                </CardContent>
+              </Card>
+            </Link>
           </div>
 
           {/* Monthly Trend Chart */}
@@ -740,7 +749,7 @@ function AdminDashboardInner() {
             </h3>
             {properties.length > 2 && (
               <Link href="/admin/properties" className="flex items-center gap-1 text-sm font-medium text-primary hover:underline">
-                View All ({properties.length}) <ArrowRight className="h-4 w-4" />
+                View All Services ({properties.length}) <ArrowRight className="h-4 w-4" />
               </Link>
             )}
           </div>
@@ -760,9 +769,10 @@ function AdminDashboardInner() {
             </Link>
 
             {/* Live Service Status Cards */}
-            {properties.slice(0, 5).map((property, pIdx) => (
-              <Card key={property.id} className={cn("overflow-hidden hover:shadow-lg transition-all duration-300 group", contentReady ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4")}
-                style={{ transitionDelay: `${400 + pIdx * 100}ms` }}>
+            {properties.slice(0, 3).map((property, pIdx) => (
+              <Card key={property.id} className={cn("overflow-hidden hover:shadow-lg transition-all duration-300 group cursor-pointer", contentReady ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4")}
+                style={{ transitionDelay: `${400 + pIdx * 100}ms` }}
+                onClick={() => router.push(`/admin/properties/${property.slug}/manage`)}>
                 <div className="flex flex-col h-full">
                   {/* Image + Status */}
                   <div className="relative">
@@ -844,7 +854,7 @@ function AdminDashboardInner() {
             </h3>
             {ownerBookings.length > 6 && (
               <Link href="/admin/bookings" className="flex items-center gap-1 text-sm font-medium text-primary hover:underline">
-                View All ({ownerBookings.length}) <ArrowRight className="h-4 w-4" />
+                View All Bookings ({ownerBookings.length}) <ArrowRight className="h-4 w-4" />
               </Link>
             )}
           </div>

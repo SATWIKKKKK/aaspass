@@ -275,19 +275,19 @@ export function PremiumModal({ open, onClose }: PremiumModalProps) {
                 </div>
               )}
 
-              {/* Plan Cards with Strikethrough during free period */}
+              {/* Plan Cards — selectable during free period too */}
               <div className="grid grid-cols-3 gap-2 mb-5">
                 {PLANS.map((plan) => (
                   <button
                     key={plan.id}
-                    onClick={() => !isFreeEligible && setSelectedPlan(plan.id)}
+                    onClick={() => setSelectedPlan(plan.id)}
                     className={cn(
-                      "relative p-3 rounded-xl border-2 text-center transition-all",
-                      isFreeEligible
-                        ? "border-green-300 bg-green-50/50 cursor-default"
-                        : selectedPlan === plan.id
-                          ? "border-amber-400 bg-amber-50 shadow-sm"
-                          : "border-gray-200 hover:border-gray-300"
+                      "relative p-3 rounded-xl border-2 text-center transition-all cursor-pointer",
+                      selectedPlan === plan.id
+                        ? isFreeEligible
+                          ? "border-green-500 bg-green-50 shadow-sm"
+                          : "border-amber-400 bg-amber-50 shadow-sm"
+                        : "border-gray-200 hover:border-gray-300"
                     )}
                   >
                     {plan.popular && !isFreeEligible && (
@@ -317,8 +317,8 @@ export function PremiumModal({ open, onClose }: PremiumModalProps) {
                         Save {plan.save}
                       </Badge>
                     )}
-                    {!isFreeEligible && selectedPlan === plan.id && (
-                      <div className="absolute top-2 right-2 h-4 w-4 bg-amber-500 rounded-full flex items-center justify-center">
+                    {selectedPlan === plan.id && (
+                      <div className={cn("absolute top-2 right-2 h-4 w-4 rounded-full flex items-center justify-center", isFreeEligible ? "bg-green-500" : "bg-amber-500")}>
                         <Check className="h-2.5 w-2.5 text-white" />
                       </div>
                     )}

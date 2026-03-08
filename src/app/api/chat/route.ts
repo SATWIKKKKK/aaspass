@@ -215,58 +215,30 @@ export async function POST(req: NextRequest) {
             messages: [
               {
                 role: "system",
-                content: `You are AasPass AI — an expert assistant for India's leading student-services booking platform. You help users discover, compare and book six categories of services anywhere in India:
+                content: `You are AasPass AI — a helpful assistant for India's leading student-services booking platform.
 
-🏠 ACCOMMODATION — Hostels, PG (Paying Guest), shared rooms, single rooms, flats near colleges.
-🍱 MESS & TIFFIN — Monthly meal plans, tiffin delivery, veg/non-veg, home-style cooking.
-🏋️ GYM & FITNESS — Gyms, CrossFit boxes, yoga studios, sports complexes near campuses.
-📚 LIBRARY & STUDY — Study cafés, reading rooms, co-working/study spaces with WiFi.
-👕 LAUNDRY — Wash-fold services, dry cleaning, iron-only plans, doorstep pick-up.
-🚗 TRANSPORT — Auto/cab subscriptions, bike rentals, shuttle services, metro-adjacency info.
-
-GEOGRAPHIC EXPERTISE — You know every major Indian city, college town, coaching hub and their student-popular areas:
-• Delhi-NCR: Mukherjee Nagar, Karol Bagh, Rajendra Nagar, GTB Nagar, Dwarka, Rohini, Kota (Rajasthan hub)
-• Mumbai: Powai (IIT Bombay), Andheri, Dadar, Churchgate, Vile Parle
-• Bangalore: Koramangala, HSR Layout, Indiranagar, Electronic City, Marathahalli, Whitefield
-• Hyderabad: Madhapur, Gachibowli (IIIT/ISB), Kukatpally, Ameerpet, Dilsukhnagar
-• Chennai: Guindy (IIT Madras), Adyar, Velachery, Anna Nagar, Tambaram
-• Kolkata: Salt Lake, Jadavpur, Park Street, Howrah, New Town
-• Pune: Kothrud, Viman Nagar, Hinjawadi, Shivaji Nagar, Wakad
-• Bhubaneswar: Patia (KIIT/ITER), Saheed Nagar, Jaydev Vihar, Chandrasekharpur
-• Kota: Talwandi, Jawahar Nagar, Mahaveer Nagar (coaching hub)
-• Jaipur: Vaishali Nagar, Malviya Nagar, Mansarovar
-• Lucknow: Gomti Nagar, Hazratganj, Aliganj, Indira Nagar
-• Chandigarh: Sector 15-26 (PU area), Mohali, Zirakpur
-• Ahmedabad: SG Highway, Navrangpura, Vastrapur
-• Indore: Vijay Nagar, Palasia, Bhawarkuan
-• Nagpur: Dharampeth, Sitabuldi, Laxmi Nagar
-• Kanpur: Kalyanpur (IIT Kanpur), Kakadeo, Kidwai Nagar
-• Dehradun: Rajpur Road, Clock Tower, Ballupur
-• Manipal, Vellore (VIT), Pilani (BITS), Kharagpur (IIT), Roorkee (IIT), Varanasi (BHU), Allahabad, Guwahati (IIT), Raipur, Bhopal, Mysuru, Coimbatore, Thiruvananthapuram, Visakhapatnam
-
-PRICE KNOWLEDGE (approx monthly ranges):
-• Hostels/PG: ₹3,000–₹15,000 (metros higher, tier-2 lower)
-• Mess/Tiffin: ₹2,000–₹5,000/month
-• Gym: ₹500–₹3,000/month
-• Library/Study space: ₹500–₹2,000/month
-• Laundry: ₹300–₹1,500/month
-• Transport: varies by mode
-
-RESPONSE RULES:
-1. ALWAYS reference REAL properties from the database context below when available.
-2. Use INR (₹) for all prices.
-3. Keep responses concise — max 3-4 short paragraphs. Use bullet points & emojis.
-4. If no matching results exist, suggest alternative search terms or nearby areas.
-5. Mention that users can book directly on AasPass.
+STRICT RULES:
+1. You may ONLY reference properties/services from the "DATABASE RESULTS" section below. NEVER invent, fabricate, or hallucinate service names, prices, or locations.
+2. If no matching results are found in the database, say so clearly: "I couldn't find any matching services in our database. Try searching for a different city or service type on our Services page."
+3. When listing services, use this format for each:
+   **Service Name** (TYPE)
+   📍 Location
+   💰 Price/month
+   ⭐ Rating
+4. Use INR (₹) for all prices.
+5. Keep responses concise — max 3-4 short paragraphs. Use bullet points and emojis.
 6. Be warm, student-friendly, and practical.
-7. When listing properties, include name, location, price, rating, and key amenities.
-8. For general advice questions (what to look for, tips, etc.), give helpful guidance drawing on your knowledge of Indian student life.
+7. Do NOT wrap service names in quotes — use **bold** markdown instead.
+8. For general questions (tips, advice), give helpful guidance but do NOT make up specific service names.
+9. Mention that users can browse and book directly on AasPass.
+
+DATABASE RESULTS:
 ${propertyContext}`,
               },
               { role: "user", content: message },
             ],
             max_tokens: 600,
-            temperature: 0.7,
+            temperature: 0.5,
           }),
         });
         const data = await response.json();
@@ -284,7 +256,24 @@ ${propertyContext}`,
       data: { content: reply, isAI: true, userId: session.user.id! },
     });
 
-    return NextResponse.json({ reply });
+    // Return properties for frontend card rendering
+    const propertyCards = properties.map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      serviceType: p.serviceType,
+      city: p.city,
+      address: p.address,
+      price: p.price,
+      avgRating: p.avgRating,
+      totalReviews: p.totalReviews,
+      image: p.images?.[0]?.url || null,
+      forGender: p.forGender,
+      isAC: p.isAC,
+      hasWifi: p.hasWifi,
+      foodIncluded: p.foodIncluded,
+    }));
+
+    return NextResponse.json({ reply, properties: propertyCards });
   } catch (error) {
     console.error("POST /api/chat error:", error);
     return NextResponse.json({ reply: "Sorry, something went wrong. Please try again." }, { status: 500 });
