@@ -7,7 +7,7 @@ import { sendEmail, premiumExpiryReminderEmail } from "@/lib/email";
  *
  * Daily cron job that:
  * 1. Auto-expires premium subscriptions past their end date
- * 2. Sends reminders 7 days and 1 day before expiry
+ * 2. Sends reminders 7, 3, and 1 day(s) before expiry
  * 3. Handles both student and owner premium
  * Protected by CRON_SECRET env var so only Vercel Cron can call it.
  */
@@ -21,9 +21,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const now = new Date();
-    const fourteenDaysFromNow = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
     const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-    const oneDayFromNow = new Date(now.getTime() + 1 * 24 * 60 * 60 * 1000);
 
     // 1. Expire student premium
     const expiredStudents = await prisma.user.updateMany({
@@ -37,23 +35,23 @@ export async function GET(req: NextRequest) {
       data: { isOwnerPremium: false },
     });
 
-    // 3. Send 14/7/1-day reminder for student premium
+    // 3. Send 7/3/1-day reminder for student premium
     const reminderStudents = await prisma.user.findMany({
       where: {
         isPremium: true,
-        premiumExpiry: { gt: now, lte: fourteenDaysFromNow },
+        premiumExpiry: { gt: now, lte: sevenDaysFromNow },
       },
       select: { id: true, name: true, email: true, premiumExpiry: true },
     });
 
     for (const user of reminderStudents) {
       const daysLeft = Math.ceil((user.premiumExpiry!.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
-      if (daysLeft === 14 || daysLeft === 7 || daysLeft === 1) {
+      if (daysLeft === 7 || daysLeft === 3 || daysLeft === 1) {
         await prisma.notification.create({
           data: {
             userId: user.id,
             title: daysLeft === 1 ? "⚠️ Premium Expires Tomorrow!" : `Premium Expires in ${daysLeft} Days`,
-            message: `Your free premium expires ${daysLeft === 1 ? 'tomorrow' : `in ${daysLeft} days`}. Subscribe now to continue enjoying premium benefits.`,
+            message: `Your premium expires ${daysLeft === 1 ? 'tomorrow' : `in ${daysLeft} days`}. Subscribe now to continue enjoying premium benefits.`,
             type: "student_premium_expiry",
           },
         });
@@ -63,18 +61,18 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // 4. Send 14/7/1-day reminder for owner premium
+    // 4. Send 7/3/1-day reminder for owner premium
     const reminderOwners = await prisma.user.findMany({
       where: {
         isOwnerPremium: true,
-        ownerPremiumExpiry: { gt: now, lte: fourteenDaysFromNow },
+        ownerPremiumExpiry: { gt: now, lte: sevenDaysFromNow },
       },
       select: { id: true, name: true, email: true, ownerPremiumExpiry: true },
     });
 
     for (const owner of reminderOwners) {
       const daysLeft = Math.ceil((owner.ownerPremiumExpiry!.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
-      if (daysLeft === 14 || daysLeft === 7 || daysLeft === 1) {
+      if (daysLeft === 7 || daysLeft === 3 || daysLeft === 1) {
         await prisma.notification.create({
           data: {
             userId: owner.id,

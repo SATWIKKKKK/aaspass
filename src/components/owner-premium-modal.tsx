@@ -1,32 +1,30 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { useSession } from "next-auth/react";
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import toast from "react-hot-toast";
 import { gsap } from "@/lib/gsap";
 import {
-  Crown, Check, TrendingUp, Eye, BarChart3, Shield,
-  X, Loader2, Star, Gift, CalendarClock,
+  Crown, TrendingUp, Eye, BarChart3, Shield,
+  X, Loader2, Star, Gift, Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PremiumSuccessPopup } from "@/components/premium-success-popup";
+import { usePremiumFlow, type PlanId } from "@/hooks/use-premium-flow";
 
 const OWNER_FEATURES = [
-  { icon: TrendingUp, title: "Boosted Visibility",   desc: "Appear higher in search results" },
-  { icon: Eye,        title: "Promoted Listings",    desc: "Featured badge on your services" },
-  { icon: BarChart3,  title: "Advanced Analytics",   desc: "Detailed performance insights" },
-  { icon: Shield,     title: "Priority Support",     desc: "Dedicated owner support line" },
-  { icon: Star,       title: "Verified Badge",       desc: "Trust signal for students" },
-  { icon: Crown,      title: "AI Recommendations",   desc: "Get recommended to matching students" },
+  { icon: TrendingUp, title: "Boosted Visibility",  desc: "Appear higher in search results" },
+  { icon: Eye,        title: "Promoted Listings",   desc: "Featured badge on your services" },
+  { icon: BarChart3,  title: "Advanced Analytics",  desc: "Detailed performance insights" },
+  { icon: Shield,     title: "Priority Support",    desc: "Dedicated owner support line" },
+  { icon: Star,       title: "Verified Badge",      desc: "Trust signal for students" },
+  { icon: Crown,      title: "AI Recommendations",  desc: "Get recommended to matching students" },
 ];
 
-interface FreePremiumData {
-  isFreePeriod: boolean;
-  alreadyClaimed: boolean;
-  daysRemaining: number;
-  freeQuotaExpiryDate: string;
-  isWithinFreeQuota: boolean;
-}
+const PLANS: { id: PlanId; label: string; price: number; per: string; days: number; badge?: string }[] = [
+  { id: "monthly",   label: "Monthly",   price: 99,  per: "/mo",  days: 30 },
+  { id: "quarterly", label: "Quarterly", price: 249, per: "/qtr", days: 90,  badge: "POPULAR" },
+  { id: "yearly",    label: "Yearly",    price: 799, per: "/yr",  days: 365, badge: "BEST VALUE" },
+];
 
 interface OwnerPremiumModalProps {
   open: boolean;
@@ -34,60 +32,36 @@ interface OwnerPremiumModalProps {
 }
 
 export function OwnerPremiumModal({ open, onClose }: OwnerPremiumModalProps) {
-  const { data: session, update: updateSession } = useSession();
   const router = useRouter();
-  const [showSuccess, setShowSuccess] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
 
-  // Free launch premium — per-user data from DB
-  const [freePremium, setFreePremium] = useState<FreePremiumData | null>(null);
-  const [activatingFree, setActivatingFree] = useState(false);
-  const [checkingFree, setCheckingFree] = useState(false);
-
-  useEffect(() => {
-    if (!open) return;
-    setCheckingFree(true);
-    fetch("/api/payment/free-premium")
-      .then((r) => r.json())
-      .then((d: FreePremiumData) => setFreePremium(d))
-      .catch(() => {})
-      .finally(() => setCheckingFree(false));
-  }, [open]);
-
-  const handleActivateFree = async () => {
-    setActivatingFree(true);
-    try {
-      const res = await fetch("/api/payment/free-premium", { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      await updateSession({ isOwnerPremium: true });
-      router.refresh();
-      setShowSuccess(true);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to activate free premium";
-      toast.error(message);
-    } finally {
-      setActivatingFree(false);
-    }
-  };
+  const {
+    state, freeData, selectedPlan, setSelectedPlan,
+    premiumExpiry, activateFree, startPaidFlow, reset,
+  } = usePremiumFlow(open, "owner");
 
   // GSAP entrance animation
   useEffect(() => {
-    if (!open || !modalRef.current || !backdropRef.current) return;
+    if ((state !== "free_modal" && state !== "paid_modal") || !modalRef.current || !backdropRef.current) return;
     gsap.fromTo(backdropRef.current, { opacity: 0 }, { opacity: 1, duration: 0.25, ease: "power2.out" });
     gsap.fromTo(modalRef.current, { opacity: 0, scale: 0.92, y: 20 }, { opacity: 1, scale: 1, y: 0, duration: 0.35, ease: "back.out(1.4)" });
-  }, [open]);
+  }, [state]);
 
-  if (!open && !showSuccess) return null;
+  const handleClose = () => {
+    reset();
+    onClose();
+  };
 
-  // Show loading spinner while checking free eligibility
-  if (checkingFree) {
+  if (!open && state !== "success") return null;
+
+  // ── Checking eligibility ──
+  if (state === "checking") {
     return (
-      <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
         <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
         <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg p-10 flex flex-col items-center gap-4">
-          <div className="h-14 w-14 rounded-2xl bg-linear-to-br from-green-600 to-green-800 flex items-center justify-center shadow-lg">
+          <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-green-600 to-green-800 flex items-center justify-center shadow-lg">
             <Crown className="h-7 w-7 text-white" />
           </div>
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -97,33 +71,42 @@ export function OwnerPremiumModal({ open, onClose }: OwnerPremiumModalProps) {
     );
   }
 
-  if (showSuccess) {
+  // ── Processing ──
+  if (state === "processing") {
     return (
-      <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
         <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-        <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center">
-          <div className="h-16 w-16 rounded-full bg-gradient-to-br from-green-600 to-green-800 flex items-center justify-center mx-auto mb-4">
-            <Check className="h-8 w-8 text-white" />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">You are ahead in search results now!</h2>
-          <p className="text-gray-600 mb-6">Your services will be shown on top whenever students search in your area. Enjoy boosted visibility and more bookings!</p>
-          <Button onClick={() => { setShowSuccess(false); onClose(); router.push("/admin/dashboard"); router.refresh(); }} className="w-full bg-green-700 hover:bg-green-800">
-            Go to Dashboard
-          </Button>
+        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg p-10 flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+          <p className="text-sm text-gray-500 font-medium">Activating your premium…</p>
         </div>
       </div>
     );
   }
 
-  const expiryLabel = freePremium?.freeQuotaExpiryDate
-    ? new Date(freePremium.freeQuotaExpiryDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+  // ── Success ──
+  if (state === "success" && premiumExpiry) {
+    return (
+      <PremiumSuccessPopup
+        premiumExpiry={premiumExpiry}
+        variant="owner"
+        onClose={handleClose}
+      />
+    );
+  }
+
+  // ── Determine mode ──
+  const isFreeMode = state === "free_modal";
+
+  const expiryLabel = freeData?.freeQuotaExpiryDate
+    ? new Date(freeData.freeQuotaExpiryDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
     : null;
 
   return (
-    <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
-      <div ref={backdropRef} className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} style={{ opacity: 0 }} />
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div ref={backdropRef} className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleClose} style={{ opacity: 0 }} />
       <div ref={modalRef} className="relative bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto" style={{ opacity: 0 }}>
-        <button onClick={onClose} className="absolute top-4 right-4 h-8 w-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center z-10 transition-colors">
+        <button onClick={handleClose} className="absolute top-4 right-4 h-8 w-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center z-10 transition-colors">
           <X className="h-4 w-4 text-gray-500" />
         </button>
 
@@ -138,9 +121,9 @@ export function OwnerPremiumModal({ open, onClose }: OwnerPremiumModalProps) {
           </p>
         </div>
 
-        <div className="p-6 space-y-5">
+        <div className="p-6">
           {/* Features */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 mb-6">
             {OWNER_FEATURES.map((f) => (
               <div key={f.title} className="flex items-start gap-2 p-2.5 rounded-lg bg-gray-50">
                 <f.icon className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />
@@ -152,42 +135,112 @@ export function OwnerPremiumModal({ open, onClose }: OwnerPremiumModalProps) {
             ))}
           </div>
 
-          {/* Free Premium Offer Banner */}
-          <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4">
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <Gift className="h-5 w-5 text-green-600" />
-              <p className="text-sm font-bold text-green-800">FREE Owner Premium — ₹0</p>
-            </div>
-            <p className="text-xs text-green-700 text-center">
-              All owner premium features completely free — boosted visibility, verified badge, analytics & more!
-              {expiryLabel && <> Available until <span className="font-semibold">{expiryLabel}</span>.</>}
-            </p>
-            {freePremium && freePremium.daysRemaining > 0 && (
-              <div className="flex items-center justify-center gap-1.5 mt-2">
-                <CalendarClock className="h-3.5 w-3.5 text-green-600" />
-                <span className="text-xs font-semibold text-green-700">
-                  {freePremium.daysRemaining} day{freePremium.daysRemaining !== 1 ? "s" : ""} left to claim
-                </span>
+          {/* Free banner (only in free mode) */}
+          {isFreeMode && (
+            <div className="mb-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-3 text-center">
+              <div className="flex items-center justify-center gap-2 mb-1">
+                <Gift className="h-4 w-4 text-green-600" />
+                <p className="text-sm font-bold text-green-800">FREE Owner Premium — ₹0</p>
               </div>
-            )}
+              <p className="text-xs text-green-700">
+                All plans free during your launch period
+                {expiryLabel && <> (until <span className="font-semibold">{expiryLabel}</span>)</>}
+                {freeData && freeData.daysRemaining > 0 && (
+                  <> · <span className="font-semibold">{freeData.daysRemaining} day{freeData.daysRemaining !== 1 ? "s" : ""} left</span></>
+                )}
+              </p>
+            </div>
+          )}
+
+          {/* Plan Cards */}
+          <div className="space-y-2.5 mb-5">
+            {PLANS.map((plan) => {
+              const selected = selectedPlan === plan.id;
+              return (
+                <button
+                  key={plan.id}
+                  onClick={() => setSelectedPlan(plan.id)}
+                  className={`w-full flex items-center justify-between p-3.5 rounded-xl border-2 transition-all text-left ${
+                    selected
+                      ? "border-emerald-500 bg-emerald-50 shadow-sm"
+                      : "border-gray-200 bg-white hover:border-gray-300"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                      selected ? "border-emerald-500 bg-emerald-500" : "border-gray-300"
+                    }`}>
+                      {selected && <Check className="h-3 w-3 text-white" />}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-gray-900">{plan.label}</span>
+                        {plan.badge && (
+                          <span className="text-[9px] font-bold uppercase bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">
+                            {plan.badge}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-gray-500">{plan.days} days</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    {isFreeMode ? (
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs text-gray-400 line-through">₹{plan.price}</span>
+                        <span className="text-lg font-bold text-green-600">₹0</span>
+                      </div>
+                    ) : (
+                      <span className="text-lg font-bold text-gray-900">₹{plan.price}<span className="text-xs font-normal text-gray-500">{plan.per}</span></span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
           </div>
 
-          {/* CTA Button — free activation only */}
-          <Button
-            className="w-full h-12 text-base bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
-            onClick={handleActivateFree}
-            disabled={activatingFree}
-          >
-            {activatingFree ? (
-              <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Activating...</>
-            ) : (
-              <><Gift className="h-4 w-4 mr-2" />Activate Free Owner Premium — ₹0</>
-            )}
-          </Button>
+          {/* CTA Button */}
+          {isFreeMode ? (
+            <>
+              <Button
+                className="w-full h-12 text-base bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                onClick={activateFree}
+                disabled={!selectedPlan}
+              >
+                <Gift className="h-4 w-4 mr-2" />
+                Activate Free Owner Premium — ₹0
+              </Button>
+              <p className="text-[10px] text-gray-400 text-center mt-2">
+                No payment required · Instant activation
+              </p>
+            </>
+          ) : (
+            <>
+              <Button
+                className="w-full h-12 text-base bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
+                onClick={startPaidFlow}
+                disabled={!selectedPlan}
+              >
+                <Crown className="h-4 w-4 mr-2" />
+                {selectedPlan
+                  ? `Subscribe — ₹${PLANS.find((p) => p.id === selectedPlan)?.price ?? ""}`
+                  : "Select a plan to continue"}
+              </Button>
+              <p className="text-[10px] text-gray-400 text-center mt-2">
+                Secure payment via Razorpay · Cancel anytime
+              </p>
+            </>
+          )}
 
-          <p className="text-[10px] text-gray-400 text-center">
-            No payment required · Instant activation
-          </p>
+          {/* Error recovery */}
+          {state === "error" && (
+            <button
+              onClick={() => window.location.reload()}
+              className="w-full mt-3 text-xs text-emerald-600 hover:underline text-center"
+            >
+              Something went wrong — tap to retry
+            </button>
+          )}
         </div>
       </div>
     </div>

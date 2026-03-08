@@ -53,11 +53,22 @@ export async function GET() {
 }
 
 // POST /api/payment/free-premium — activate free premium (per-user createdAt based)
-export async function POST() {
+export async function POST(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Accept optional plan selection (monthly/quarterly/yearly) — stored for renewal context
+    let plan = "free_launch";
+    try {
+      const body = await req.json();
+      if (body?.plan && ["monthly", "quarterly", "yearly"].includes(body.plan)) {
+        plan = body.plan;
+      }
+    } catch {
+      // No body or invalid JSON — use default
     }
 
     const role = (session.user as any)?.role;
@@ -93,7 +104,7 @@ export async function POST() {
           isPremium: true,
           premiumGrantType: "free_launch",
           premiumExpiry: expiryDate,
-          subscriptionPlan: "free_launch",
+          subscriptionPlan: plan,
           subscriptionStart: new Date(),
         },
       });
@@ -117,7 +128,7 @@ export async function POST() {
           isOwnerPremium: true,
           ownerPremiumGrantType: "free_launch",
           ownerPremiumExpiry: expiryDate,
-          ownerSubscriptionPlan: "free_launch",
+          ownerSubscriptionPlan: plan,
           ownerSubscriptionStart: new Date(),
         },
       });
