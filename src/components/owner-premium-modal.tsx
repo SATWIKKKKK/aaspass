@@ -71,15 +71,18 @@ export function OwnerPremiumModal({ open, onClose }: OwnerPremiumModalProps) {
   // Free launch premium — per-user data from DB
   const [freePremium, setFreePremium] = useState<FreePremiumData | null>(null);
   const [activatingFree, setActivatingFree] = useState(false);
+  const [checkingFree, setCheckingFree] = useState(false);
 
   const isFreeEligible = freePremium?.isFreePeriod === true;
 
   useEffect(() => {
     if (!open) return;
+    setCheckingFree(true);
     fetch("/api/payment/free-premium")
       .then((r) => r.json())
       .then((d: FreePremiumData) => setFreePremium(d))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setCheckingFree(false));
   }, [open]);
 
   const handleActivateFree = async () => {
@@ -107,6 +110,22 @@ export function OwnerPremiumModal({ open, onClose }: OwnerPremiumModalProps) {
   }, [open]);
 
   if (!open && !showSuccess) return null;
+
+  // Show loading spinner while checking free eligibility — prevents paid→free flash
+  if (checkingFree) {
+    return (
+      <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg p-10 flex flex-col items-center gap-4">
+          <div className="h-14 w-14 rounded-2xl bg-linear-to-br from-green-600 to-green-800 flex items-center justify-center shadow-lg">
+            <Crown className="h-7 w-7 text-white" />
+          </div>
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          <p className="text-sm text-gray-400">Checking your premium eligibility…</p>
+        </div>
+      </div>
+    );
+  }
 
   if (showSuccess) {
     return (

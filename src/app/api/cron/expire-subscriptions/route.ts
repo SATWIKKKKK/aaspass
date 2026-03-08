@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
             userId: user.id,
             title: daysLeft === 1 ? "⚠️ Premium Expires Tomorrow!" : `Premium Expires in ${daysLeft} Days`,
             message: `Your free premium expires ${daysLeft === 1 ? 'tomorrow' : `in ${daysLeft} days`}. Subscribe now to continue enjoying premium benefits.`,
-            type: "premium_expiry",
+            type: "student_premium_expiry",
           },
         });
 
@@ -80,7 +80,7 @@ export async function GET(req: NextRequest) {
             userId: owner.id,
             title: daysLeft === 1 ? "⚠️ Owner Premium Expires Tomorrow!" : `Owner Premium Expires in ${daysLeft} Days`,
             message: `Your owner premium expires ${daysLeft === 1 ? 'tomorrow' : `in ${daysLeft} days`}. Renew to keep boosted visibility and promotion.`,
-            type: "premium_expiry",
+            type: "owner_premium_expiry",
           },
         });
 
@@ -102,14 +102,41 @@ export async function GET(req: NextRequest) {
       });
 
       if (justExpired.length > 0) {
-        await prisma.notification.createMany({
-          data: justExpired.map((u) => ({
-            userId: u.id,
-            title: "Premium Expired",
-            message: "Your free premium has expired. Upgrade now to continue enjoying premium benefits.",
-            type: "premium_expiry",
-          })),
+        // Re-fetch to know what type each user has (student vs owner expired)
+        const justExpiredStudents = await prisma.user.findMany({
+          where: {
+            isPremium: false,
+            premiumExpiry: { gte: new Date(now.getTime() - 24 * 60 * 60 * 1000), lt: now },
+          },
+          select: { id: true },
         });
+        const justExpiredOwners = await prisma.user.findMany({
+          where: {
+            isOwnerPremium: false,
+            ownerPremiumExpiry: { gte: new Date(now.getTime() - 24 * 60 * 60 * 1000), lt: now },
+          },
+          select: { id: true },
+        });
+        if (justExpiredStudents.length > 0) {
+          await prisma.notification.createMany({
+            data: justExpiredStudents.map((u) => ({
+              userId: u.id,
+              title: "Premium Expired",
+              message: "Your student premium has expired. Subscribe now to continue enjoying premium benefits.",
+              type: "student_premium_expiry",
+            })),
+          });
+        }
+        if (justExpiredOwners.length > 0) {
+          await prisma.notification.createMany({
+            data: justExpiredOwners.map((u) => ({
+              userId: u.id,
+              title: "Owner Premium Expired",
+              message: "Your owner premium has expired. Renew to keep boosted visibility and promotion.",
+              type: "owner_premium_expiry",
+            })),
+          });
+        }
       }
     }
 

@@ -342,9 +342,11 @@ function AdminDashboardInner() {
   const [contentReady, setContentReady] = useState(false);
   const [ownerPremiumOpen, setOwnerPremiumOpen] = useState(false);
   const [healthScore, setHealthScore] = useState<{ score: number; breakdown: { label: string; score: number; weight: number; weighted: number; icon: string }[]; tips: string[] } | null>(null);
+  const [showCharts, setShowCharts] = useState(false);
 
   const userName = session?.user?.name ? session.user.name.split(" ")[0] : "Owner";
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
+  const ownerNotifications = notifications.filter((n) => n.type !== "student_premium_expiry");
+  const unreadCount = ownerNotifications.filter((n) => !n.isRead).length;
 
   useEffect(() => { if (status === "unauthenticated") router.push("/login"); }, [status, router]);
 
@@ -370,7 +372,12 @@ function AdminDashboardInner() {
       setNotifications(notifData.notifications || []);
       if (healthData && !healthData.error) setHealthScore(healthData);
     }).catch(() => toast.error("Failed to load data"))
-      .finally(() => { setLoading(false); setTimeout(() => setContentReady(true), 100); });
+      .finally(() => {
+        setLoading(false);
+        setTimeout(() => setContentReady(true), 100);
+        // Defer charts — load after main content renders, reduces initial API burst
+        setTimeout(() => setShowCharts(true), 1200);
+      });
   }, [status]);
 
   useEffect(() => {
@@ -451,9 +458,9 @@ function AdminDashboardInner() {
                       {unreadCount > 0 && <Badge className="bg-red-100 text-red-700 text-[10px]">{unreadCount} new</Badge>}
                     </div>
                     <div className="max-h-80 overflow-y-auto">
-                      {notifications.length === 0 ? (
+                      {ownerNotifications.length === 0 ? (
                         <div className="p-6 text-center text-gray-400 text-sm">No notifications yet</div>
-                      ) : notifications.slice(0, 10).map((n) => (
+                      ) : ownerNotifications.slice(0, 10).map((n) => (
                         <div key={n.id} className={cn("px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors", !n.isRead && "bg-blue-50/50")}>
                           <p className="text-sm font-medium text-gray-900">{n.title}</p>
                           <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{n.message}</p>
@@ -738,7 +745,15 @@ function AdminDashboardInner() {
 
         {/* ══════ ADVANCED ANALYTICS CHARTS ══════ */}
         <section className={cn("mb-10 transition-all duration-600 delay-250", contentReady ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4")}>
-          <OwnerDashboardCharts />
+          {showCharts ? <OwnerDashboardCharts /> : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className={cn("rounded-xl border bg-white h-64 flex items-center justify-center", i === 2 ? "lg:col-span-2" : "")}>
+                  <Loader2 className="h-5 w-5 animate-spin text-gray-300" />
+                </div>
+              ))}
+            </div>
+          )}
         </section>
 
         {/* ══════ SERVICE MANAGEMENT CARDS ══════ */}
