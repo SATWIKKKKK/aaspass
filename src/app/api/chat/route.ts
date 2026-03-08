@@ -3,6 +3,50 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { checkPremiumAccess } from "@/lib/premium";
 
+// GET /api/chat — Load chat history for the current user
+export async function GET() {
+  try {
+    const session = await auth();
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const messages = await prisma.chatMessage.findMany({
+      where: { userId: session.user.id! },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, content: true, isAI: true, createdAt: true },
+    });
+
+    // Group messages into conversations by 30-minute gaps
+    const conversations: { id: string; title: string; lastMessage: string; timestamp: string; messages: typeof messages }[] = [];
+    let current: typeof conversations[0] | null = null;
+
+    for (const msg of messages) {
+      const msgTime = new Date(msg.createdAt).getTime();
+      const gap = current ? msgTime - new Date(current.messages[current.messages.length - 1].createdAt).getTime() : Infinity;
+
+      if (!current || gap > 30 * 60 * 1000) {
+        // Start new conversation — use first user message as title
+        const title = !msg.isAI ? msg.content.slice(0, 50) + (msg.content.length > 50 ? "..." : "") : "Chat";
+        current = {
+          id: msg.id,
+          title,
+          lastMessage: msg.content.slice(0, 80),
+          timestamp: msg.createdAt.toISOString(),
+          messages: [msg],
+        };
+        conversations.push(current);
+      } else {
+        current.messages.push(msg);
+        current.lastMessage = msg.content.slice(0, 80);
+      }
+    }
+
+    return NextResponse.json({ conversations: conversations.reverse() });
+  } catch (error) {
+    console.error("GET /api/chat error:", error);
+    return NextResponse.json({ error: "Failed to load chat history" }, { status: 500 });
+  }
+}
+
 // DB-aware AI chat that reads actual properties and answers intelligently
 // Uses Groq (free Llama API) if GROQ_API_KEY is set, otherwise uses smart DB-based responses
 
@@ -218,9 +262,9 @@ export async function POST(req: NextRequest) {
                 content: `You are AasPass AI — a helpful assistant for India's leading student-services booking platform.
 
 STRICT RULES:
-1. You may ONLY reference properties/services from the "DATABASE RESULTS" section below. NEVER invent, fabricate, or hallucinate service names, prices, or locations.
-2. If no matching results are found in the database, say so clearly: "I couldn't find any matching services in our database. Try searching for a different city or service type on our Services page."
-3. When listing services, use this format for each:
+1. You may ONLY reference properties/services listed in the "DATABASE RESULTS" section below. NEVER invent, fabricate, or hallucinate service names, prices, ratings, or locations that are not in DATABASE RESULTS.
+2. If DATABASE RESULTS is empty or says "No matching properties found", you MUST NOT list any specific services. Instead say: "I couldn't find matching services in our database right now. Try browsing our Services page for options."
+3. When listing services FROM DATABASE RESULTS, use this format for each:
    **Service Name** (TYPE)
    📍 Location
    💰 Price/month
@@ -229,8 +273,9 @@ STRICT RULES:
 5. Keep responses concise — max 3-4 short paragraphs. Use bullet points and emojis.
 6. Be warm, student-friendly, and practical.
 7. Do NOT wrap service names in quotes — use **bold** markdown instead.
-8. For general questions (tips, advice), give helpful guidance but do NOT make up specific service names.
+8. For general questions (tips, advice), give helpful guidance but do NOT make up specific service names or prices. Answer generally.
 9. Mention that users can browse and book directly on AasPass.
+10. CRITICAL: If a user asks a vague question like "best PG" or "hostels near me" and DATABASE RESULTS has entries, ONLY mention those entries. Do NOT add extra made-up entries to pad the list.
 
 DATABASE RESULTS:
 ${propertyContext}`,
@@ -238,7 +283,7 @@ ${propertyContext}`,
               { role: "user", content: message },
             ],
             max_tokens: 600,
-            temperature: 0.5,
+            temperature: 0.15,
           }),
         });
         const data = await response.json();
@@ -260,6 +305,7 @@ ${propertyContext}`,
     const propertyCards = properties.map((p: any) => ({
       id: p.id,
       name: p.name,
+      slug: p.slug,
       serviceType: p.serviceType,
       city: p.city,
       address: p.address,

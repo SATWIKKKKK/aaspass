@@ -257,7 +257,21 @@ export function OwnerDashboardCharts() {
     fetch("/api/owner/charts")
       .then((r) => r.json())
       .then((data) => {
-        if (!data.error) setChartData(data);
+        if (!data.error) {
+          setChartData({
+            radar: {
+              data: Array.isArray(data?.radar?.data) ? data.radar.data : [],
+              trend: typeof data?.radar?.trend === "number" ? data.radar.trend : 0,
+            },
+            line: Array.isArray(data?.line) ? data.line : [],
+            bar: {
+              data: Array.isArray(data?.bar?.data) ? data.bar.data : [],
+              services: Array.isArray(data?.bar?.services) ? data.bar.services : [],
+            },
+            pie: Array.isArray(data?.pie) ? data.pie : [],
+            area: Array.isArray(data?.area) ? data.area : [],
+          });
+        }
       })
       .catch(() => {})
       .finally(() => setLoading(false));

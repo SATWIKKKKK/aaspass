@@ -50,16 +50,85 @@ interface Conversation {
   title: string;
   lastMessage: string;
   timestamp: Date;
+  messages?: { id: string; content: string; isAI: boolean; createdAt: string }[];
+}
+
+// ==================== MARKDOWN RENDERER ====================
+
+function renderMarkdown(text: string) {
+  // Split into lines and process
+  const lines = text.split("\n");
+  const elements: React.ReactNode[] = [];
+  let listItems: React.ReactNode[] = [];
+  let listKey = 0;
+
+  const flushList = () => {
+    if (listItems.length > 0) {
+      elements.push(<ul key={`list-${listKey++}`} className="list-disc list-inside space-y-1 my-1">{listItems}</ul>);
+      listItems = [];
+    }
+  };
+
+  const formatInline = (line: string): React.ReactNode[] => {
+    const parts: React.ReactNode[] = [];
+    // Process **bold**, then *italic*, then remaining text
+    const regex = /(\*\*(.+?)\*\*|\*(.+?)\*)/g;
+    let lastIndex = 0;
+    let match;
+    let key = 0;
+    while ((match = regex.exec(line)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push(line.slice(lastIndex, match.index));
+      }
+      if (match[2]) {
+        parts.push(<strong key={key++} className="font-semibold">{match[2]}</strong>);
+      } else if (match[3]) {
+        parts.push(<em key={key++}>{match[3]}</em>);
+      }
+      lastIndex = regex.lastIndex;
+    }
+    if (lastIndex < line.length) {
+      parts.push(line.slice(lastIndex));
+    }
+    return parts.length > 0 ? parts : [line];
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // Bullet list items: - item or • item or * item (but not *italic*)
+    if (/^[-•]\s+/.test(trimmed) || /^\*\s+/.test(trimmed)) {
+      const content = trimmed.replace(/^[-•*]\s+/, "");
+      listItems.push(<li key={`li-${i}`}>{formatInline(content)}</li>);
+      continue;
+    }
+
+    // Numbered list items: 1. item
+    if (/^\d+[.)]\s+/.test(trimmed)) {
+      flushList();
+      const content = trimmed.replace(/^\d+[.)]\s+/, "");
+      elements.push(<div key={`num-${i}`} className="flex gap-2 my-0.5"><span className="text-gray-400 shrink-0">{trimmed.match(/^\d+[.)]/)![0]}</span><span>{formatInline(content)}</span></div>);
+      continue;
+    }
+
+    flushList();
+
+    // Empty line = paragraph break
+    if (trimmed === "") {
+      elements.push(<div key={`br-${i}`} className="h-2" />);
+      continue;
+    }
+
+    // Regular text with inline formatting
+    elements.push(<p key={`p-${i}`} className="my-0.5">{formatInline(trimmed)}</p>);
+  }
+
+  flushList();
+  return <div className="space-y-0.5">{elements}</div>;
 }
 
 // ==================== SUGGESTIONS ====================
-
-const SEARCH_SUGGESTIONS = [
-  { icon: Search, text: "Find hostels near IIT Bombay under ₹8000", color: "text-blue-500" },
-  { icon: MapPin, text: "Best mess/tiffin services in Kota", color: "text-green-500" },
-  { icon: Star, text: "Cheap gyms near KIIT Bhubaneswar", color: "text-yellow-500" },
-  { icon: Home, text: "Libraries with WiFi in Salt Lake, Kolkata", color: "text-purple-500" },
-];
 
 const CHAT_SUGGESTIONS = [
   { icon: MessageSquare, text: "Compare PG vs hostel — which is better?", color: "text-blue-500" },
@@ -72,7 +141,7 @@ const CHAT_SUGGESTIONS = [
 
 function PropertyCard({ property }: { property: PropertyResult }) {
   return (
-    <Link href={`/services/${property.slug}`}>
+    <Link href={`/services/${property.slug || property.id}`}>
       <div className="flex gap-3 p-3 rounded-xl border border-gray-200 hover:border-primary/40 hover:shadow-md transition-all bg-white cursor-pointer group">
         <div className="h-20 w-20 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 flex-shrink-0 flex items-center justify-center overflow-hidden">
           {property.image ? (
@@ -97,6 +166,7 @@ function PropertyCard({ property }: { property: PropertyResult }) {
             {property.hasWifi && <Wifi className="h-3 w-3 text-blue-400" />}
             {property.foodIncluded && <UtensilsCrossed className="h-3 w-3 text-orange-400" />}
             {property.isAC && <Wind className="h-3 w-3 text-cyan-400" />}
+          </div>
           </div>
         </div>
         <ChevronRight className="h-4 w-4 text-gray-300 self-center flex-shrink-0" />
@@ -127,7 +197,9 @@ export default function ChatPage() {
   
   // Sidebar state
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
 
   // 🔒 Verify premium access from backend on every page load
   useEffect(() => {
@@ -143,6 +215,44 @@ export default function ChatPage() {
     };
     verify();
   }, [session, status]);
+
+  // Load chat history from DB on mount
+  useEffect(() => {
+    if (status === "loading" || !session || historyLoaded) return;
+    const loadHistory = async () => {
+      try {
+        const res = await fetch("/api/chat");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.conversations && Array.isArray(data.conversations)) {
+          setConversations(data.conversations.map((c: any) => ({
+            id: c.id,
+            title: c.title,
+            lastMessage: c.lastMessage,
+            timestamp: new Date(c.timestamp),
+            messages: c.messages,
+          })));
+        }
+      } catch {}
+      setHistoryLoaded(true);
+    };
+    loadHistory();
+  }, [session, status, historyLoaded]);
+
+  // Load a conversation's messages into the chat area
+  const loadConversation = (conv: Conversation) => {
+    setActiveConvId(conv.id);
+    setSidebarOpen(false);
+    if (conv.messages && conv.messages.length > 0) {
+      const loadedMessages: ChatMessage[] = conv.messages.map((m) => ({
+        id: m.id,
+        role: m.isAI ? "assistant" : "user",
+        content: m.content,
+        timestamp: new Date(m.createdAt),
+      }));
+      setMessages(loadedMessages);
+    }
+  };
 
   // Auto-scroll
   useEffect(() => {
@@ -345,11 +455,14 @@ export default function ChatPage() {
 
       const title = messageText.slice(0, 40) + (messageText.length > 40 ? "..." : "");
       setConversations((prev) => {
-        const existing = prev[0];
-        if (existing && Date.now() - existing.timestamp.getTime() < 60000) {
-          return [{ ...existing, lastMessage: messageText, timestamp: new Date() }, ...prev.slice(1)];
+        // If we have an active conversation that's recent, update it
+        if (activeConvId) {
+          return prev.map((c) => c.id === activeConvId ? { ...c, lastMessage: messageText, timestamp: new Date() } : c);
         }
-        return [{ id: Date.now().toString(), title, lastMessage: messageText, timestamp: new Date() }, ...prev.slice(0, 19)];
+        // Create a new conversation entry
+        const newConvId = Date.now().toString();
+        setActiveConvId(newConvId);
+        return [{ id: newConvId, title, lastMessage: messageText, timestamp: new Date() }, ...prev.slice(0, 49)];
       });
     } catch {
       setMessages((prev) => [...prev, {
@@ -372,6 +485,7 @@ export default function ChatPage() {
 
   const startNewChat = () => {
     setMessages([]);
+    setActiveConvId(null);
     setInput("");
     inputRef.current?.focus();
   };
@@ -398,7 +512,7 @@ export default function ChatPage() {
             </div>
           ) : (
             conversations.map((conv) => (
-              <button key={conv.id} className="w-full px-3 py-2 rounded-lg text-left hover:bg-gray-800 transition-colors group">
+              <button key={conv.id} onClick={() => loadConversation(conv)} className={cn("w-full px-3 py-2 rounded-lg text-left hover:bg-gray-800 transition-colors group", activeConvId === conv.id && "bg-gray-800")}>
                 <p className="text-sm text-gray-300 truncate">{conv.title}</p>
                 <p className="text-[10px] text-gray-500 mt-0.5">{conv.timestamp.toLocaleDateString()} {conv.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p>
               </button>
@@ -469,7 +583,11 @@ export default function ChatPage() {
                   )}
                   <div className={cn("max-w-[85%] min-w-0", msg.role === "user" ? "order-first" : "")}>
                     <div className={cn("rounded-2xl px-4 py-3 text-sm", msg.role === "user" ? "bg-primary text-white ml-auto rounded-tr-md" : "bg-white border border-gray-200 rounded-tl-md shadow-sm")}>
-                      <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                      {msg.role === "assistant" ? (
+                        <div className="whitespace-pre-wrap leading-relaxed">{renderMarkdown(msg.content)}</div>
+                      ) : (
+                        <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                      )}
                     </div>
                     {msg.properties && msg.properties.length > 0 && (
                       <div className="mt-3 space-y-2">

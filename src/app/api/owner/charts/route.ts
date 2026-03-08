@@ -24,9 +24,9 @@ export async function GET() {
 
     if (propertyIds.length === 0) {
       return NextResponse.json({
-        radar: [],
+        radar: { data: [], trend: 0 },
         line: [],
-        bar: [],
+        bar: { data: [], services: [] },
         pie: [],
         area: [],
       });
