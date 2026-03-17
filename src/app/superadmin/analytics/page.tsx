@@ -50,15 +50,15 @@ function SimpleTrendChart({ data, labelKey, valueKey, color = "bg-blue-500" }: {
   const maxVal = Math.max(...data.map((d) => Number(d[valueKey]) || 0));
   const height = 120;
   return (
-    <div className="relative" style={{ height }}>
+    <div className="relative overflow-hidden" style={{ height }}>
       <div className="flex items-end justify-between h-full gap-[2px]">
         {data.map((d, i) => {
           const val = Number(d[valueKey]) || 0;
           const barHeight = maxVal > 0 ? (val / maxVal) * (height - 20) : 0;
           const hoverColor = color.replace("bg-", "hover:bg-").replace("500", "600");
           return (
-            <div key={i} className="flex-1 flex flex-col items-center justify-end group">
-              <div className="opacity-0 group-hover:opacity-100 text-[9px] text-gray-500 mb-0.5 transition-opacity whitespace-nowrap">
+            <div key={i} className="flex-1 min-w-0 flex flex-col items-center justify-end group relative">
+              <div className="hidden group-hover:block absolute bottom-full mb-1 left-1/2 -translate-x-1/2 z-10 text-[9px] text-white bg-gray-800 rounded px-1.5 py-0.5 whitespace-nowrap pointer-events-none">
                 {String(d[labelKey]).split("T")[0]}: {val.toLocaleString()}
               </div>
               <div
