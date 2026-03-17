@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { gsap } from "@/lib/gsap";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Users, Building2, CalendarCheck, IndianRupee, UserPlus, Crown,
   ShieldAlert, TrendingUp, Clock, Star, AlertTriangle, CreditCard,
-  ArrowRight, Loader2, Eye,
+  ArrowRight, Loader2, Eye, RefreshCw, Megaphone, Percent,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,8 @@ interface DashboardData {
     signupsMonth: number;
     activePremium: number;
     totalViolations: number;
+    activeAnnouncements: number;
+    totalCommission: number;
   };
   health: {
     pendingProperties: number;
@@ -84,16 +86,33 @@ function SkeletonCard() {
 export default function SuperAdminDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-
+  const fetchDashboard = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    try {
+      const r = await fetch("/api/superadmin/dashboard");
+      const d = await r.json();
+      setData(d);
+      setLastUpdated(new Date());
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
 
   useEffect(() => {
-    fetch("/api/superadmin/dashboard")
-      .then((r) => r.json())
-      .then((d) => setData(d))
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
+    fetchDashboard();
+    // Auto-refresh every 60 seconds
+    intervalRef.current = setInterval(() => fetchDashboard(true), 60_000);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [fetchDashboard]);
 
   useEffect(() => {
     if (loading || !data) return;
@@ -130,20 +149,41 @@ export default function SuperAdminDashboard() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div data-gsap="sa-header" style={{ opacity: 0 }}>
-        <h2 className="text-xl font-bold text-gray-900">Platform Overview</h2>
-        <p className="text-sm text-muted-foreground mt-1">Real-time metrics and activity</p>
+      <div data-gsap="sa-header" style={{ opacity: 0 }} className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-gray-900">Platform Overview</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Real-time metrics and activity
+            {lastUpdated && (
+              <span className="ml-2 text-xs text-gray-400">
+                · Updated {lastUpdated.toLocaleTimeString()}
+              </span>
+            )}
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => fetchDashboard(true)}
+          disabled={refreshing}
+          className="gap-2"
+        >
+          <RefreshCw className={cn("h-3.5 w-3.5", refreshing && "animate-spin")} />
+          {refreshing ? "Refreshing…" : "Refresh"}
+        </Button>
       </div>
 
       {/* Top Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <MetricCard title="Total Users" value={metrics.totalUsers.toLocaleString()} icon={Users} color="bg-blue-500" subtext={`${metrics.totalStudents} students · ${metrics.totalOwners} owners`} href="/superadmin/users" />
         <MetricCard title="Active Services" value={metrics.totalServices.toLocaleString()} icon={Building2} color="bg-green-500" href="/superadmin/services" />
         <MetricCard title="Total Bookings" value={metrics.totalBookings.toLocaleString()} icon={CalendarCheck} color="bg-purple-500" href="/superadmin/bookings" />
         <MetricCard title="Total Revenue" value={formatPrice(metrics.totalRevenue)} icon={IndianRupee} color="bg-emerald-600" href="/superadmin/analytics" />
+        <MetricCard title="Commission Earned" value={formatPrice(metrics.totalCommission)} icon={Percent} color="bg-teal-500" href="/superadmin/commission" />
         <MetricCard title="New Signups" value={metrics.signupsToday} icon={UserPlus} color="bg-cyan-500" subtext={`${metrics.signupsWeek} this week · ${metrics.signupsMonth} this month`} href="/superadmin/users" />
         <MetricCard title="Premium Users" value={metrics.activePremium} icon={Crown} color="bg-yellow-500" href="/superadmin/premium" />
         <MetricCard title="Violations" value={metrics.totalViolations} icon={ShieldAlert} color="bg-red-500" href="/superadmin/violations" />
+        <MetricCard title="Announcements" value={metrics.activeAnnouncements} icon={Megaphone} color="bg-orange-500" subtext="Active announcements" href="/superadmin/announcements" />
         <MetricCard title="Growth" value={`+${metrics.signupsMonth}`} icon={TrendingUp} color="bg-indigo-500" subtext="New users this month" href="/superadmin/analytics" />
       </div>
 
@@ -200,6 +240,9 @@ export default function SuperAdminDashboard() {
             </Link>
           </CardHeader>
           <CardContent className="space-y-2">
+            {recentActivity.users.length === 0 && (
+              <p className="text-sm text-muted-foreground py-4 text-center">No recent signups</p>
+            )}
             {recentActivity.users.map((u: any) => (
               <Link
                 key={u.id}
@@ -228,6 +271,9 @@ export default function SuperAdminDashboard() {
             </Link>
           </CardHeader>
           <CardContent className="space-y-2">
+            {recentActivity.bookings.length === 0 && (
+              <p className="text-sm text-muted-foreground py-4 text-center">No recent bookings</p>
+            )}
             {recentActivity.bookings.map((b: any) => (
               <div
                 key={b.id}
@@ -247,6 +293,71 @@ export default function SuperAdminDashboard() {
                   </Badge>
                 </div>
               </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Recent Reviews & Recent Services */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Recent Reviews */}
+        <Card data-gsap="sa-section" style={{ opacity: 0 }}>
+          <CardHeader className="pb-3 flex flex-row items-center justify-between">
+            <CardTitle className="text-base font-semibold">Recent Reviews</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {recentActivity.reviews.length === 0 && (
+              <p className="text-sm text-muted-foreground py-4 text-center">No recent reviews</p>
+            )}
+            {recentActivity.reviews.map((r: any) => (
+              <div
+                key={r.id}
+                className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-gray-900">{r.property?.name || "—"}</p>
+                  <p className="text-xs text-muted-foreground truncate">{r.comment || "No comment"}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">by {r.user?.name}</p>
+                </div>
+                <div className="text-right ml-3 shrink-0">
+                  <div className="flex items-center gap-1">
+                    <Star className="h-3.5 w-3.5 text-yellow-400 fill-yellow-400" />
+                    <span className="text-sm font-semibold text-gray-900">{r.rating}</span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{formatDate(r.createdAt)}</p>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        {/* Recent Services */}
+        <Card data-gsap="sa-section" style={{ opacity: 0 }}>
+          <CardHeader className="pb-3 flex flex-row items-center justify-between">
+            <CardTitle className="text-base font-semibold">Recent Services</CardTitle>
+            <Link href="/superadmin/services" className="text-xs text-primary hover:underline flex items-center gap-1">
+              View All <ArrowRight className="h-3 w-3" />
+            </Link>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {recentActivity.services.length === 0 && (
+              <p className="text-sm text-muted-foreground py-4 text-center">No recent services</p>
+            )}
+            {recentActivity.services.map((s: any) => (
+              <Link
+                key={s.id}
+                href={`/superadmin/services/${s.id}`}
+                className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0 hover:bg-gray-50 -mx-2 px-2 rounded transition-colors"
+              >
+                <div>
+                  <p className="text-sm font-medium text-gray-900">{s.name}</p>
+                  <p className="text-xs text-muted-foreground">{s.city} · {s.owner?.name}</p>
+                </div>
+                <div className="text-right">
+                  <Badge variant="outline" className="text-[10px]">{s.serviceType}</Badge>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{formatDate(s.createdAt)}</p>
+                </div>
+              </Link>
             ))}
           </CardContent>
         </Card>

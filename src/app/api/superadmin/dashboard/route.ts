@@ -91,7 +91,7 @@ export async function GET() {
       }),
     ]);
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       metrics: {
         totalUsers,
         totalOwners,
@@ -119,6 +119,14 @@ export async function GET() {
         services: recentServices,
       },
     });
+
+    // Cache for 30s, serve stale for 60s while revalidating
+    response.headers.set(
+      "Cache-Control",
+      "private, s-maxage=30, stale-while-revalidate=60"
+    );
+
+    return response;
   } catch (error) {
     console.error("Dashboard stats error:", error);
     return NextResponse.json({ error: "Failed to fetch stats" }, { status: 500 });
