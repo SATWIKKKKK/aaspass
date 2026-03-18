@@ -7,8 +7,26 @@ const globalForPrisma = globalThis as unknown as {
   pool: Pool | undefined;
 };
 
+function shouldUseSsl(connectionString?: string): boolean {
+  if (!connectionString) return false;
+
+  try {
+    const url = new URL(connectionString);
+    const sslMode = url.searchParams.get("sslmode")?.toLowerCase();
+
+    if (sslMode) {
+      return ["require", "verify-ca", "verify-full", "prefer"].includes(sslMode);
+    }
+
+    return url.hostname.includes("neon.tech");
+  } catch {
+    return false;
+  }
+}
+
 function createPool(): Pool {
   const connectionString = process.env.DATABASE_URL;
+  const useSsl = shouldUseSsl(connectionString);
 
   const poolConfig: PoolConfig = {
     connectionString,
@@ -17,7 +35,7 @@ function createPool(): Pool {
     idleTimeoutMillis: 10_000,
     keepAlive: true,
     keepAliveInitialDelayMillis: 5_000,
-    ssl: { rejectUnauthorized: false },
+    ...(useSsl ? { ssl: { rejectUnauthorized: false } } : {}),
   };
 
   const pool = new Pool(poolConfig);

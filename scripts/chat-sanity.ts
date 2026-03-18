@@ -1,7 +1,18 @@
-import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import prisma from "@/lib/prisma";
-import { checkPremiumAccess } from "@/lib/premium";
+import { config as loadEnv } from "dotenv";
+import { existsSync } from "node:fs";
+
+if (existsSync(".env.local")) {
+  loadEnv({ path: ".env.local", override: true });
+} else {
+  loadEnv();
+}
+
+type PrismaClientLike = {
+  property: {
+    findMany: (args: unknown) => Promise<unknown>;
+  };
+  $disconnect: () => Promise<void>;
+};
 
 type ChatProperty = {
   id: string;
@@ -21,22 +32,6 @@ type ChatProperty = {
   laundryIncluded: boolean;
   hasMedical: boolean;
   images: { url: string }[];
-};
-
-type ServiceSearchMeta = {
-  isServiceQuery: boolean;
-  requestedServiceType: string | null;
-  requestedCityKeywords: string[];
-  cityFilterApplied: boolean;
-  exactCityMatchCount: number;
-  fallbackUsed: boolean;
-  fallbackCount: number;
-  noExactCityMatch: boolean;
-};
-
-type ChatHistoryItem = {
-  content: string;
-  isAI: boolean;
 };
 
 const systemPrompt = `
@@ -77,56 +72,10 @@ CONVERSATION CONTINUITY:
 - Maintain context across the entire conversation naturally.
 `;
 
-//////////////////////////////
-// 🔹 GET CHAT HISTORY
-//////////////////////////////
-
-export async function GET() {
-  try {
-    const session = await auth();
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const messages = await prisma.chatMessage.findMany({
-      where: { userId: session.user.id! },
-      orderBy: { createdAt: "asc" },
-      select: { id: true, content: true, isAI: true, createdAt: true },
-    });
-
-    const conversations: { id: string; title: string; lastMessage: string; timestamp: string; messages: typeof messages }[] = [];
-    let current: { id: string; title: string; lastMessage: string; timestamp: string; messages: typeof messages } | null = null;
-
-    for (const msg of messages) {
-      const msgTime = new Date(msg.createdAt).getTime();
-      const gap = current
-        ? msgTime - new Date(current.messages[current.messages.length - 1].createdAt).getTime()
-        : Infinity;
-
-      if (!current || gap > 30 * 60 * 1000) {
-        const title = !msg.isAI ? msg.content.slice(0, 50) : "Chat";
-        current = {
-          id: msg.id,
-          title,
-          lastMessage: msg.content.slice(0, 80),
-          timestamp: msg.createdAt.toISOString(),
-          messages: [msg],
-        };
-        conversations.push(current);
-      } else {
-        current.messages.push(msg);
-        current.lastMessage = msg.content.slice(0, 80);
-      }
-    }
-
-    return NextResponse.json({ conversations: conversations.reverse() });
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error: "Failed to load chat history" }, { status: 500 });
-  }
-}
-
-//////////////////////////////
-// 🔹 HELPERS
-//////////////////////////////
+type ChatHistoryItem = {
+  content: string;
+  isAI: boolean;
+};
 
 const STOP_WORDS = new Set([
   "i","me","my","we","our","you","your","he","she","they","them","it","is","are","was","were",
@@ -138,7 +87,7 @@ function extractKeywords(message: string) {
     .toLowerCase()
     .replace(/[^a-z0-9\s-]/g, " ")
     .split(/\s+/)
-    .filter(w => w.length > 2 && !STOP_WORDS.has(w));
+    .filter((w) => w.length > 2 && !STOP_WORDS.has(w));
 }
 
 function normalizeToken(word: string) {
@@ -157,30 +106,20 @@ function normalizeToken(word: string) {
   return word;
 }
 
-//////////////////////////////
-// 🔥 STRICT SERVICE DETECTION
-//////////////////////////////
-
 function isStrictServiceQuery(message: string) {
   const lower = message.toLowerCase();
   const normalizedWords = extractKeywords(message).map(normalizeToken);
-
   const serviceKeywords = new Set([
     "hostel", "pg", "paying guest", "library", "mess",
     "laundry", "gym", "coworking", "co-working", "room", "accommodation",
-    "tiffin", "food", "stay", "rent", "flat", "bed", "service", "services",
+    "tiffin", "food", "stay", "rent", "flat", "bed", "service", "services"
   ]);
 
-  // Only require a service keyword — location is optional
   return Array.from(serviceKeywords).some((k) => lower.includes(k))
     || normalizedWords.some((w) => serviceKeywords.has(w));
 }
 
-//////////////////////////////
-// 🔹 DB FETCH
-//////////////////////////////
-
-async function getRelevantProperties(message: string): Promise<{ properties: ChatProperty[]; searchMeta: ServiceSearchMeta }> {
+async function getRelevantProperties(prisma: PrismaClientLike, message: string): Promise<ChatProperty[]> {
   const keywords = extractKeywords(message);
   const normalizedKeywords = keywords.map(normalizeToken);
   const lowerMessage = message.toLowerCase();
@@ -213,57 +152,34 @@ async function getRelevantProperties(message: string): Promise<{ properties: Cha
 
   const serviceTokens = new Set(Object.keys(typeMap).map(normalizeToken));
 
-  // Extract city/location from message
   const cityKeywords = normalizedKeywords.filter((k) =>
     !serviceTokens.has(k) &&
     k.length > 3 &&
     !["find", "show", "get", "best", "good", "near", "around", "available"].includes(k)
   );
-
   const uniqueCityKeywords = Array.from(new Set(cityKeywords));
 
   const where: Record<string, unknown> = { status: "VERIFIED" };
   if (serviceType) where.serviceType = serviceType;
-
-  // If city keywords found, add city filter
   if (uniqueCityKeywords.length > 0) {
-    where.OR = uniqueCityKeywords.map((city) => ({
-      city: { contains: city, mode: "insensitive" }
-    }));
+    where.OR = uniqueCityKeywords.map((city) => ({ city: { contains: city, mode: "insensitive" } }));
   }
 
-  const properties = await prisma.property.findMany({
-    where,
-    orderBy: [{ avgRating: "desc" }],
-    take: 5,
-    include: { images: { take: 1 } },
-  }) as ChatProperty[];
-  console.log("DB returned properties:", properties.map((p) => p.name));
+  let properties: ChatProperty[] = [];
+  try {
+    properties = await prisma.property.findMany({
+      where,
+      orderBy: [{ avgRating: "desc" }],
+      take: 5,
+      include: { images: { take: 1 } },
+    }) as ChatProperty[];
+    console.log("DB returned properties:", properties.map((p) => p.name));
+  } catch (err) {
+    console.error("DB lookup failed for primary query:", err);
+    return [];
+  }
 
-  return {
-    properties,
-    searchMeta: {
-      isServiceQuery: true,
-      requestedServiceType: serviceType ?? null,
-      requestedCityKeywords: uniqueCityKeywords,
-      cityFilterApplied: uniqueCityKeywords.length > 0,
-      exactCityMatchCount: properties.length,
-      fallbackUsed: false,
-      fallbackCount: 0,
-      noExactCityMatch: uniqueCityKeywords.length > 0 && properties.length === 0,
-    },
-  };
-}
-
-async function getConversationHistory(userId: string, limit = 6): Promise<ChatHistoryItem[]> {
-  const messages = await prisma.chatMessage.findMany({
-    where: { userId },
-    orderBy: { createdAt: "desc" },
-    take: limit,
-    select: { content: true, isAI: true },
-  });
-
-  return messages.reverse();
+  return properties;
 }
 
 function formatPropertyForResponse(properties: ChatProperty[]) {
@@ -292,10 +208,6 @@ Link: /services/${p.slug}
 `.trim();
   }).join("\n\n---\n\n");
 }
-
-//////////////////////////////
-// 🔹 GROQ CALL
-//////////////////////////////
 
 async function generateGroqReply(
   message: string,
@@ -390,72 +302,57 @@ No services were found in AasPass for this query. Tell the user no services are 
   return null;
 }
 
-//////////////////////////////
-// 🚀 POST MAIN LOGIC
-//////////////////////////////
+async function run() {
+  const { default: prisma } = await import("../src/lib/prisma");
 
-export async function POST(req: NextRequest) {
-  try {
-    const session = await auth();
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const tests = [
+    "services in jaipur",
+    "hostels in Bhubaneswar",
+    "by price",
+    "under 1500",
+    "laundry in Pune",
+    "what is photosynthesis",
+  ];
 
-    const { allowed } = await checkPremiumAccess(session.user.id!);
-    if (!allowed) {
-      return NextResponse.json({ error: "Premium required" }, { status: 403 });
-    }
+  const history: ChatHistoryItem[] = [];
 
-    const { message } = await req.json();
-    if (!message || typeof message !== "string") {
-      return NextResponse.json({ error: "Message is required" }, { status: 400 });
-    }
-
-    const history = await getConversationHistory(session.user.id!, 6);
-
-    await prisma.chatMessage.create({
-      data: { content: message, isAI: false, userId: session.user.id! },
-    });
-
-    let reply = "";
+  for (const message of tests) {
+    const isService = isStrictServiceQuery(message);
     let properties: ChatProperty[] = [];
-    let searchMeta: ServiceSearchMeta | null = null;
+    let reply: string | null = null;
 
-    const isServiceQuery = isStrictServiceQuery(message);
-
-    if (isServiceQuery) {
-      // SERVICE MODE — only use AasPass DB
-      const searchResult = await getRelevantProperties(message);
-      properties = searchResult.properties;
-      searchMeta = searchResult.searchMeta;
+    if (isService) {
+      properties = await getRelevantProperties(prisma as PrismaClientLike, message);
       const context = formatPropertyForResponse(properties);
-
       if (properties.length === 0) {
-        // Tell Groq no results found — let it respond naturally
-        reply = (await generateGroqReply(message, "NONE", history)) ||
-          "I couldn't find any matching services on AasPass right now. Try a different location or service type.";
+        reply = await generateGroqReply(message, "NONE", history);
       } else {
-        // Pass real DB results as context to Groq
-        reply = (await generateGroqReply(message, context, history)) ||
-          `Here are some services I found on AasPass:\n\n${context}`;
+        reply = await generateGroqReply(message, context, history);
       }
-
     } else {
-      // NORMAL CHAT MODE — pure Groq, no DB
-      reply = (await generateGroqReply(message, undefined, history)) ||
-        "I'm here to help! You can ask me anything, or ask me to find hostels, PGs, gyms, and other student services near you.";
+      reply = await generateGroqReply(message, undefined, history);
     }
 
-    await prisma.chatMessage.create({
-      data: { content: reply, isAI: true, userId: session.user.id! },
-    });
+    history.push({ content: message, isAI: false });
+    if (reply) history.push({ content: reply, isAI: true });
 
-    return NextResponse.json({
-      reply,
-      properties,
-      searchMeta,
-    });
-
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json({ reply: "Something went wrong." }, { status: 500 });
+    console.log("\n====================================================");
+    console.log("PROMPT:", message);
+    console.log("SERVICE MODE:", isService);
+    console.log("DB COUNT:", properties.length);
+    console.log("REPLY:\n", reply || "<null>");
   }
+
+  await prisma.$disconnect();
 }
+
+run().catch(async (e) => {
+  console.error(e);
+  try {
+    const { default: prisma } = await import("../src/lib/prisma");
+    await prisma.$disconnect();
+  } catch {
+    // Ignore disconnect failures in cleanup path.
+  }
+  process.exit(1);
+});

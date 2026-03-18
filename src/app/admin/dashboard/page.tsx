@@ -175,16 +175,34 @@ function AnnouncementModal({ open, onClose, property }: {
 }
 
 /* ═══════════════════ QUICK SEAT UPDATE MODAL ═══════════════════ */
-function SeatUpdateModal({ open, onClose, property, onUpdate }: {
-  open: boolean; onClose: () => void; property: PropertyData | null;
+function SeatUpdateModal({ open, onClose, properties, initialSlug, onUpdate }: {
+  open: boolean;
+  onClose: () => void;
+  properties: PropertyData[];
+  initialSlug: string | null;
   onUpdate: (slug: string, available: number) => void;
 }) {
+  const [selectedSlug, setSelectedSlug] = useState("");
   const [seats, setSeats] = useState(0);
   const [saving, setSaving] = useState(false);
-  useEffect(() => { if (property) setSeats(property.availableRooms ?? 0); }, [property]);
-  if (!open || !property) return null;
+  const property = properties.find((p) => p.slug === selectedSlug) ?? null;
 
-  const capacity = property.capacity ?? 0;
+  useEffect(() => {
+    if (!open) return;
+    if (initialSlug && properties.some((p) => p.slug === initialSlug)) {
+      setSelectedSlug(initialSlug);
+      return;
+    }
+    setSelectedSlug(properties[0]?.slug ?? "");
+  }, [open, initialSlug, properties]);
+
+  useEffect(() => {
+    if (property) setSeats(property.availableRooms ?? 0);
+  }, [property]);
+
+  if (!open) return null;
+
+  const capacity = property?.capacity ?? 0;
   const occupied = capacity - seats;
   const pct = capacity > 0 ? Math.round((occupied / capacity) * 100) : 0;
   const color = pct >= 90 ? "red" : pct >= 70 ? "yellow" : "green";
@@ -193,6 +211,7 @@ function SeatUpdateModal({ open, onClose, property, onUpdate }: {
   const bgMap = { red: "bg-red-50", yellow: "bg-yellow-50", green: "bg-green-50" };
 
   const handleSave = async () => {
+    if (!property) return;
     setSaving(true);
     try {
       const res = await fetch(`/api/properties/${property.slug}/seats`, {
@@ -213,29 +232,56 @@ function SeatUpdateModal({ open, onClose, property, onUpdate }: {
           <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
             <Armchair className="h-5 w-5 text-primary" />Update Available Seats
           </h3>
-          <p className="text-sm text-gray-500 mt-1">{property.name}</p>
+          <p className="text-sm text-gray-500 mt-1">Choose any listed service and update seats instantly</p>
         </div>
-        <div className="p-6 space-y-6">
-          {/* Stepper */}
-          <div className="flex items-center justify-center gap-4">
-            <button onClick={() => setSeats(Math.max(0, seats - 1))}
-              className="h-12 w-12 rounded-full border-2 border-gray-200 hover:border-primary flex items-center justify-center transition-all active:scale-90">
-              <Minus className="h-5 w-5" />
-            </button>
-            <div className="text-center">
-              <input type="number" value={seats} min={0} max={capacity || 9999}
-                onChange={(e) => setSeats(Math.max(0, Math.min(capacity || 9999, parseInt(e.target.value) || 0)))}
-                className="text-4xl font-black text-center w-24 border-0 outline-none bg-transparent" />
-              <p className="text-xs text-gray-400 mt-1">available seats</p>
+        <div className="p-6 space-y-5">
+          {properties.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500">
+              No services available yet. Add a service first.
             </div>
-            <button onClick={() => setSeats(Math.min(capacity || 9999, seats + 1))}
-              className="h-12 w-12 rounded-full border-2 border-gray-200 hover:border-primary flex items-center justify-center transition-all active:scale-90">
-              <Plus className="h-5 w-5" />
-            </button>
-          </div>
+          ) : (
+            <div className="space-y-3">
+              <Label htmlFor="seat-service">Service</Label>
+              <select
+                id="seat-service"
+                value={selectedSlug}
+                onChange={(e) => setSelectedSlug(e.target.value)}
+                className="w-full h-10 rounded-md border border-gray-200 bg-white px-3 text-sm"
+              >
+                {properties.map((p) => (
+                  <option key={p.id} value={p.slug}>
+                    {p.name} ({p.city})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {property && (
+            <p className="text-xs text-gray-500 -mt-2">Currently editing: <span className="font-medium text-gray-700">{property.name}</span></p>
+          )}
+
+          {property && (
+            <div className="flex items-center justify-center gap-4">
+              <button onClick={() => setSeats(Math.max(0, seats - 1))}
+                className="h-12 w-12 rounded-full border-2 border-gray-200 hover:border-primary flex items-center justify-center transition-all active:scale-90">
+                <Minus className="h-5 w-5" />
+              </button>
+              <div className="text-center">
+                <input type="number" value={seats} min={0} max={capacity || 9999}
+                  onChange={(e) => setSeats(Math.max(0, Math.min(capacity || 9999, parseInt(e.target.value) || 0)))}
+                  className="text-4xl font-black text-center w-24 border-0 outline-none bg-transparent" />
+                <p className="text-xs text-gray-400 mt-1">available seats</p>
+              </div>
+              <button onClick={() => setSeats(Math.min(capacity || 9999, seats + 1))}
+                className="h-12 w-12 rounded-full border-2 border-gray-200 hover:border-primary flex items-center justify-center transition-all active:scale-90">
+                <Plus className="h-5 w-5" />
+              </button>
+            </div>
+          )}
 
           {/* Status Summary */}
-          {capacity > 0 && (
+          {property && capacity > 0 && (
             <div className={cn("rounded-xl p-4", bgMap[color])}>
               <div className="flex items-center justify-between mb-2">
                 <span className={cn("text-sm font-semibold", textMap[color])}>
@@ -251,7 +297,7 @@ function SeatUpdateModal({ open, onClose, property, onUpdate }: {
         </div>
         <div className="flex items-center justify-end gap-2 p-5 border-t border-gray-100">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave} disabled={saving} className="transition-transform active:scale-95">
+          <Button onClick={handleSave} disabled={saving || !property} className="transition-transform active:scale-95">
             {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-2" />}
             Save
           </Button>
@@ -334,7 +380,8 @@ function AdminDashboardInner() {
   const [loading, setLoading] = useState(true);
   const [profileOpen, setProfileOpen] = useState(false);
   const [announceProp, setAnnounceProp] = useState<PropertyData | null>(null);
-  const [seatProp, setSeatProp] = useState<PropertyData | null>(null);
+  const [seatModalOpen, setSeatModalOpen] = useState(false);
+  const [seatInitialSlug, setSeatInitialSlug] = useState<string | null>(null);
   const [updatingBooking, setUpdatingBooking] = useState<string | null>(null);
   const [visibilityStats, setVisibilityStats] = useState<VisibilityStats | null>(null);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -427,7 +474,13 @@ function AdminDashboardInner() {
   return (
     <div className="min-h-screen bg-gray-50/50">
       <AnnouncementModal open={!!announceProp} onClose={() => setAnnounceProp(null)} property={announceProp} />
-      <SeatUpdateModal open={!!seatProp} onClose={() => setSeatProp(null)} property={seatProp} onUpdate={handleSeatUpdate} />
+      <SeatUpdateModal
+        open={seatModalOpen}
+        onClose={() => setSeatModalOpen(false)}
+        properties={properties}
+        initialSlug={seatInitialSlug}
+        onUpdate={handleSeatUpdate}
+      />
       <OwnerPremiumModal open={ownerPremiumOpen} onClose={() => setOwnerPremiumOpen(false)} />
 
       {/* ── NAVBAR ── */}
@@ -552,7 +605,12 @@ function AdminDashboardInner() {
         <div className={cn("mb-8 transition-all duration-500 delay-100", contentReady ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4")}>
           <div className="flex flex-wrap gap-2 sm:gap-3">
             {properties.length > 0 && (
-              <Button onClick={() => setSeatProp(properties[0])} variant="outline"
+              <Button
+                onClick={() => {
+                  setSeatInitialSlug(null);
+                  setSeatModalOpen(true);
+                }}
+                variant="outline"
                 className="gap-2 bg-white hover:bg-primary/5 hover:border-primary/30 border-gray-200 shadow-sm transition-all active:scale-95">
                 <Armchair className="h-4 w-4 text-primary" />Update Seats
               </Button>
@@ -584,8 +642,9 @@ function AdminDashboardInner() {
           </div>
         </div>
 
+        <div className="flex flex-col">
         {/* ══════ PERFORMANCE & VISIBILITY (TOP — MOST PROMINENT) ══════ */}
-        <section className={cn("mb-10 transition-all duration-600 delay-200", contentReady ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4")}>
+        <section className={cn("mb-10 order-2 transition-all duration-600 delay-200", contentReady ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4")}>
           <div className="mb-5">
             <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
               <Eye className="h-5 w-5 text-primary" />Your Visibility & Performance
@@ -744,7 +803,7 @@ function AdminDashboardInner() {
         </section>
 
         {/* ══════ ADVANCED ANALYTICS CHARTS ══════ */}
-        <section className={cn("mb-10 transition-all duration-600 delay-250", contentReady ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4")}>
+        <section className={cn("mb-10 order-3 transition-all duration-600 delay-250", contentReady ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4")}>
           {showCharts ? <OwnerDashboardCharts /> : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
               {[1, 2, 3, 4, 5].map((i) => (
@@ -757,7 +816,7 @@ function AdminDashboardInner() {
         </section>
 
         {/* ══════ SERVICE MANAGEMENT CARDS ══════ */}
-        <section className={cn("mb-10 transition-all duration-600 delay-300", contentReady ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4")}>
+        <section className={cn("mb-10 order-1 transition-all duration-600 delay-300", contentReady ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4")}>
           <div className="flex items-center justify-between mb-5">
             <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
               <Building2 className="h-5 w-5 text-primary" />Your Services
@@ -838,7 +897,16 @@ function AdminDashboardInner() {
                     {/* Action Buttons */}
                     <div className="mt-auto space-y-2">
                       <div className="flex gap-2">
-                        <Button size="sm" variant="outline" className="flex-1 text-xs h-8 transition-all active:scale-95" onClick={() => setSeatProp(property)}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1 text-xs h-8 transition-all active:scale-95"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSeatInitialSlug(property.slug);
+                            setSeatModalOpen(true);
+                          }}
+                        >
                           <Armchair className="h-3 w-3 mr-1" />Seats
                         </Button>
                         <Link href={`/admin/properties/${property.slug}/manage`} className="flex-1">
@@ -849,7 +917,15 @@ function AdminDashboardInner() {
                         <Link href={`/admin/properties/${property.slug}/manage?tab=edit`} className="flex-1">
                           <Button size="sm" variant="outline" className="w-full text-xs h-8 transition-all active:scale-95"><Pencil className="h-3 w-3 mr-1" />Edit</Button>
                         </Link>
-                        <Button size="sm" variant="outline" className="flex-1 text-xs h-8 transition-all active:scale-95" onClick={() => setAnnounceProp(property)}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1 text-xs h-8 transition-all active:scale-95"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setAnnounceProp(property);
+                          }}
+                        >
                           <Megaphone className="h-3 w-3 mr-1" />Announce
                         </Button>
                       </div>
@@ -860,6 +936,7 @@ function AdminDashboardInner() {
             ))}
           </div>
         </section>
+        </div>
 
         {/* ══════ RECENT BOOKINGS ══════ */}
         <section className={cn("mb-10 transition-all duration-600 delay-400", contentReady ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4")}>

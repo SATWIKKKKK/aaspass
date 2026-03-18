@@ -223,12 +223,32 @@ function ServicesContent() {
   const [dbTypes, setDbTypes] = useState(searchParams.get("dbTypes") || "");
   const [accommodationSubFilter, setAccommodationSubFilter] = useState<"" | "HOSTEL" | "PG">("");
 
+  // Keep category state in sync with query params for in-page route changes.
+  useEffect(() => {
+    const typeFromUrl = searchParams.get("type") || "";
+    const dbTypesFromUrl = searchParams.get("dbTypes") || "";
+    if (typeFromUrl !== selectedService) setSelectedService(typeFromUrl);
+    if (dbTypesFromUrl !== dbTypes) setDbTypes(dbTypesFromUrl);
+    if (typeFromUrl !== "ACCOMMODATION" && accommodationSubFilter) setAccommodationSubFilter("");
+  }, [searchParams, selectedService, dbTypes, accommodationSubFilter]);
+
   // When user changes service type via dropdown, sync dbTypes + reset sub-filter
   const handleServiceChange = (value: string) => {
     setSelectedService(value);
     const cat = serviceCategories.find((c) => c.value === value);
     setDbTypes(cat ? cat.dbTypes : value);
     if (value !== "ACCOMMODATION") setAccommodationSubFilter("");
+  };
+
+  const handleCategoryTabClick = (cat: { value: string; dbTypes: string }) => {
+    setSelectedService(cat.value);
+    setDbTypes(cat.dbTypes);
+    if (cat.value !== "ACCOMMODATION") setAccommodationSubFilter("");
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("type", cat.value);
+    params.set("dbTypes", cat.dbTypes);
+    router.push(`/services?${params.toString()}`);
   };
   // Don't leak service-type keywords (mess, gym, etc.) into the location/city field
   const serviceKeywords = ["accommodation", "hostel", "pg", "paying guest", "mess", "tiffin", "food", "library", "study", "laundry", "washing", "gym", "fitness", "workout"];
@@ -523,6 +543,30 @@ function ServicesContent() {
         <div className="text-center pt-6 pb-8">
           <Link href="/home"><h1 data-gsap="svc-heading" className="font-black tracking-tight text-primary text-6xl sm:text-7xl md:text-8xl lg:text-9xl leading-none select-none hover:opacity-80 transition-opacity" style={{ opacity: 0 }}>Aas<span className="text-premium">Pass</span></h1></Link>
           <p data-gsap="svc-subtext" className="mt-3 text-gray-500 text-sm sm:text-base" style={{ opacity: 0 }}>Find accommodation, mess, libraries, laundry & more</p>
+        </div>
+
+        {/* Home-style horizontal category bar (persistent and URL-synced) */}
+        <div className="max-w-3xl mx-auto px-4 pb-6">
+          <div className="flex items-center justify-center gap-2 sm:gap-3 flex-wrap">
+            {serviceCategories.map((cat) => {
+              const active = selectedService === cat.value;
+              return (
+                <button
+                  key={cat.value}
+                  onClick={() => handleCategoryTabClick(cat)}
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-2.5 rounded-full border-2 text-sm font-medium transition-all hover:shadow-md",
+                    active
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-gray-200 bg-white text-gray-700 hover:border-primary/40 hover:bg-primary/5"
+                  )}
+                >
+                  <cat.icon className="h-4 w-4" />
+                  <span className="whitespace-nowrap">{cat.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
         <div className="max-w-5xl mx-auto px-4">
           {/* Desktop combo bar */}

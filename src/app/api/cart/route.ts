@@ -10,6 +10,7 @@ export async function GET(req: NextRequest) {
 
     const items = await prisma.cartItem.findMany({
       where: { userId: session.user.id! },
+      orderBy: { createdAt: "desc" },
       include: {
         property: {
           select: { id: true, name: true, slug: true, price: true, gstRate: true, city: true, serviceType: true, images: { take: 1 } },
@@ -31,6 +32,25 @@ export async function POST(req: NextRequest) {
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { propertyId, checkIn, checkOut } = await req.json();
+    if (!propertyId || typeof propertyId !== "string") {
+      return NextResponse.json({ error: "Valid propertyId is required" }, { status: 400 });
+    }
+
+    const property = await prisma.property.findUnique({
+      where: { id: propertyId },
+      select: { id: true, status: true },
+    });
+    if (!property || property.status !== "VERIFIED") {
+      return NextResponse.json({ error: "Property not available" }, { status: 404 });
+    }
+
+    const checkInDate = checkIn ? new Date(checkIn) : new Date();
+    const checkOutDate = checkOut
+      ? new Date(checkOut)
+      : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    if (Number.isNaN(checkInDate.getTime()) || Number.isNaN(checkOutDate.getTime()) || checkOutDate <= checkInDate) {
+      return NextResponse.json({ error: "Invalid check-in/check-out dates" }, { status: 400 });
+    }
 
     const existing = await prisma.cartItem.findFirst({
       where: { userId: session.user.id!, propertyId },
@@ -41,8 +61,8 @@ export async function POST(req: NextRequest) {
       data: {
         userId: session.user.id!,
         propertyId,
-        checkIn: checkIn ? new Date(checkIn) : new Date(),
-        checkOut: checkOut ? new Date(checkOut) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        checkIn: checkInDate,
+        checkOut: checkOutDate,
       },
     });
 

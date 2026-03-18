@@ -142,15 +142,15 @@ function CartPageInner() {
     });
   };
 
-  if (status === "loading" || loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {
+    if (status !== "authenticated" || loading) return;
     const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
     tl.fromTo("[data-gsap='cart-title']", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.5 })
       .fromTo("[data-gsap='cart-item']", { opacity: 0, x: -20 }, { opacity: 1, x: 0, duration: 0.35, stagger: 0.07 }, "-=0.2")
       .fromTo("[data-gsap='cart-summary']", { opacity: 0, x: 30 }, { opacity: 1, x: 0, duration: 0.4 }, "-=0.3");
-  });
+  }, [status, loading, items.length]);
+
+  if (status === "loading" || loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
   const itemPricing = items.map((item) => {
     const ciStr = item.checkIn ? new Date(item.checkIn).toISOString().split("T")[0] : "";

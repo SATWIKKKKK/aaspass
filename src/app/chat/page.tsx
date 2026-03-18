@@ -23,7 +23,19 @@ interface ChatMessage {
   content: string;
   timestamp: Date;
   properties?: PropertyResult[];
+  searchMeta?: SearchMeta | null;
   isSearch?: boolean;
+}
+
+interface SearchMeta {
+  isServiceQuery: boolean;
+  requestedServiceType: string | null;
+  requestedCityKeywords: string[];
+  cityFilterApplied: boolean;
+  exactCityMatchCount: number;
+  fallbackUsed: boolean;
+  fallbackCount: number;
+  noExactCityMatch: boolean;
 }
 
 interface PropertyResult {
@@ -209,6 +221,8 @@ export default function ChatPage() {
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [historyLoaded, setHistoryLoaded] = useState(false);
+  const currentUserId = (session?.user as { id?: string } | undefined)?.id ?? "anonymous";
+  const conversationsStorageKey = `aaspass_chat_conversations_v1_${currentUserId}`;
 
   // 🔒 Verify premium access from backend on every page load
   useEffect(() => {
@@ -228,6 +242,25 @@ export default function ChatPage() {
   // Load chat history from DB on mount
   useEffect(() => {
     if (status === "loading" || !session || historyLoaded) return;
+
+    // Hydrate sidebar immediately from local cache so conversations don't vanish on reload.
+    try {
+      const cached = localStorage.getItem(conversationsStorageKey);
+      if (cached) {
+        const parsed = JSON.parse(cached) as Array<{
+          id: string;
+          title: string;
+          lastMessage: string;
+          timestamp: string;
+        }>;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setConversations(parsed.map((c) => ({ ...c, timestamp: new Date(c.timestamp) })));
+        }
+      }
+    } catch {
+      // Ignore cache parse errors and continue with server fetch.
+    }
+
     const loadHistory = async () => {
       try {
         const res = await fetch("/api/chat");
@@ -246,7 +279,27 @@ export default function ChatPage() {
       setHistoryLoaded(true);
     };
     loadHistory();
-  }, [session, status, historyLoaded]);
+  }, [session, status, historyLoaded, conversationsStorageKey]);
+
+  // Keep sidebar conversations cached locally so they persist across page reloads.
+  useEffect(() => {
+    if (!session) return;
+    try {
+      localStorage.setItem(
+        conversationsStorageKey,
+        JSON.stringify(
+          conversations.map((c) => ({
+            id: c.id,
+            title: c.title,
+            lastMessage: c.lastMessage,
+            timestamp: c.timestamp.toISOString(),
+          }))
+        )
+      );
+    } catch {
+      // Ignore storage write issues.
+    }
+  }, [conversations, session, conversationsStorageKey]);
 
   // Load a conversation's messages into the chat area
   const loadConversation = (conv: Conversation) => {
@@ -460,6 +513,7 @@ export default function ChatPage() {
         content: data.reply || "I couldn't process that. Please try again.",
         timestamp: new Date(),
         properties: data.properties || [],
+        searchMeta: data.searchMeta || null,
       }]);
 
       const title = messageText.slice(0, 40) + (messageText.length > 40 ? "..." : "");
@@ -572,14 +626,6 @@ export default function ChatPage() {
               <p className="text-gray-500 text-center max-w-md mb-8">
                 Ask me anything about student life, accommodation tips, service recommendations, or how to make the most of AasPass.
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xl w-full">
-                {CHAT_SUGGESTIONS.map((s, i) => (
-                  <button key={i} onClick={() => sendMessage(s.text)} className="flex items-start gap-3 p-4 rounded-xl border border-gray-200 hover:border-primary/40 hover:bg-primary/5 text-left transition-all group">
-                    <s.icon className={cn("h-5 w-5 mt-0.5 flex-shrink-0", s.color)} />
-                    <span className="text-sm text-gray-600 group-hover:text-gray-900">{s.text}</span>
-                  </button>
-                ))}
-              </div>
             </div>
           ) : (
             <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
@@ -600,6 +646,11 @@ export default function ChatPage() {
                     </div>
                     {msg.properties && msg.properties.length > 0 && (
                       <div className="mt-3 space-y-2">
+                        {msg.searchMeta?.noExactCityMatch && msg.searchMeta.requestedCityKeywords.length > 0 && (
+                          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                            No exact matches were found for <span className="font-semibold">{msg.searchMeta.requestedCityKeywords.join(", ")}</span>. Showing top alternatives from other cities.
+                          </div>
+                        )}
                         {msg.properties.map((prop) => <PropertyCard key={prop.id} property={prop} />)}
                       </div>
                     )}
