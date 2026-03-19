@@ -1,12 +1,26 @@
 import nodemailer from "nodemailer";
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.SMTP_EMAIL || "aaspass001@gmail.com",
-    pass: process.env.SMTP_PASSWORD || "",
-  },
-});
+const SMTP_USER = process.env.SMTP_EMAIL || "aaspass001@gmail.com";
+const SMTP_PASS = process.env.SMTP_PASSWORD || "";
+
+function cleanEnv(value?: string | null) {
+  return (value || "").trim().replace(/^['\"]|['\"]$/g, "").trim();
+}
+
+const RESEND_API_KEY = cleanEnv(process.env.RESEND_API_KEY);
+const rawProvider = cleanEnv(process.env.EMAIL_PROVIDER).toLowerCase();
+const EMAIL_PROVIDER = rawProvider === "resend" || rawProvider === "smtp" ? rawProvider : "";
+const EMAIL_FROM = cleanEnv(process.env.EMAIL_FROM) || `AasPass <${SMTP_USER}>`;
+
+const transporter = SMTP_PASS
+  ? nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: SMTP_USER,
+        pass: SMTP_PASS,
+      },
+    })
+  : null;
 
 interface SendEmailOptions {
   to: string;
@@ -16,16 +30,67 @@ interface SendEmailOptions {
 }
 
 export async function sendEmail({ to, subject, html, replyTo }: SendEmailOptions) {
-  try {
+  const resolvedProvider = EMAIL_PROVIDER || (RESEND_API_KEY ? "resend" : "smtp");
+
+  async function sendViaResend() {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: EMAIL_FROM,
+        to: [to],
+        subject,
+        html,
+        reply_to: replyTo || SMTP_USER,
+      }),
+    });
+
+    if (!response.ok) {
+      const details = await response.text();
+      throw new Error(`Resend API error ${response.status}: ${details}`);
+    }
+  }
+
+  async function sendViaSmtp() {
+    if (!transporter) {
+      throw new Error("SMTP is not configured. Set SMTP_EMAIL and SMTP_PASSWORD.");
+    }
+
     await transporter.sendMail({
-      from: `"AasPass" <${process.env.SMTP_EMAIL || "aaspass001@gmail.com"}>`,
+      from: `"AasPass" <${SMTP_USER}>`,
       to,
       subject,
       html,
-      replyTo: replyTo || process.env.SMTP_EMAIL || "aaspass001@gmail.com",
+      replyTo: replyTo || SMTP_USER,
     });
+  }
+
+  try {
+    if (resolvedProvider === "resend") {
+      if (!RESEND_API_KEY) {
+        throw new Error("RESEND_API_KEY is not configured.");
+      }
+      await sendViaResend();
+    } else {
+      await sendViaSmtp();
+    }
+
     return { success: true };
   } catch (error) {
+    // If primary provider fails, try SMTP fallback when available.
+    if (resolvedProvider === "resend" && transporter) {
+      try {
+        console.warn("Resend failed, falling back to SMTP:", error);
+        await sendViaSmtp();
+        return { success: true, fallback: "smtp" };
+      } catch (fallbackError) {
+        console.error("Email fallback send error:", fallbackError);
+      }
+    }
+
     console.error("Email send error:", error);
     return { success: false, error };
   }

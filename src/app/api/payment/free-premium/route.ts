@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
           userId,
           title: "🎉 You've got Premium!",
           message: `Your free premium is active for ${daysRemaining} days (until ${expiryStr}). Enjoy AI chat, priority booking, and all premium features!`,
-          type: "premium_expiry",
+          type: "student_premium_activated",
         },
       });
     } else if (role === "OWNER") {
@@ -138,7 +138,7 @@ export async function POST(req: NextRequest) {
           userId,
           title: "🎉 You've got Owner Premium!",
           message: `Your free owner premium is active for ${daysRemaining} days (until ${expiryStr}). Your services will now appear at the top of search results!`,
-          type: "premium_expiry",
+          type: "owner_premium_activated",
         },
       });
     } else {

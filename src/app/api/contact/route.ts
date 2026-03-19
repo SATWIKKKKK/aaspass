@@ -20,18 +20,6 @@ export async function POST(req: NextRequest) {
     // Check if user is authenticated
     const session = await auth();
 
-    // If authenticated, create a notification for the user
-    if (session?.user?.id) {
-      await prisma.notification.create({
-        data: {
-          title: `Contact form: ${subject}`,
-          message: `Your message has been received. We'll get back to you within 24 hours.\n\nYour message: ${message}`,
-          userId: session.user.id,
-          link: "/contact",
-        },
-      });
-    }
-
     // Find admin users and notify them
     const admins = await prisma.user.findMany({
       where: { role: "ADMIN" },
@@ -61,22 +49,45 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Send real email to AasPass team
+    // Send both emails and surface an API failure only if both deliveries fail.
     const notifEmail = contactNotificationEmail(name, email, subject, message);
-    sendEmail({
-      to: "aaspass001@gmail.com",
-      subject: notifEmail.subject,
-      html: notifEmail.html,
-      replyTo: email,
-    }).catch((err) => console.error("Failed to send contact notification email:", err));
-
-    // Send confirmation email to the user
+    const supportInbox = process.env.CONTACT_EMAIL || process.env.SMTP_EMAIL || "support@aaspass.com";
     const confirmEmail = contactReceivedEmail(name);
-    sendEmail({
-      to: email,
-      subject: confirmEmail.subject,
-      html: confirmEmail.html,
-    }).catch((err) => console.error("Failed to send contact confirmation email:", err));
+
+    const [supportSendResult, confirmSendResult] = await Promise.all([
+      sendEmail({
+        to: supportInbox,
+        subject: notifEmail.subject,
+        html: notifEmail.html,
+        replyTo: email,
+      }),
+      sendEmail({
+        to: email,
+        subject: confirmEmail.subject,
+        html: confirmEmail.html,
+      }),
+    ]);
+
+    const supportFailed = !supportSendResult?.success;
+    const confirmFailed = !confirmSendResult?.success;
+
+    if (supportFailed && confirmFailed) {
+      console.error("Both contact emails failed", {
+        supportError: supportSendResult?.error,
+        confirmError: confirmSendResult?.error,
+      });
+      return NextResponse.json(
+        { error: "Failed to send message emails. Please try again shortly." },
+        { status: 502 },
+      );
+    }
+
+    if (supportFailed || confirmFailed) {
+      console.warn("Partial contact email delivery", {
+        supportFailed,
+        confirmFailed,
+      });
+    }
 
     return NextResponse.json({
       success: true,

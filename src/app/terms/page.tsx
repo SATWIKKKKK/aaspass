@@ -9,7 +9,6 @@ import {
   BadgeCheck,
   ChevronDown,
   Gavel,
-  Sparkles,
 } from "lucide-react";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
@@ -177,13 +176,6 @@ export default function TermsPage() {
             <Link href="#privacy-policy" className="px-4 py-2 rounded-full border border-blue-300 bg-white text-blue-700 text-sm font-semibold hover:bg-blue-50 transition-colors">Privacy Policy</Link>
             <Link href="#cancellation-policy" className="px-4 py-2 rounded-full border border-blue-300 bg-white text-blue-700 text-sm font-semibold hover:bg-blue-50 transition-colors">Cancellation Policy</Link>
             <Link href="#license" className="px-4 py-2 rounded-full border border-blue-300 bg-white text-blue-700 text-sm font-semibold hover:bg-blue-50 transition-colors">License</Link>
-          </div>
-
-          <div className="mt-8 rounded-2xl border border-blue-200 bg-white/90 p-4 flex items-center gap-3">
-            <Sparkles className="h-5 w-5 text-blue-600" />
-            <p className="text-sm text-gray-700">
-              Last updated: January 2026. For legal questions, contact <span className="font-semibold">legal@aaspass.com</span>.
-            </p>
           </div>
         </div>
       </div>

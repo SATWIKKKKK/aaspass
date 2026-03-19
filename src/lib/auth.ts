@@ -6,6 +6,7 @@ import bcrypt from "bcryptjs";
 import prisma from "@/lib/prisma";
 
 export const authConfig: NextAuthConfig = {
+  trustHost: true,
   providers: [
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID || "",
@@ -154,19 +155,18 @@ export const authConfig: NextAuthConfig = {
       return session;
     },
     async redirect({ url, baseUrl }) {
-      // After sign-in, always route through the auth/redirect page for role-based routing
-      if (url.startsWith(baseUrl) || url.startsWith("/")) {
-        // If the url is the base URL or root, redirect through role-based router
-        if (url === baseUrl || url === baseUrl + "/" || url === "/" || url.includes("/api/auth")) {
-          return `${baseUrl}/auth/redirect`;
-        }
-        // Relative paths (e.g. /auth/redirect?pendingRole=OWNER from register page Google OAuth)
-        // must be made absolute, otherwise the fallback below discards them and returns baseUrl
-        if (url.startsWith("/")) {
-          return `${baseUrl}${url}`;
-        }
+      // Keep relative callback URLs and same-origin redirects intact.
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
+
+      try {
+        const target = new URL(url);
+        if (target.origin === baseUrl) return url;
+      } catch {
+        // Ignore invalid URL and fall through to safe default.
       }
-      return url.startsWith(baseUrl) ? url : baseUrl;
+
+      // Always finish auth flows through role-aware redirect page.
+      return `${baseUrl}/auth/redirect`;
     },
   },
   pages: {

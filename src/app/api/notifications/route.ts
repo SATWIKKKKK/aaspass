@@ -8,10 +8,33 @@ export async function GET(req: NextRequest) {
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const notifications = await prisma.notification.findMany({
+    const role = (session.user as { role?: string } | undefined)?.role;
+
+    const rawNotifications = await prisma.notification.findMany({
       where: { userId: session.user.id! },
       orderBy: { createdAt: "desc" },
       take: 50,
+    });
+
+    const notifications = rawNotifications.filter((n) => {
+      const title = (n.title || "").toLowerCase();
+      const message = (n.message || "").toLowerCase();
+      const type = (n.type || "").toLowerCase();
+
+      const isOwnerPremiumNotice =
+        type.includes("owner_premium") ||
+        title.includes("owner premium") ||
+        message.includes("owner premium");
+
+      const isStudentPremiumNotice =
+        type.includes("student_premium") ||
+        (type.includes("premium") && !isOwnerPremiumNotice) ||
+        title.includes("premium") && !title.includes("owner premium") ||
+        message.includes("premium") && !message.includes("owner premium");
+
+      if (role === "OWNER") return !isStudentPremiumNotice || isOwnerPremiumNotice;
+      if (role === "STUDENT") return !isOwnerPremiumNotice;
+      return true;
     });
 
     return NextResponse.json({ notifications });

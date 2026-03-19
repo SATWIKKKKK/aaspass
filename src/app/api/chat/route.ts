@@ -171,9 +171,21 @@ function isStrictServiceQuery(message: string) {
     "tiffin", "food", "stay", "rent", "flat", "bed", "service", "services",
   ]);
 
-  // Only require a service keyword — location is optional
-  return Array.from(serviceKeywords).some((k) => lower.includes(k))
+  const locationPatterns = [
+    /\bnear\s+\w+/i,
+    /\bin\s+\w+/i,
+    /\bat\s+\w+/i,
+    /\baround\s+\w+/i,
+    /\bfind\s+\w+/i,
+    /\bshow\s+\w+/i,
+  ];
+
+  const hasServiceKeyword = Array.from(serviceKeywords).some((k) => lower.includes(k))
     || normalizedWords.some((w) => serviceKeywords.has(w));
+  const hasLocationPattern = locationPatterns.some((p) => p.test(lower));
+
+  // Treat as service query if either condition is true.
+  return hasServiceKeyword || hasLocationPattern;
 }
 
 //////////////////////////////
@@ -183,7 +195,7 @@ function isStrictServiceQuery(message: string) {
 async function getRelevantProperties(message: string): Promise<{ properties: ChatProperty[]; searchMeta: ServiceSearchMeta }> {
   const keywords = extractKeywords(message);
   const normalizedKeywords = keywords.map(normalizeToken);
-  const lowerMessage = message.toLowerCase();
+  const lowered = message.toLowerCase();
 
   const typeMap: Record<string, string> = {
     hostel: "HOSTEL",
@@ -196,61 +208,204 @@ async function getRelevantProperties(message: string): Promise<{ properties: Cha
     laundry: "LAUNDRY",
     coworking: "COWORKING",
     "co-working": "COWORKING",
+    accommodation: "HOSTEL",
+    room: "HOSTEL",
+    stay: "HOSTEL",
   };
 
   let serviceType: string | undefined;
+  let matchedTypeKey: string | null = null;
 
-  if (lowerMessage.includes("paying guest")) {
-    serviceType = "PG";
-  } else {
-    for (const k of normalizedKeywords) {
-      if (typeMap[k]) {
-        serviceType = typeMap[k];
-        break;
-      }
+  for (const [key, value] of Object.entries(typeMap)) {
+    if (lowered.includes(key)) {
+      serviceType = value;
+      matchedTypeKey = key;
+      break;
     }
   }
 
-  const serviceTokens = new Set(Object.keys(typeMap).map(normalizeToken));
+  const nonServiceWordsRaw = [
+    ...Object.keys(typeMap),
+    "find", "show", "get", "best", "good", "near", "around",
+    "available", "looking", "want", "need", "search", "any",
+    "please", "help", "option", "options", "service", "services", "for", "what", "is",
+  ];
+  const nonServiceWords = new Set(nonServiceWordsRaw.map(normalizeToken));
 
-  // Extract city/location from message
-  const cityKeywords = normalizedKeywords.filter((k) =>
-    !serviceTokens.has(k) &&
-    k.length > 3 &&
-    !["find", "show", "get", "best", "good", "near", "around", "available"].includes(k)
+  const locationKeywords = normalizedKeywords.filter((k) =>
+    !nonServiceWords.has(k) && k.length > 2
   );
 
-  const uniqueCityKeywords = Array.from(new Set(cityKeywords));
+  const uniqueLocationKeywords = Array.from(new Set(locationKeywords));
+  console.log("Service type:", serviceType);
+  console.log("Location keywords:", uniqueLocationKeywords);
 
-  const where: Record<string, unknown> = { status: "VERIFIED" };
-  if (serviceType) where.serviceType = serviceType;
+  const baseWhere: Record<string, unknown> = { status: "VERIFIED" };
+  if (serviceType) baseWhere.serviceType = serviceType;
 
-  // If city keywords found, add city filter
-  if (uniqueCityKeywords.length > 0) {
-    where.OR = uniqueCityKeywords.map((city) => ({
-      city: { contains: city, mode: "insensitive" }
-    }));
+  // If no location keywords, return top-rated services of that type.
+  if (uniqueLocationKeywords.length === 0) {
+    const properties = await prisma.property.findMany({
+      where: baseWhere,
+      orderBy: [{ avgRating: "desc" }],
+      take: 5,
+      include: { images: { take: 1 } },
+    }) as ChatProperty[];
+
+    console.log("DB returned properties:", properties.map((p) => p.name));
+    return {
+      properties,
+      searchMeta: {
+        isServiceQuery: true,
+        requestedServiceType: serviceType ?? null,
+        requestedCityKeywords: [],
+        cityFilterApplied: false,
+        exactCityMatchCount: properties.length,
+        fallbackUsed: false,
+        fallbackCount: 0,
+        noExactCityMatch: false,
+      },
+    };
   }
 
-  const properties = await prisma.property.findMany({
-    where,
+  // Search location keywords across all location fields.
+  const locationConditions = uniqueLocationKeywords.flatMap((keyword) => [
+    { city: { contains: keyword, mode: "insensitive" as const } },
+    { address: { contains: keyword, mode: "insensitive" as const } },
+    { nearbyLandmark: { contains: keyword, mode: "insensitive" as const } },
+    { name: { contains: keyword, mode: "insensitive" as const } },
+    { description: { contains: keyword, mode: "insensitive" as const } },
+  ]);
+
+  const results = await prisma.property.findMany({
+    where: {
+      ...baseWhere,
+      OR: locationConditions,
+    },
     orderBy: [{ avgRating: "desc" }],
     take: 5,
     include: { images: { take: 1 } },
   }) as ChatProperty[];
-  console.log("DB returned properties:", properties.map((p) => p.name));
+
+  console.log("Results with location filter:", results.map((p) => p.name));
+
+  if (results.length > 0) {
+    return {
+      properties: results,
+      searchMeta: {
+        isServiceQuery: true,
+        requestedServiceType: serviceType ?? null,
+        requestedCityKeywords: uniqueLocationKeywords,
+        cityFilterApplied: true,
+        exactCityMatchCount: results.length,
+        fallbackUsed: false,
+        fallbackCount: 0,
+        noExactCityMatch: false,
+      },
+    };
+  }
+
+  // Fallback 1: try without service type restriction.
+  const canRelaxType = serviceType && (!matchedTypeKey || ["accommodation", "room", "stay"].includes(matchedTypeKey));
+
+  if (canRelaxType) {
+    const withoutTypeResults = await prisma.property.findMany({
+      where: {
+        status: "VERIFIED",
+        OR: locationConditions,
+      },
+      orderBy: [{ avgRating: "desc" }],
+      take: 5,
+      include: { images: { take: 1 } },
+    }) as ChatProperty[];
+
+    console.log("Results without type filter:", withoutTypeResults.map((p) => p.name));
+    if (withoutTypeResults.length > 0) {
+      return {
+        properties: withoutTypeResults,
+        searchMeta: {
+          isServiceQuery: true,
+          requestedServiceType: serviceType ?? null,
+          requestedCityKeywords: uniqueLocationKeywords,
+          cityFilterApplied: true,
+          exactCityMatchCount: 0,
+          fallbackUsed: true,
+          fallbackCount: withoutTypeResults.length,
+          noExactCityMatch: false,
+        },
+      };
+    }
+  }
+
+  // Fallback 2: try each location keyword independently.
+  const fallbackBaseWhere: Record<string, unknown> = canRelaxType
+    ? { status: "VERIFIED" }
+    : baseWhere;
+
+  for (const keyword of uniqueLocationKeywords) {
+    const singleKeywordResults = await prisma.property.findMany({
+      where: {
+        ...fallbackBaseWhere,
+        OR: [
+          { city: { contains: keyword, mode: "insensitive" } },
+          { address: { contains: keyword, mode: "insensitive" } },
+          { nearbyLandmark: { contains: keyword, mode: "insensitive" } },
+          { name: { contains: keyword, mode: "insensitive" } },
+          { description: { contains: keyword, mode: "insensitive" } },
+        ],
+      },
+      orderBy: [{ avgRating: "desc" }],
+      take: 5,
+      include: { images: { take: 1 } },
+    }) as ChatProperty[];
+
+    console.log(`Results for keyword "${keyword}":`, singleKeywordResults.map((p) => p.name));
+    if (singleKeywordResults.length > 0) {
+      return {
+        properties: singleKeywordResults,
+        searchMeta: {
+          isServiceQuery: true,
+          requestedServiceType: serviceType ?? null,
+          requestedCityKeywords: uniqueLocationKeywords,
+          cityFilterApplied: true,
+          exactCityMatchCount: 0,
+          fallbackUsed: true,
+          fallbackCount: singleKeywordResults.length,
+          noExactCityMatch: false,
+        },
+      };
+    }
+  }
+
+  // Fallback 3: try full phrase match.
+  const fullPhrase = uniqueLocationKeywords.join(" ").trim();
+  const fullMessageResults = await prisma.property.findMany({
+    where: {
+      ...fallbackBaseWhere,
+      OR: [
+        { address: { contains: fullPhrase, mode: "insensitive" } },
+        { nearbyLandmark: { contains: fullPhrase, mode: "insensitive" } },
+        { name: { contains: fullPhrase, mode: "insensitive" } },
+      ],
+    },
+    orderBy: [{ avgRating: "desc" }],
+    take: 5,
+    include: { images: { take: 1 } },
+  }) as ChatProperty[];
+
+  console.log("Full message search results:", fullMessageResults.map((p) => p.name));
 
   return {
-    properties,
+    properties: fullMessageResults,
     searchMeta: {
       isServiceQuery: true,
       requestedServiceType: serviceType ?? null,
-      requestedCityKeywords: uniqueCityKeywords,
-      cityFilterApplied: uniqueCityKeywords.length > 0,
-      exactCityMatchCount: properties.length,
-      fallbackUsed: false,
-      fallbackCount: 0,
-      noExactCityMatch: uniqueCityKeywords.length > 0 && properties.length === 0,
+      requestedCityKeywords: uniqueLocationKeywords,
+      cityFilterApplied: true,
+      exactCityMatchCount: 0,
+      fallbackUsed: fullMessageResults.length > 0,
+      fallbackCount: fullMessageResults.length,
+      noExactCityMatch: fullMessageResults.length === 0,
     },
   };
 }
@@ -310,12 +465,12 @@ async function generateGroqReply(
   }
 
   const userContent = propertyContext && propertyContext !== "NONE"
-    ? `[INTERNAL CONTEXT — DO NOT REPEAT OR MENTION THIS BLOCK IN YOUR RESPONSE. USE ONLY THESE SERVICES TO ANSWER]:
+    ? `[INTERNAL CONTEXT — DO NOT REPEAT THIS BLOCK. USE ONLY THESE SERVICES]:
 ${propertyContext}
 
 [USER ASKED]: ${message}
 
-Now respond naturally to the user using only the services above. Do not print the context block. Do not say "DATABASE RESULTS". Just answer helpfully.`
+Respond naturally. If the services shown are near the location the user asked about (based on address or landmark), mention that. Do not print raw context. Do not say "DATABASE RESULTS". Be helpful and conversational.`
     : propertyContext === "NONE"
       ? `[USER ASKED]: ${message}
 

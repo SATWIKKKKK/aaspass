@@ -18,6 +18,7 @@ export default function ContactPage() {
   const [form, setForm] = useState({ name: session?.user?.name || "", email: session?.user?.email || "", subject: "", message: "" });
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
+  const [friendlyError, setFriendlyError] = useState("");
 
   // GSAP entrance
   useEffect(() => {
@@ -29,6 +30,7 @@ export default function ContactPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFriendlyError("");
     if (!form.name || !form.email || !form.subject || !form.message) { toast.error("Please fill all fields"); return; }
     setSending(true);
     try {
@@ -42,9 +44,19 @@ export default function ContactPage() {
         setSent(true);
         toast.success(data.message || "Message sent successfully!");
       } else {
-        toast.error(data.error || "Failed to send message");
+        if (res.status === 502) {
+          const message = "Email service is temporarily busy. Please retry in a minute.";
+          setFriendlyError(message);
+          toast.error(message);
+        } else {
+          toast.error(data.error || "Failed to send message");
+        }
       }
-    } catch { toast.error("Failed to send message"); }
+    } catch {
+      const message = "Network issue while sending your message. Please check your connection and retry.";
+      setFriendlyError(message);
+      toast.error(message);
+    }
     finally { setSending(false); }
   };
 
@@ -65,6 +77,11 @@ export default function ContactPage() {
               <Card>
                 <CardHeader><CardTitle className="flex items-center gap-2"><MessageSquare className="h-5 w-5" />Send a Message</CardTitle></CardHeader>
                 <CardContent>
+                  {friendlyError ? (
+                    <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                      {friendlyError}
+                    </div>
+                  ) : null}
                   <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div><Label>Name</Label><Input placeholder="Your name" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} required /></div>
@@ -80,9 +97,9 @@ export default function ContactPage() {
           </div>
 
           <div className="space-y-4">
-            <Card data-gsap="contact-info" style={{ opacity: 0 }}><CardContent className="p-6"><div className="flex items-start gap-3"><div className="h-10 w-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0"><Mail className="h-5 w-5 text-blue-600" /></div><div><h3 className="font-semibold text-gray-900">Email</h3><a href="mailto:aaspass001@gmail.com" className="text-sm text-primary hover:underline">aaspass001@gmail.com</a></div></div></CardContent></Card>
-            <Card data-gsap="contact-info" style={{ opacity: 0 }}><CardContent className="p-6"><div className="flex items-start gap-3"><div className="h-10 w-10 rounded-lg bg-green-50 flex items-center justify-center flex-shrink-0"><Phone className="h-5 w-5 text-green-600" /></div><div><h3 className="font-semibold text-gray-900">Phone</h3><a href="tel:+918690861854" className="text-sm text-primary hover:underline">+91 8690861854</a><p className="text-xs text-gray-400 mt-1">Mon-Sat, 9AM-6PM</p></div></div></CardContent></Card>
-            <Card data-gsap="contact-info" style={{ opacity: 0 }}><CardContent className="p-6"><div className="flex items-start gap-3"><div className="h-10 w-10 rounded-lg bg-purple-50 flex items-center justify-center flex-shrink-0"><MapPin className="h-5 w-5 text-purple-600" /></div><div><h3 className="font-semibold text-gray-900">Office</h3><p className="text-sm text-gray-600">KIIT University Road,<br />Bhubaneswar, Odisha 751024</p></div></div></CardContent></Card>
+            <Card data-gsap="contact-info" style={{ opacity: 0 }}><CardContent className="p-6"><div className="flex items-start gap-3"><div className="h-10 w-10 rounded-lg bg-blue-50 flex items-center justify-center shrink-0"><Mail className="h-5 w-5 text-blue-600" /></div><div><h3 className="font-semibold text-gray-900">Email</h3><a href="mailto:support@aaspass.com" className="text-sm text-primary hover:underline">support@aaspass.com</a></div></div></CardContent></Card>
+            <Card data-gsap="contact-info" style={{ opacity: 0 }}><CardContent className="p-6"><div className="flex items-start gap-3"><div className="h-10 w-10 rounded-lg bg-green-50 flex items-center justify-center shrink-0"><Phone className="h-5 w-5 text-green-600" /></div><div><h3 className="font-semibold text-gray-900">Phone</h3><a href="tel:+919876543210" className="text-sm text-primary hover:underline">+91 98765 43210</a><p className="text-xs text-gray-400 mt-1">Mon-Sat, 9AM-6PM</p></div></div></CardContent></Card>
+            <Card data-gsap="contact-info" style={{ opacity: 0 }}><CardContent className="p-6"><div className="flex items-start gap-3"><div className="h-10 w-10 rounded-lg bg-purple-50 flex items-center justify-center shrink-0"><MapPin className="h-5 w-5 text-purple-600" /></div><div><h3 className="font-semibold text-gray-900">Office</h3><p className="text-sm text-gray-600">Hostel 4,<br />IIT Bombay</p></div></div></CardContent></Card>
           </div>
         </div>
       </div>

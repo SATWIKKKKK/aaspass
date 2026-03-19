@@ -392,7 +392,19 @@ function AdminDashboardInner() {
   const [showCharts, setShowCharts] = useState(false);
 
   const userName = session?.user?.name ? session.user.name.split(" ")[0] : "Owner";
-  const ownerNotifications = notifications.filter((n) => n.type !== "student_premium_expiry");
+  const ownerNotifications = notifications.filter((n) => {
+    const type = (n.type || "").toLowerCase();
+    const title = (n.title || "").toLowerCase();
+    const message = (n.message || "").toLowerCase();
+
+    const isStudentPremiumNotice =
+      type.includes("student_premium") ||
+      (type.includes("premium") && !type.includes("owner_premium")) ||
+      (title.includes("premium") && !title.includes("owner premium")) ||
+      (message.includes("premium") && !message.includes("owner premium"));
+
+    return !isStudentPremiumNotice;
+  });
   const unreadCount = ownerNotifications.filter((n) => !n.isRead).length;
 
   useEffect(() => { if (status === "unauthenticated") router.push("/login"); }, [status, router]);
