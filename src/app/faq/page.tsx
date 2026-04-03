@@ -15,7 +15,7 @@ const faqs = [
   { q: "What are SuperCoins?", a: "SuperCoins are loyalty rewards earned on every booking. You can redeem them for discounts on future bookings. Premium members earn 2x-4x more coins." },
   { q: "How do I cancel a booking?", a: "Go to your Dashboard, find the booking, and click 'Cancel'. Refund amount depends on the service&apos;s cancellation policy and how far in advance you cancel." },
   { q: "Can I list my service on AasPass?", a: "Yes! Register as a Service Provider, fill in your service details, upload at least 6 images, and submit for review. Our team will verify and list your service." },
-  { q: "How do I contact support?", a: "Email us at support@aaspass.com, call our toll-free number 1800-XXX-XXXX, or use the chat feature in your dashboard." },
+  { q: "How do I contact support?", a: "Email us at aaspass001@gmail.com, call +91 8690861854, or use the chat feature in your dashboard." },
   { q: "Are all services verified?", a: "Yes. Our team verifies every service before listing. We check photos, amenities, and conduct physical inspections for quality assurance." },
   { q: "What if I have a complaint about a service?", a: "You can file a complaint from your booking details page. The service owner will be notified and our support team will mediate if needed." },
 ];

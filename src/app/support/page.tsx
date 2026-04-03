@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import {
   LifeBuoy,
   Mail,
@@ -33,7 +34,7 @@ const faqItems = [
   },
   {
     q: "How do I contact support?",
-    a: "Email support@aaspass.com or call +91 98765 43210.",
+    a: "Email aaspass001@gmail.com or call +91 8690861854.",
   },
 ];
 
@@ -56,8 +57,8 @@ const supportCards = [
     subtitle: "Reach us directly",
     icon: ShieldCheck,
     points: [
-      "Email: support@aaspass.com",
-      "Phone: +91 98765 43210",
+      "Email: aaspass001@gmail.com",
+      "Phone: +91 8690861854",
       "Office: Hostel 4, IIT Bombay",
       "Typical response time: within 24 hours on business days.",
     ],
@@ -133,14 +134,14 @@ export default function SupportPage() {
               <Mail className="h-5 w-5 text-sky-600" />
               <div>
                 <p className="text-xs text-gray-500">Email</p>
-                <p className="text-sm font-bold text-gray-900">support@aaspass.com</p>
+                <p className="text-sm font-bold text-gray-900">aaspass001@gmail.com</p>
               </div>
             </div>
             <div className="rounded-2xl border border-sky-200 bg-white p-4 flex items-center gap-3">
               <Phone className="h-5 w-5 text-sky-600" />
               <div>
                 <p className="text-xs text-gray-500">Phone</p>
-                <p className="text-sm font-bold text-gray-900">+91 98765 43210</p>
+                <p className="text-sm font-bold text-gray-900">+91 8690861854</p>
               </div>
             </div>
           </div>
@@ -170,6 +171,14 @@ export default function SupportPage() {
               </ul>
             </section>
           ))}
+        </div>
+
+        <div className="mt-6 flex justify-center">
+          <a href="https://mail.google.com/mail/?view=cm&fs=1&to=aaspass001@gmail.com" target="_blank" rel="noopener noreferrer">
+            <Button size="lg" className="gap-2">
+              <Mail className="h-5 w-5" />Contact Us
+            </Button>
+          </a>
         </div>
 
         <section id="faq" className="scroll-mt-24 mt-10 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">

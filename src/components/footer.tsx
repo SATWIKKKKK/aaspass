@@ -60,8 +60,8 @@ export function Footer() {
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-sm text-gray-500">&copy; {currentYear} AasPass. All rights reserved.</p>
           <div className="flex items-center gap-4 text-sm">
-            <a href="mailto:support@aaspass.com" className="flex items-center gap-1 hover:text-white"><Mail className="h-4 w-4" /> support@aaspass.com</a>
-            <a href="tel:+919876543210" className="flex items-center gap-1 hover:text-white"><Phone className="h-4 w-4" /> +91 98765 43210</a>
+            <a href="https://mail.google.com/mail/?view=cm&fs=1&to=aaspass001@gmail.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-white"><Mail className="h-4 w-4" /> aaspass001@gmail.com</a>
+            <a href="tel:+918690861854" className="flex items-center gap-1 hover:text-white"><Phone className="h-4 w-4" /> +91 8690861854</a>
           </div>
         </div>
       </div>

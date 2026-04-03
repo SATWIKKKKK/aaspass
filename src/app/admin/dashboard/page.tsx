@@ -368,6 +368,82 @@ function SeatIndicator({ capacity, available }: { capacity: number | null | unde
   );
 }
 
+/* ═══════════════════ SERVICE PICKER MODAL ═══════════════════ */
+function ServicePickerModal({ open, onClose, properties, action }: {
+  open: boolean;
+  onClose: () => void;
+  properties: PropertyData[];
+  action: "students" | "bookings" | "upload";
+}) {
+  const router = useRouter();
+  const [selectedSlug, setSelectedSlug] = useState("");
+
+  useEffect(() => {
+    if (open && properties.length > 0) {
+      setSelectedSlug(properties[0].slug);
+    }
+  }, [open, properties]);
+
+  if (!open) return null;
+
+  const labels = {
+    students: { title: "Add Student", icon: UserPlus, desc: "Choose a service to add a student to" },
+    bookings: { title: "View Bookings", icon: BookOpen, desc: "Choose a service to view its bookings" },
+    upload: { title: "Upload Student List", icon: Upload, desc: "Choose a service to upload students to" },
+  };
+
+  const { title, icon: ActionIcon, desc } = labels[action];
+  const tab = action === "bookings" ? "bookings" : "students";
+
+  const handleGo = () => {
+    if (!selectedSlug) return;
+    router.push(`/admin/properties/${selectedSlug}/manage?tab=${tab}`);
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
+        <div className="p-6 border-b border-gray-100">
+          <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+            <ActionIcon className="h-5 w-5 text-primary" />{title}
+          </h3>
+          <p className="text-sm text-gray-500 mt-1">{desc}</p>
+        </div>
+        <div className="p-6 space-y-4">
+          {properties.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500">
+              No services available yet. Add a service first.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <Label htmlFor="picker-service">Service</Label>
+              <select
+                id="picker-service"
+                value={selectedSlug}
+                onChange={(e) => setSelectedSlug(e.target.value)}
+                className="w-full h-10 rounded-md border border-gray-200 bg-white px-3 text-sm"
+              >
+                {properties.map((p) => (
+                  <option key={p.id} value={p.slug}>
+                    {p.name} ({p.city})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+        <div className="flex items-center justify-end gap-2 p-5 border-t border-gray-100">
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={handleGo} disabled={!selectedSlug || properties.length === 0} className="transition-transform active:scale-95">
+            <ArrowRight className="h-4 w-4 mr-2" />Go
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ═══════════════════ MAIN DASHBOARD ═══════════════════ */
 function AdminDashboardInner() {
   const { data: session, status } = useSession();
@@ -382,6 +458,8 @@ function AdminDashboardInner() {
   const [announceProp, setAnnounceProp] = useState<PropertyData | null>(null);
   const [seatModalOpen, setSeatModalOpen] = useState(false);
   const [seatInitialSlug, setSeatInitialSlug] = useState<string | null>(null);
+  const [servicePickerOpen, setServicePickerOpen] = useState(false);
+  const [servicePickerAction, setServicePickerAction] = useState<"students" | "bookings" | "upload">("students");
   const [updatingBooking, setUpdatingBooking] = useState<string | null>(null);
   const [visibilityStats, setVisibilityStats] = useState<VisibilityStats | null>(null);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -492,6 +570,12 @@ function AdminDashboardInner() {
         properties={properties}
         initialSlug={seatInitialSlug}
         onUpdate={handleSeatUpdate}
+      />
+      <ServicePickerModal
+        open={servicePickerOpen}
+        onClose={() => setServicePickerOpen(false)}
+        properties={properties}
+        action={servicePickerAction}
       />
       <OwnerPremiumModal open={ownerPremiumOpen} onClose={() => setOwnerPremiumOpen(false)} />
 
@@ -634,21 +718,27 @@ function AdminDashboardInner() {
             </Link>
             {properties.length > 0 && (
               <>
-                <Link href={`/admin/properties/${properties[0].slug}/manage?tab=students`}>
-                  <Button variant="outline" className="gap-2 bg-white hover:bg-primary/5 hover:border-primary/30 border-gray-200 shadow-sm transition-all active:scale-95">
-                    <UserPlus className="h-4 w-4 text-primary" />Add Student
-                  </Button>
-                </Link>
-                <Link href={`/admin/properties/${properties[0].slug}/manage?tab=bookings`}>
-                  <Button variant="outline" className="gap-2 bg-white hover:bg-primary/5 hover:border-primary/30 border-gray-200 shadow-sm transition-all active:scale-95">
-                    <BookOpen className="h-4 w-4 text-primary" />View Bookings
-                  </Button>
-                </Link>
-                <Link href={`/admin/properties/${properties[0].slug}/manage?tab=students`}>
-                  <Button variant="outline" className="gap-2 bg-white hover:bg-primary/5 hover:border-primary/30 border-gray-200 shadow-sm transition-all active:scale-95">
-                    <Upload className="h-4 w-4 text-primary" />Upload Student List
-                  </Button>
-                </Link>
+                <Button
+                  variant="outline"
+                  className="gap-2 bg-white hover:bg-primary/5 hover:border-primary/30 border-gray-200 shadow-sm transition-all active:scale-95"
+                  onClick={() => { setServicePickerAction("students"); setServicePickerOpen(true); }}
+                >
+                  <UserPlus className="h-4 w-4 text-primary" />Add Student
+                </Button>
+                <Button
+                  variant="outline"
+                  className="gap-2 bg-white hover:bg-primary/5 hover:border-primary/30 border-gray-200 shadow-sm transition-all active:scale-95"
+                  onClick={() => { setServicePickerAction("bookings"); setServicePickerOpen(true); }}
+                >
+                  <BookOpen className="h-4 w-4 text-primary" />View Bookings
+                </Button>
+                <Button
+                  variant="outline"
+                  className="gap-2 bg-white hover:bg-primary/5 hover:border-primary/30 border-gray-200 shadow-sm transition-all active:scale-95"
+                  onClick={() => { setServicePickerAction("upload"); setServicePickerOpen(true); }}
+                >
+                  <Upload className="h-4 w-4 text-primary" />Upload Student List
+                </Button>
               </>
             )}
           </div>

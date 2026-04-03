@@ -12,7 +12,6 @@ import { Suspense } from "react";
 function AuthRedirectInner() {
   const { data: session, status } = useSession();
   const searchParams = useSearchParams();
-  const didApply = useRef(false);
   const hasNavigated = useRef(false);
 
   const hardRedirect = (path: string) => {
@@ -27,12 +26,10 @@ function AuthRedirectInner() {
       hardRedirect("/login");
       return;
     }
-    if (didApply.current) return;
-    didApply.current = true;
-
-    const pendingRole = searchParams.get("pendingRole")?.toUpperCase();
 
     let cancelled = false;
+
+    const pendingRole = searchParams.get("pendingRole")?.toUpperCase();
 
     // Always fetch the actual role from the database — never trust the stale JWT alone
     async function resolveAndRedirect() {
@@ -91,8 +88,18 @@ function AuthRedirectInner() {
     }
 
     resolveAndRedirect();
+
+    // Fallback timeout — if nothing happens within 8 seconds, force redirect
+    const timeout = setTimeout(() => {
+      if (!cancelled) {
+        const role = (session?.user as any)?.role || "STUDENT";
+        hardRedirect(role === "OWNER" || role === "ADMIN" ? "/admin/dashboard" : "/dashboard");
+      }
+    }, 8000);
+
     return () => {
       cancelled = true;
+      clearTimeout(timeout);
     };
   }, [status, session, searchParams]);
 

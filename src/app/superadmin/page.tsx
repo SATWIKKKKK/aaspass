@@ -48,16 +48,16 @@ function MetricCard({ title, value, icon: Icon, color, subtext, href }: {
   title: string; value: string | number; icon: any; color: string; subtext?: string; href?: string;
 }) {
   const content = (
-    <Card className={cn("hover:shadow-md transition-shadow duration-200", href && "cursor-pointer hover:ring-2 hover:ring-primary/20")} data-gsap="sa-metric" style={{ opacity: 0 }}>
-      <CardContent className="p-5">
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="text-sm text-muted-foreground font-medium">{title}</p>
-            <p className="text-2xl font-bold mt-1 text-gray-900">{value}</p>
-            {subtext && <p className="text-xs text-muted-foreground mt-1">{subtext}</p>}
+    <Card className={cn("hover:shadow-md transition-shadow duration-200 h-full", href && "cursor-pointer hover:ring-2 hover:ring-primary/20")} data-gsap="sa-metric" style={{ opacity: 0 }}>
+      <CardContent className="p-4 lg:p-5">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs lg:text-sm text-muted-foreground font-medium truncate">{title}</p>
+            <p className="text-xl lg:text-2xl font-bold mt-1 text-gray-900 truncate">{value}</p>
+            {subtext && <p className="text-[10px] lg:text-xs text-muted-foreground mt-1 truncate">{subtext}</p>}
           </div>
-          <div className={cn("h-10 w-10 rounded-lg flex items-center justify-center", color)}>
-            <Icon className="h-5 w-5 text-white" />
+          <div className={cn("h-9 w-9 lg:h-10 lg:w-10 rounded-lg flex items-center justify-center shrink-0", color)}>
+            <Icon className="h-4 w-4 lg:h-5 lg:w-5 text-white" />
           </div>
         </div>
       </CardContent>
@@ -149,7 +149,7 @@ export default function SuperAdminDashboard() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div data-gsap="sa-header" style={{ opacity: 0 }} className="flex items-center justify-between">
+      <div data-gsap="sa-header" style={{ opacity: 0 }} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold text-gray-900">Platform Overview</h2>
           <p className="text-sm text-muted-foreground mt-1">
@@ -174,7 +174,7 @@ export default function SuperAdminDashboard() {
       </div>
 
       {/* Top Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 lg:gap-4">
         <MetricCard title="Total Users" value={metrics.totalUsers.toLocaleString()} icon={Users} color="bg-blue-500" subtext={`${metrics.totalStudents} students · ${metrics.totalOwners} owners`} href="/superadmin/users" />
         <MetricCard title="Active Services" value={metrics.totalServices.toLocaleString()} icon={Building2} color="bg-green-500" href="/superadmin/services" />
         <MetricCard title="Total Bookings" value={metrics.totalBookings.toLocaleString()} icon={CalendarCheck} color="bg-purple-500" href="/superadmin/bookings" />
@@ -247,13 +247,13 @@ export default function SuperAdminDashboard() {
               <Link
                 key={u.id}
                 href={`/superadmin/users/${u.id}`}
-                className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0 hover:bg-gray-50 -mx-2 px-2 rounded transition-colors"
+                className="flex items-start justify-between gap-2 py-2 border-b border-gray-50 last:border-0 hover:bg-gray-50 -mx-2 px-2 rounded transition-colors overflow-hidden"
               >
-                <div>
-                  <p className="text-sm font-medium text-gray-900">{u.name}</p>
-                  <p className="text-xs text-muted-foreground">{u.email}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-gray-900 truncate">{u.name}</p>
+                  <p className="text-xs text-muted-foreground truncate">{u.email}</p>
                 </div>
-                <div className="text-right">
+                <div className="text-right shrink-0">
                   <Badge variant="outline" className="text-[10px]">{u.role}</Badge>
                   <p className="text-[10px] text-muted-foreground mt-0.5">{formatDate(u.createdAt)}</p>
                 </div>
@@ -279,11 +279,11 @@ export default function SuperAdminDashboard() {
                 key={b.id}
                 className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0"
               >
-                <div>
-                  <p className="text-sm font-medium text-gray-900">{b.property?.name || "—"}</p>
-                  <p className="text-xs text-muted-foreground">{b.student?.name}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-gray-900 truncate">{b.property?.name || "—"}</p>
+                  <p className="text-xs text-muted-foreground truncate">{b.student?.name}</p>
                 </div>
-                <div className="text-right">
+                <div className="text-right shrink-0">
                   <p className="text-sm font-semibold text-gray-900">{formatPrice(b.grandTotal)}</p>
                   <Badge
                     variant={b.status === "CONFIRMED" || b.status === "ACTIVE" ? "success" : "secondary"}
