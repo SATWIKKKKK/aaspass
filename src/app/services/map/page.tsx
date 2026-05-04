@@ -25,6 +25,37 @@ interface NearbyProperty {
   images: { url: string }[];
 }
 
+interface PropertySearchResult {
+  id: string;
+  name: string;
+  slug: string;
+  serviceType: string;
+  price: number;
+  city: string;
+  address: string;
+  avgRating: number;
+  totalReviews: number;
+  latitude: number | null;
+  longitude: number | null;
+  images: { url: string }[];
+}
+
+type ResultMode = "nearby" | "location-fallback";
+
+function distanceBetweenMeters(lat1: number, lng1: number, lat2: number, lng2: number) {
+  const earthRadius = 6371000;
+  const toRadians = (value: number) => (value * Math.PI) / 180;
+  const deltaLat = toRadians(lat2 - lat1);
+  const deltaLng = toRadians(lng2 - lng1);
+  const a = Math.sin(deltaLat / 2) ** 2
+    + Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) * Math.sin(deltaLng / 2) ** 2;
+  return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function normalizeLocationText(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
 /* ── Constants ──────────────────────────────────────────────────────────── */
 const RADIUS_OPTIONS = [
   { label: "500 m", meters: 500 },
@@ -98,6 +129,8 @@ function MapSearchInner() {
   const inputRef = useRef<HTMLInputElement>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const searchPendingRef = useRef(false);
+  const initialLocationRef = useRef((searchParams.get("location") || "").trim());
+  const initialLocationResolvedRef = useRef(false);
 
   /* state */
   const [locationName, setLocationName] = useState(searchParams.get("location") || "");
@@ -121,6 +154,7 @@ function MapSearchInner() {
   const [citySuggestions, setCitySuggestions] = useState<typeof INDIAN_CITIES>([]);
   const [showCityDropdown, setShowCityDropdown] = useState(false);
   const [googleAutocompleteActive, setGoogleAutocompleteActive] = useState(false);
+  const [resultMode, setResultMode] = useState<ResultMode>("nearby");
 
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 
@@ -251,6 +285,62 @@ function MapSearchInner() {
     }
   }, [mapReady]); // autocomplete init depends on mapReady
 
+  useEffect(() => {
+    const initialLocation = initialLocationRef.current;
+    if (!mapReady || initialLocationResolvedRef.current || lat !== null || lng !== null || !initialLocation) return;
+
+    initialLocationResolvedRef.current = true;
+
+    const normalizedInitialLocation = normalizeLocationText(initialLocation);
+    const matchedCity = INDIAN_CITIES.find((city) => {
+      const normalizedCity = normalizeLocationText(city.name);
+      const normalizedPrimaryName = normalizeLocationText(city.name.split(",")[0] || city.name);
+      return normalizedCity.includes(normalizedInitialLocation)
+        || normalizedPrimaryName.includes(normalizedInitialLocation)
+        || normalizedInitialLocation.includes(normalizedPrimaryName);
+    });
+
+    if (matchedCity) {
+      searchPendingRef.current = true;
+      setLocationName(matchedCity.name);
+      setLat(matchedCity.lat);
+      setLng(matchedCity.lng);
+      if (inputRef.current) inputRef.current.value = matchedCity.name;
+      if (mapObjRef.current) {
+        mapObjRef.current.panTo({ lat: matchedCity.lat, lng: matchedCity.lng });
+        mapObjRef.current.setZoom(14);
+      }
+      placeCenterMarker(matchedCity.lat, matchedCity.lng);
+      return;
+    }
+
+    let cancelled = false;
+    new google.maps.Geocoder().geocode(
+      { address: `${initialLocation}, India`, region: "IN" },
+      (results: google.maps.GeocoderResult[] | null, status: google.maps.GeocoderStatus) => {
+        if (cancelled || status !== "OK" || !results?.[0]?.geometry?.location) return;
+        const resolvedLocation = results[0].formatted_address || initialLocation;
+        const resolvedLat = results[0].geometry.location.lat();
+        const resolvedLng = results[0].geometry.location.lng();
+
+        searchPendingRef.current = true;
+        setLocationName(resolvedLocation);
+        setLat(resolvedLat);
+        setLng(resolvedLng);
+        if (inputRef.current) inputRef.current.value = resolvedLocation;
+        if (mapObjRef.current) {
+          mapObjRef.current.panTo({ lat: resolvedLat, lng: resolvedLng });
+          mapObjRef.current.setZoom(14);
+        }
+        placeCenterMarker(resolvedLat, resolvedLng);
+      }
+    );
+
+    return () => {
+      cancelled = true;
+    };
+  }, [mapReady, lat, lng]);
+
   /* ── Fallback city filter (when Google Places API is unavailable) ─ */
   const handleCityInput = useCallback((value: string) => {
     setLocationName(value);
@@ -330,6 +420,7 @@ function MapSearchInner() {
     if (lat === null || lng === null || !mapObjRef.current) return;
     setLoading(true);
     setSearched(true);
+    setResultMode("nearby");
     clearMarkers();
     placeCenterMarker(lat, lng);
 
@@ -348,6 +439,8 @@ function MapSearchInner() {
     mapObjRef.current.fitBounds(circleRef.current.getBounds()!);
 
     /* 1) Search OUR database */
+    const locationQuery = locationName.split(",")[0]?.trim() || locationName.trim();
+
     const dbPromise = (async () => {
       try {
         const params = new URLSearchParams({ lat: String(lat), lng: String(lng), radius: String(radius) });
@@ -358,13 +451,61 @@ function MapSearchInner() {
       } catch { return [] as NearbyProperty[]; }
     })();
 
+    const fallbackPromise = (async () => {
+      if (!locationQuery) return [] as NearbyProperty[];
+      try {
+        const params = new URLSearchParams({ q: locationQuery, limit: "50", sort: "avgRating" });
+        if (serviceFilter) params.set("serviceType", serviceFilter);
+        const res = await fetch(`/api/properties?${params}`);
+        const data = await res.json();
+        const properties = Array.isArray(data.properties) ? data.properties as PropertySearchResult[] : [];
+        return properties.map((property) => ({
+          id: property.id,
+          name: property.name,
+          slug: property.slug,
+          serviceType: property.serviceType,
+          price: property.price,
+          city: property.city,
+          address: property.address,
+          avgRating: property.avgRating,
+          totalReviews: property.totalReviews,
+          latitude: property.latitude ?? Number.NaN,
+          longitude: property.longitude ?? Number.NaN,
+          distance: property.latitude !== null && property.longitude !== null
+            ? Math.round(distanceBetweenMeters(lat, lng, property.latitude, property.longitude))
+            : 0,
+          images: property.images || [],
+        }));
+      } catch {
+        return [] as NearbyProperty[];
+      }
+    })();
+
     const dbRes = await dbPromise;
-    setDbResults(dbRes);
+    let visibleResults = dbRes;
+    let nextResultMode: ResultMode = "nearby";
+
+    if (dbRes.length === 0 && locationQuery) {
+      const fallbackResults = await fallbackPromise;
+      if (fallbackResults.length > 0) {
+        visibleResults = fallbackResults;
+        nextResultMode = "location-fallback";
+      }
+    }
+
+    setResultMode(nextResultMode);
+    setDbResults(visibleResults);
 
     /* Place markers — DB results get branded purple pins, Google results get red */
     const map = mapObjRef.current!;
 
-    dbRes.forEach((p) => {
+    const markerResults = nextResultMode === "location-fallback"
+      ? visibleResults.filter((property) => Number.isFinite(property.latitude)
+          && Number.isFinite(property.longitude)
+          && property.distance <= Math.max(radius * 5, 10000))
+      : visibleResults;
+
+    markerResults.forEach((p) => {
       const marker = new google.maps.Marker({
         position: { lat: p.latitude, lng: p.longitude },
         map,
@@ -402,7 +543,7 @@ function MapSearchInner() {
                 <span style="font-size:11px;color:#666;">${p.avgRating.toFixed(1)} ⭐ (${p.totalReviews})</span>
               </div>
               <div style="display:flex;gap:6px;">
-                <span style="font-size:10px;color:#888;">📍 ${formatDist(p.distance)} away</span>
+                <span style="font-size:10px;color:#888;">${nextResultMode === "location-fallback" ? "📍 Location match" : `📍 ${formatDist(p.distance)} away`}</span>
               </div>
               <a href="/services/${p.slug}" style="display:block;margin-top:10px;padding:8px 0;background:#6366f1;color:white;border-radius:8px;text-align:center;text-decoration:none;font-size:13px;font-weight:600;">View Details & Book</a>
             </div>
@@ -419,7 +560,7 @@ function MapSearchInner() {
 
     setLoading(false);
     setMobileView("map");
-  }, [lat, lng, radius, serviceFilter]); // search deps
+  }, [lat, lng, radius, serviceFilter, locationName]); // search deps
 
   /* ── Hover highlight: bounce the marker ────────────────────────── */
   useEffect(() => {
@@ -574,7 +715,14 @@ function MapSearchInner() {
                 </h2>
                 {searched && !loading && (
                   <p className="text-[11px] text-gray-400 mt-0.5">
-                    {dbResults.length} services found on AasPass
+                    {resultMode === "location-fallback"
+                      ? `${dbResults.length} location matches found on AasPass`
+                      : `${dbResults.length} services found on AasPass`}
+                  </p>
+                )}
+                {searched && !loading && resultMode === "location-fallback" && (
+                  <p className="text-[11px] text-amber-600 mt-1">
+                    Showing city matches because no services were found inside the current map radius.
                   </p>
                 )}
               </div>
@@ -600,7 +748,7 @@ function MapSearchInner() {
             {!loading && searched && allResults.length === 0 && (
               <div className="text-center py-16">
                 <MapPin className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-                <p className="text-sm font-medium text-gray-900 mb-1">No hostels found in this area</p>
+                <p className="text-sm font-medium text-gray-900 mb-1">No services found for this location</p>
                 <p className="text-xs text-gray-400">Try increasing the radius or searching a different location.</p>
               </div>
             )}
@@ -651,7 +799,9 @@ function MapSearchInner() {
                       <div className="flex items-center justify-between mt-1.5">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-bold text-primary">₹{getDailyRate(r.price)}<span className="text-[10px] font-normal text-gray-400">/day</span></span>
-                          <span className="text-[10px] text-gray-400">📍 {formatDist(r.distance)}</span>
+                          <span className={cn("text-[10px]", resultMode === "location-fallback" ? "text-amber-600" : "text-gray-400")}>
+                            {resultMode === "location-fallback" ? "Location match" : `📍 ${formatDist(r.distance)}`}
+                          </span>
                         </div>
                         <span className="flex items-center gap-0.5 text-[11px] text-gray-500">
                           <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />

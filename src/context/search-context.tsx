@@ -42,7 +42,16 @@ export function SearchProvider({ children }: { children: ReactNode }) {
 
   const updateSearch = (updates: Partial<SearchState>) => {
     setSearch((prev) => {
-      const next = { ...prev, ...updates };
+      const locationChanged = typeof updates.location === "string" && updates.location !== prev.location;
+      const shouldClearStoredCoords = locationChanged
+        && !("locationLat" in updates)
+        && !("locationLng" in updates);
+
+      const next = {
+        ...prev,
+        ...updates,
+        ...(shouldClearStoredCoords ? { locationLat: null, locationLng: null } : {}),
+      };
       saveSearchState(next);
       return next;
     });

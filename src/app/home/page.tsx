@@ -270,6 +270,16 @@ export default function HomePage() {
   const setCheckIn = (v: string) => updateSearch({ checkIn: v });
   const checkOut = search.checkOut;
   const setCheckOut = (v: string) => updateSearch({ checkOut: v });
+  const mapSearchHref = (() => {
+    const params = new URLSearchParams();
+    if (location) params.set("location", location);
+    if (search.locationLat !== null && search.locationLng !== null) {
+      params.set("lat", String(search.locationLat));
+      params.set("lng", String(search.locationLng));
+    }
+    const query = params.toString();
+    return query ? `/services/map?${query}` : "/services/map";
+  })();
 
   const [premiumOpen, setPremiumOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -423,7 +433,7 @@ export default function HomePage() {
             </div>
 
             {/* Map button */}
-            <Link href={`/services/map${location ? `?location=${encodeURIComponent(location)}` : ""}`} className="h-9 w-9 rounded-full border-2 border-gray-200 flex items-center justify-center hover:bg-primary/10 hover:border-primary/30 transition-colors shrink-0" title="Search on Map">
+            <Link href={mapSearchHref} className="h-9 w-9 rounded-full border-2 border-gray-200 flex items-center justify-center hover:bg-primary/10 hover:border-primary/30 transition-colors shrink-0" title="Search on Map">
               <Map className="h-4 w-4 text-gray-500" />
             </Link>
 
@@ -621,7 +631,7 @@ export default function HomePage() {
             </div>
 
             {/* Map button */}
-            <Link href={`/services/map${location ? `?location=${encodeURIComponent(location)}` : ""}`} className="h-9 w-9 rounded-full border-2 border-gray-200 flex items-center justify-center hover:bg-primary/10 hover:border-primary/30 transition-colors shrink-0" title="Search on Map">
+            <Link href={mapSearchHref} className="h-9 w-9 rounded-full border-2 border-gray-200 flex items-center justify-center hover:bg-primary/10 hover:border-primary/30 transition-colors shrink-0" title="Search on Map">
               <Map className="h-4 w-4 text-gray-500" />
             </Link>
 
