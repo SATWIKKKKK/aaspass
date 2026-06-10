@@ -7,7 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Users, Building2, CalendarCheck, Gift, Crown,
   ShieldAlert, BarChart3, FileText, Settings, LogOut, Menu, X,
-  ChevronRight, Shield, Megaphone, Percent, Wallet,
+  ChevronRight, Shield, Megaphone, Percent, Wallet, UserPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import toast from "react-hot-toast";
 
 const navItems = [
   { href: "/superadmin", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/superadmin/create", label: "Create", icon: UserPlus },
   { href: "/superadmin/users", label: "Users", icon: Users },
   { href: "/superadmin/services", label: "Services", icon: Building2 },
   { href: "/superadmin/bookings", label: "Bookings", icon: CalendarCheck },

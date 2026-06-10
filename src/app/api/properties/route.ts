@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
     const sort = searchParams.get("sort") || "avgRating";
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "12");
+    const compact = searchParams.get("compact") === "1";
 
     const where: any = {};
     if (owner === "me") {
@@ -65,18 +66,36 @@ export async function GET(req: NextRequest) {
     if (sort === "reviews") orderBy = { totalReviews: "desc" };
     if (sort === "most_viewed") orderBy = { totalViews: "desc" };
 
+    const propertiesPromise = compact
+      ? prisma.property.findMany({
+          where,
+          orderBy,
+          skip: (page - 1) * limit,
+          take: limit,
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            serviceType: true,
+            city: true,
+            price: true,
+            images: { take: 1, orderBy: { order: "asc" }, select: { url: true } },
+          },
+        })
+      : prisma.property.findMany({
+          where,
+          orderBy,
+          skip: (page - 1) * limit,
+          take: limit,
+          include: {
+            images: { take: 4, orderBy: { order: "asc" } },
+            owner: { select: { name: true } },
+            _count: { select: { bookings: true, serviceStudents: true, wishlistItems: true } },
+          },
+        });
+
     const [properties, total] = await Promise.all([
-      prisma.property.findMany({
-        where,
-        orderBy,
-        skip: (page - 1) * limit,
-        take: limit,
-        include: {
-          images: { take: 4, orderBy: { order: "asc" } },
-          owner: { select: { name: true } },
-          _count: { select: { bookings: true, serviceStudents: true, wishlistItems: true } },
-        },
-      }),
+      propertiesPromise,
       prisma.property.count({ where }),
     ]);
 

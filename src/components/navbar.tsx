@@ -51,13 +51,12 @@ export function Navbar({ variant = "public", showSearch = true, autoHide = false
   // Fetch notification + cart counts
   useEffect(() => {
     if (!session) return;
-    fetch("/api/notifications").then((r) => r.json()).then((data) => {
-      const unread = (data.notifications || []).filter((n: any) => !n.isRead).length;
-      setNotifCount(unread);
+    fetch("/api/notifications?summary=1").then((r) => r.json()).then((data) => {
+      setNotifCount(data.unreadCount || 0);
     }).catch(() => {});
     if (isStudent) {
-      fetch("/api/cart").then((r) => r.json()).then((data) => {
-        setCartCount((data.items || []).length);
+      fetch("/api/cart?summary=1").then((r) => r.json()).then((data) => {
+        setCartCount(data.count || 0);
       }).catch(() => {});
     }
   }, [session, pathname, isStudent]);
@@ -66,9 +65,8 @@ export function Navbar({ variant = "public", showSearch = true, autoHide = false
   useEffect(() => {
     if (!session) return;
     const interval = setInterval(() => {
-      fetch("/api/notifications").then((r) => r.json()).then((data) => {
-        const unread = (data.notifications || []).filter((n: any) => !n.isRead).length;
-        setNotifCount(unread);
+      fetch("/api/notifications?summary=1").then((r) => r.json()).then((data) => {
+        setNotifCount(data.unreadCount || 0);
       }).catch(() => {});
     }, 30000);
     return () => clearInterval(interval);
@@ -94,7 +92,7 @@ export function Navbar({ variant = "public", showSearch = true, autoHide = false
   const doSearch = useCallback(async (q: string) => {
     if (!q.trim() || q.length < 2) { setSearchResults([]); return; }
     try {
-      const res = await fetch(`/api/properties?q=${encodeURIComponent(q)}&limit=6`);
+      const res = await fetch(`/api/properties?q=${encodeURIComponent(q)}&limit=6&compact=1`);
       const data = await res.json();
       setSearchResults((data.properties || []).slice(0, 6));
     } catch { setSearchResults([]); }

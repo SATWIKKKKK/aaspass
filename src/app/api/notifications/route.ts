@@ -8,12 +8,17 @@ export async function GET(req: NextRequest) {
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+    const { searchParams } = new URL(req.url);
+    const summary = searchParams.get("summary") === "1";
     const role = (session.user as { role?: string } | undefined)?.role;
 
     const rawNotifications = await prisma.notification.findMany({
-      where: { userId: session.user.id! },
+      where: { userId: session.user.id!, ...(summary ? { isRead: false } : {}) },
       orderBy: { createdAt: "desc" },
-      take: 50,
+      take: summary ? undefined : 50,
+      select: summary
+        ? { title: true, message: true, type: true }
+        : undefined,
     });
 
     const notifications = rawNotifications.filter((n) => {
@@ -36,6 +41,10 @@ export async function GET(req: NextRequest) {
       if (role === "STUDENT") return !isOwnerPremiumNotice;
       return true;
     });
+
+    if (summary) {
+      return NextResponse.json({ unreadCount: notifications.length });
+    }
 
     return NextResponse.json({ notifications });
   } catch (error) {

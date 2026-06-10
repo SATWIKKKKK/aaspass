@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireSuperAdmin, createAuditLog } from "@/lib/superadmin-auth";
+import { requireSuperAdmin } from "@/lib/superadmin-auth";
 import { prisma } from "@/lib/prisma";
+import { createAccountBySuperAdmin, SuperAdminCreationError } from "@/lib/superadmin-creation";
 
 export async function GET(req: NextRequest) {
   const authResult = await requireSuperAdmin(req);
@@ -86,5 +87,28 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     console.error("Users list error:", error);
     return NextResponse.json({ error: "Failed to fetch users" }, { status: 500 });
+  }
+}
+
+export async function POST(req: NextRequest) {
+  const authResult = await requireSuperAdmin(req);
+  if (authResult.response) return authResult.response;
+
+  try {
+    const body = await req.json();
+    const result = await createAccountBySuperAdmin(body, authResult.admin.id);
+
+    return NextResponse.json({
+      success: true,
+      user: result.user,
+      generatedPassword: result.generatedPassword,
+      generatedEmail: result.generatedEmail,
+    }, { status: 201 });
+  } catch (error) {
+    if (error instanceof SuperAdminCreationError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    console.error("User create error:", error);
+    return NextResponse.json({ error: "Failed to create user" }, { status: 500 });
   }
 }

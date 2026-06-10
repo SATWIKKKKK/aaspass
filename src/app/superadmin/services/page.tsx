@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   Search, Filter, ChevronLeft, ChevronRight, Eye, Building2,
-  Star, MapPin, Loader2,
+  MapPin, Plus, Upload,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -59,9 +59,19 @@ export default function SuperAdminServicesPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="text-xl font-bold text-gray-900">Service Management</h2>
-        <p className="text-sm text-muted-foreground">{total.toLocaleString()} total services</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold text-gray-900">Service Management</h2>
+          <p className="text-sm text-muted-foreground">{total.toLocaleString()} total services</p>
+        </div>
+        <div className="flex gap-2">
+          <Link href="/superadmin/create">
+            <Button variant="outline" size="sm" className="gap-2"><Plus className="h-3.5 w-3.5" />Add</Button>
+          </Link>
+          <Link href="/superadmin/create">
+            <Button variant="outline" size="sm" className="gap-2"><Upload className="h-3.5 w-3.5" />Bulk</Button>
+          </Link>
+        </div>
       </div>
 
       {/* Filters */}

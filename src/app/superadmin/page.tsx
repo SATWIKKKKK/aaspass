@@ -194,6 +194,8 @@ export default function SuperAdminDashboard() {
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
           <Link href="/superadmin/premium"><Button size="sm" variant="outline" className="gap-2"><Crown className="h-3.5 w-3.5" />Grant Premium</Button></Link>
+          <Link href="/superadmin/create"><Button size="sm" variant="outline" className="gap-2"><UserPlus className="h-3.5 w-3.5" />Create Account</Button></Link>
+          <Link href="/superadmin/create"><Button size="sm" variant="outline" className="gap-2"><Building2 className="h-3.5 w-3.5" />Add Property</Button></Link>
           <Link href="/superadmin/violations"><Button size="sm" variant="outline" className="gap-2"><ShieldAlert className="h-3.5 w-3.5" />Issue Warning</Button></Link>
           <Link href="/superadmin/violations"><Button size="sm" variant="outline" className="gap-2 text-red-600 border-red-200 hover:bg-red-50"><AlertTriangle className="h-3.5 w-3.5" />Suspend User</Button></Link>
           <Link href="/superadmin/offers"><Button size="sm" variant="outline" className="gap-2"><CreditCard className="h-3.5 w-3.5" />Add Offer</Button></Link>

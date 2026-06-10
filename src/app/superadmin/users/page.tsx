@@ -96,9 +96,16 @@ export default function SuperAdminUsersPage() {
           <h2 className="text-xl font-bold text-gray-900">User Management</h2>
           <p className="text-sm text-muted-foreground">{total.toLocaleString()} total users</p>
         </div>
-        <Button variant="outline" size="sm" onClick={exportCSV} className="gap-2">
-          <Download className="h-3.5 w-3.5" />Export CSV
-        </Button>
+        <div className="flex gap-2">
+          <Link href="/superadmin/create">
+            <Button variant="outline" size="sm" className="gap-2">
+              <UsersIcon className="h-3.5 w-3.5" />Create
+            </Button>
+          </Link>
+          <Button variant="outline" size="sm" onClick={exportCSV} className="gap-2">
+            <Download className="h-3.5 w-3.5" />Export CSV
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}

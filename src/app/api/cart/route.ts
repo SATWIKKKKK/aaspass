@@ -8,6 +8,14 @@ export async function GET(req: NextRequest) {
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+    const { searchParams } = new URL(req.url);
+    if (searchParams.get("summary") === "1") {
+      const count = await prisma.cartItem.count({
+        where: { userId: session.user.id! },
+      });
+      return NextResponse.json({ count });
+    }
+
     const items = await prisma.cartItem.findMany({
       where: { userId: session.user.id! },
       orderBy: { createdAt: "desc" },
