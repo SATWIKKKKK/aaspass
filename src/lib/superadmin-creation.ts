@@ -38,6 +38,7 @@ export interface AdminPropertyInput {
   state?: unknown;
   pincode?: unknown;
   status?: unknown;
+  googleMapsLink?: unknown;
   latitude?: unknown;
   longitude?: unknown;
   nearbyLandmark?: unknown;
@@ -174,6 +175,66 @@ function parseNumber(value: unknown, field: string, required = false): number | 
   const parsed = Number(raw);
   if (!Number.isFinite(parsed)) throw new SuperAdminCreationError(`${field} must be a number`);
   return parsed;
+}
+
+function validateCoordinate(value: number, field: string, min: number, max: number) {
+  if (value < min || value > max) {
+    throw new SuperAdminCreationError(`${field} must be between ${min} and ${max}`);
+  }
+  return value;
+}
+
+function parseCoordinatePair(latitude: number, longitude: number) {
+  return {
+    latitude: validateCoordinate(latitude, "Latitude", -90, 90),
+    longitude: validateCoordinate(longitude, "Longitude", -180, 180),
+  };
+}
+
+function parseCoordinatesFromMapsLink(value: unknown): { latitude: number; longitude: number } | null {
+  const raw = text(value);
+  if (!raw) return null;
+
+  let decoded = raw.replace(/\+/g, " ");
+  try {
+    decoded = decodeURIComponent(decoded);
+  } catch {
+    // Keep the original text if the copied URL contains malformed escapes.
+  }
+  const patterns = [
+    /@(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)(?:[,/?&]|$)/,
+    /[?&](?:q|query|ll|center|destination|daddr|saddr)=(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)(?:[&]|$)/i,
+    /!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/i,
+    /(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/,
+  ];
+
+  for (const pattern of patterns) {
+    const match = decoded.match(pattern);
+    if (!match) continue;
+
+    const latitude = Number(match[1]);
+    const longitude = Number(match[2]);
+    if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+      return parseCoordinatePair(latitude, longitude);
+    }
+  }
+
+  throw new SuperAdminCreationError("Google Maps link must include coordinates, or use Latitude and Longitude columns");
+}
+
+function resolvePropertyCoordinates(input: AdminPropertyInput) {
+  const directLatitude = parseNumber(input.latitude, "Latitude");
+  const directLongitude = parseNumber(input.longitude, "Longitude");
+
+  if (directLatitude !== null || directLongitude !== null) {
+    if (directLatitude === null || directLongitude === null) {
+      throw new SuperAdminCreationError("Both Latitude and Longitude are required when using coordinate columns");
+    }
+    return parseCoordinatePair(directLatitude, directLongitude);
+  }
+
+  const mapsCoordinates = parseCoordinatesFromMapsLink(input.googleMapsLink);
+  return mapsCoordinates || { latitude: null, longitude: null };
 }
 
 function parseInteger(value: unknown, field: string): number | null {
@@ -402,6 +463,7 @@ export async function createPropertyForAccount(input: AdminPropertyInput, supera
 
   const status = parseStatus(input.status);
   const imageUrls = parseImageUrls(input.imageUrls);
+  const coordinates = resolvePropertyCoordinates(input);
 
   const result = await prisma.$transaction(async (tx) => {
     let ownerAfter = owner;
@@ -442,8 +504,8 @@ export async function createPropertyForAccount(input: AdminPropertyInput, supera
         city,
         state,
         pincode,
-        latitude: parseNumber(input.latitude, "Latitude"),
-        longitude: parseNumber(input.longitude, "Longitude"),
+        latitude: coordinates.latitude,
+        longitude: coordinates.longitude,
         nearbyLandmark: text(input.nearbyLandmark) || null,
         distanceMarket: text(input.distanceMarket) || null,
         distanceInstitute: text(input.distanceInstitute) || null,

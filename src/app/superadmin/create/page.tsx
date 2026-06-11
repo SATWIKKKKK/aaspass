@@ -35,6 +35,9 @@ const TEMPLATE_HEADERS = [
   "City",
   "State",
   "Pincode",
+  "Google Maps Link",
+  "Latitude",
+  "Longitude",
   "Status",
   "AC",
   "WiFi",
@@ -308,6 +311,9 @@ export default function SuperAdminCreatePage() {
       "Bhubaneswar",
       "Odisha",
       "751024",
+      "https://www.google.com/maps?q=20.353700,85.819300",
+      "20.353700",
+      "85.819300",
       "VERIFIED",
       "yes",
       "yes",
@@ -630,6 +636,9 @@ export default function SuperAdminCreatePage() {
                 <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
                   {["Owner Name", "Owner Contact Number", "Property Name", "Service Type", "Price", "Address", "City", "State", "Pincode"].map((column) => (
                     <Badge key={column} variant="outline" className="text-[10px]">{column}</Badge>
+                  ))}
+                  {["Google Maps Link", "Latitude", "Longitude"].map((column) => (
+                    <Badge key={column} variant="secondary" className="text-[10px]">{column}</Badge>
                   ))}
                 </div>
               </form>
